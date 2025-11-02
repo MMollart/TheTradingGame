@@ -163,15 +163,14 @@ def get_game_config(
 @app.post("/games", response_model=GameSessionResponse, status_code=status.HTTP_201_CREATED)
 def create_game_session(
     game: GameSessionCreate,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new game session"""
+    """Create a new game session (no authentication required for quick start)"""
     game_code = generate_game_code(db)
     
     db_game = GameSession(
         game_code=game_code,
-        host_user_id=current_user.id,
+        host_user_id=None,  # Allow creating without user account
         config_id=game.config_id,
         game_state=game.config_data or {}
     )
@@ -179,15 +178,8 @@ def create_game_session(
     db.commit()
     db.refresh(db_game)
     
-    # Create host player
-    host_player = Player(
-        game_session_id=db_game.id,
-        player_name=current_user.username,
-        role="host",
-        is_connected=True
-    )
-    db.add(host_player)
-    db.commit()
+    # Note: Host player will be created when they join the game
+    # This allows for simpler flow without authentication
     
     return db_game
 
