@@ -55,7 +55,7 @@ class GameSessionCreate(BaseModel):
 class GameSessionResponse(BaseModel):
     id: int
     game_code: str
-    host_user_id: int
+    host_user_id: Optional[int]  # Allow None for anonymous game creation
     config_id: Optional[int]
     status: GameStatus
     game_state: Optional[Dict[str, Any]]
