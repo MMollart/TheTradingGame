@@ -2,15 +2,15 @@
 The Trading Game - FastAPI Main Application
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from typing import List
+from typing import List, Dict, Any
 
 from backend.database import get_db, init_db
-from backend.models import User, GameSession, Player, GameConfiguration
+from backend.models import User, GameSession, Player, GameConfiguration, GameStatus
 from backend.schemas import (
     UserCreate, UserResponse, Token,
     GameConfigCreate, GameConfigResponse,
@@ -22,6 +22,9 @@ from backend.auth import (
     get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from backend.utils import generate_game_code
+from backend.websocket_manager import manager
+from backend.game_logic import GameLogic
+from backend.game_constants import NationType
 
 app = FastAPI(
     title="The Trading Game",
@@ -252,6 +255,202 @@ def list_my_games(
         GameSession.host_user_id == current_user.id
     ).all()
     return games
+
+
+# ==================== WebSocket Endpoint ====================
+
+@app.websocket("/ws/{game_code}/{player_id}")
+async def websocket_endpoint(websocket: WebSocket, game_code: str, player_id: int, db: Session = Depends(get_db)):
+    """WebSocket endpoint for real-time game updates"""
+    # Verify game exists
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        await websocket.close(code=1008)
+        return
+    
+    # Verify player exists
+    player = db.query(Player).filter(Player.id == player_id, Player.game_session_id == game.id).first()
+    if not player:
+        await websocket.close(code=1008)
+        return
+    
+    # Connect player
+    await manager.connect(websocket, game_code.upper(), player_id, player.role.value)
+    
+    try:
+        # Send initial game state
+        await websocket.send_json({
+            "type": "game_state",
+            "state": game.game_state or {},
+            "status": game.status.value,
+            "players": [
+                {
+                    "id": p.id,
+                    "name": p.player_name,
+                    "role": p.role.value,
+                    "group_number": p.group_number,
+                    "is_connected": p.is_connected
+                }
+                for p in game.players
+            ]
+        })
+        
+        # Listen for messages
+        while True:
+            data = await websocket.receive_json()
+            
+            # Handle different message types
+            if data.get("type") == "update_state":
+                # Update game state
+                game.game_state = data.get("state")
+                db.commit()
+                
+                # Broadcast to all players
+                await manager.broadcast_to_game(game_code.upper(), {
+                    "type": "state_updated",
+                    "state": game.game_state
+                })
+            
+            elif data.get("type") == "update_player_state":
+                # Update player state
+                player.player_state = data.get("player_state")
+                db.commit()
+                
+                # Broadcast player update
+                await manager.broadcast_to_game(game_code.upper(), {
+                    "type": "player_state_updated",
+                    "player_id": player_id,
+                    "player_state": player.player_state
+                })
+            
+            elif data.get("type") == "trade_request":
+                # Handle trade request
+                await manager.broadcast_to_game(game_code.upper(), {
+                    "type": "trade_request",
+                    "from_player": player_id,
+                    "to_player": data.get("to_player"),
+                    "offer": data.get("offer")
+                })
+            
+            elif data.get("type") == "event":
+                # Broadcast game event (disasters, taxes, etc.)
+                await manager.broadcast_to_game(game_code.upper(), {
+                    "type": "game_event",
+                    "event_type": data.get("event_type"),
+                    "data": data.get("data")
+                })
+    
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        # Update player connection status
+        player.is_connected = False
+        db.commit()
+
+
+# ==================== Game Action Endpoints ====================
+
+@app.post("/games/{game_code}/start")
+def start_game(
+    game_code: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Start a game session"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper(),
+        GameSession.host_user_id == current_user.id
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found or not authorized")
+    
+    if game.status != GameStatus.WAITING:
+        raise HTTPException(status_code=400, detail="Game already started")
+    
+    # Initialize nation states for players
+    for player in game.players:
+        if player.role.value == "player" and player.group_number:
+            # Map group number to nation type
+            nation_map = {
+                1: NationType.NATION_1_FOOD.value,
+                2: NationType.NATION_2_RAW.value,
+                3: NationType.NATION_3_ELEC.value,
+                4: NationType.NATION_4_MED.value
+            }
+            nation_type = nation_map.get(player.group_number)
+            if nation_type:
+                player.player_state = GameLogic.initialize_nation(nation_type)
+        elif player.role.value == "banker":
+            player.player_state = GameLogic.initialize_banker()
+    
+    game.status = GameStatus.IN_PROGRESS
+    db.commit()
+    
+    return {"message": "Game started", "game_code": game_code.upper()}
+
+
+@app.post("/games/{game_code}/pause")
+def pause_game(
+    game_code: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Pause a game session"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper(),
+        GameSession.host_user_id == current_user.id
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found or not authorized")
+    
+    game.status = GameStatus.PAUSED
+    db.commit()
+    
+    return {"message": "Game paused"}
+
+
+@app.post("/games/{game_code}/end")
+def end_game(
+    game_code: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """End a game session and calculate scores"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper(),
+        GameSession.host_user_id == current_user.id
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found or not authorized")
+    
+    # Calculate scores for each nation
+    scores = {}
+    banker_state = None
+    
+    # Find banker to get bank prices
+    for player in game.players:
+        if player.role.value == "banker":
+            banker_state = player.player_state
+            break
+    
+    bank_prices = banker_state.get("bank_prices", {}) if banker_state else {}
+    
+    for player in game.players:
+        if player.role.value == "player" and player.player_state:
+            score = GameLogic.calculate_score(player.player_state, bank_prices)
+            scores[player.id] = {
+                "player_name": player.player_name,
+                "nation": player.player_state.get("name"),
+                "score": score
+            }
+    
+    game.status = GameStatus.COMPLETED
+    game.game_state = {"final_scores": scores}
+    db.commit()
+    
+    return {"message": "Game ended", "scores": scores}
 
 
 if __name__ == "__main__":

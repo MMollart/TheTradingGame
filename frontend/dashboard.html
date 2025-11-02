@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Game - Dashboard</title>
+    <link rel="stylesheet" href="dashboard-styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-left">
+                <h1>🎮 Trading Game</h1>
+                <div class="game-code-display">
+                    Game Code: <span id="header-game-code">------</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <span id="player-name-display"></span>
+                <span id="connection-status" class="status-indicator">●</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="dashboard-main">
+            <!-- Host Dashboard -->
+            <div id="host-dashboard" class="role-dashboard hidden">
+                <h2>🎮 Game Host Dashboard</h2>
+                
+                <div class="dashboard-grid">
+                    <!-- Game Controls -->
+                    <div class="card">
+                        <h3>Game Controls</h3>
+                        <div class="button-group">
+                            <button id="start-game-btn" class="btn btn-primary">▶️ Start Game</button>
+                            <button id="pause-game-btn" class="btn btn-warning" disabled>⏸️ Pause Game</button>
+                            <button id="resume-game-btn" class="btn btn-success" disabled>▶️ Resume</button>
+                            <button id="end-game-btn" class="btn btn-danger" disabled>🏁 End Game</button>
+                        </div>
+                        <div class="game-status">
+                            Status: <span id="game-status-display">Waiting</span>
+                        </div>
+                    </div>
+
+                    <!-- Players Overview -->
+                    <div class="card">
+                        <h3>Connected Players</h3>
+                        <div id="players-list" class="players-list">
+                            <!-- Players will be added here -->
+                        </div>
+                    </div>
+
+                    <!-- Nations Overview -->
+                    <div class="card full-width">
+                        <h3>Nations Overview</h3>
+                        <div id="nations-overview" class="nations-grid">
+                            <!-- Nation cards will be added here -->
+                        </div>
+                    </div>
+
+                    <!-- Game Events Log -->
+                    <div class="card full-width">
+                        <h3>Game Events</h3>
+                        <div id="events-log" class="events-log">
+                            <!-- Events will be added here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Banker Dashboard -->
+            <div id="banker-dashboard" class="role-dashboard hidden">
+                <h2>🏦 Central Bank Dashboard</h2>
+                
+                <div class="dashboard-grid">
+                    <!-- Bank Inventory -->
+                    <div class="card">
+                        <h3>Bank Inventory</h3>
+                        <div id="bank-inventory" class="resource-list">
+                            <!-- Bank resources will be listed here -->
+                        </div>
+                    </div>
+
+                    <!-- Resource Prices -->
+                    <div class="card">
+                        <h3>Resource Prices</h3>
+                        <div id="bank-prices" class="price-controls">
+                            <div class="price-item">
+                                <label>Food</label>
+                                <input type="number" id="price-food" min="1" value="2">
+                                <button onclick="updatePrice('food')">Update</button>
+                            </div>
+                            <div class="price-item">
+                                <label>Raw Materials</label>
+                                <input type="number" id="price-raw-materials" min="1" value="3">
+                                <button onclick="updatePrice('raw_materials')">Update</button>
+                            </div>
+                            <div class="price-item">
+                                <label>Electrical Goods</label>
+                                <input type="number" id="price-electrical-goods" min="1" value="15">
+                                <button onclick="updatePrice('electrical_goods')">Update</button>
+                            </div>
+                            <div class="price-item">
+                                <label>Medical Goods</label>
+                                <input type="number" id="price-medical-goods" min="1" value="20">
+                                <button onclick="updatePrice('medical_goods')">Update</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Events & Disasters -->
+                    <div class="card full-width">
+                        <h3>Trigger Events</h3>
+                        <div class="event-controls">
+                            <div class="event-section">
+                                <h4>Food Tax</h4>
+                                <button class="btn btn-primary" onclick="triggerFoodTax()">💰 Apply Food Tax (All Nations)</button>
+                            </div>
+                            
+                            <div class="event-section">
+                                <h4>Natural Disasters</h4>
+                                <select id="disaster-nation">
+                                    <option value="all">All Nations</option>
+                                    <option value="1">Nation 1</option>
+                                    <option value="2">Nation 2</option>
+                                    <option value="3">Nation 3</option>
+                                    <option value="4">Nation 4</option>
+                                </select>
+                                <select id="disaster-type">
+                                    <option value="natural_disaster">Natural Disaster</option>
+                                    <option value="drought">Drought</option>
+                                    <option value="disease">Disease</option>
+                                    <option value="famine">Famine</option>
+                                    <option value="climate_change">Climate Change</option>
+                                </select>
+                                <input type="number" id="disaster-severity" min="1" max="5" value="1" placeholder="Severity (1-5)">
+                                <button class="btn btn-danger" onclick="triggerDisaster()">⚠️ Trigger</button>
+                            </div>
+
+                            <div class="event-section">
+                                <h4>Trade with Nations</h4>
+                                <select id="trade-nation">
+                                    <option value="">Select Nation</option>
+                                    <option value="1">Nation 1</option>
+                                    <option value="2">Nation 2</option>
+                                    <option value="3">Nation 3</option>
+                                    <option value="4">Nation 4</option>
+                                </select>
+                                <button class="btn btn-success" onclick="openBankTrade()">💱 Open Trade Window</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nation/Player Dashboard -->
+            <div id="nation-dashboard" class="role-dashboard hidden">
+                <h2 id="nation-title">Nation Dashboard</h2>
+                
+                <div class="dashboard-grid">
+                    <!-- Resources -->
+                    <div class="card">
+                        <h3>Resources</h3>
+                        <div id="nation-resources" class="resource-list">
+                            <!-- Resources will be listed here -->
+                        </div>
+                    </div>
+
+                    <!-- Buildings -->
+                    <div class="card">
+                        <h3>Buildings</h3>
+                        <div id="nation-buildings" class="building-list">
+                            <!-- Buildings will be listed here -->
+                        </div>
+                    </div>
+
+                    <!-- Production -->
+                    <div class="card full-width">
+                        <h3>Production</h3>
+                        <div id="production-controls" class="production-grid">
+                            <div class="production-item">
+                                <h4>🌾 Farm</h4>
+                                <p>Produces: Food</p>
+                                <p>Buildings: <span id="farm-count">0</span></p>
+                                <p>Challenge: <span id="farm-challenge">20 Press-ups</span></p>
+                                <button class="btn btn-success" onclick="startProduction('farm')">Produce</button>
+                            </div>
+                            <div class="production-item">
+                                <h4>⛏️ Mine</h4>
+                                <p>Produces: Raw Materials</p>
+                                <p>Buildings: <span id="mine-count">0</span></p>
+                                <p>Challenge: <span id="mine-challenge">30 Sit-ups</span></p>
+                                <button class="btn btn-success" onclick="startProduction('mine')">Produce</button>
+                            </div>
+                            <div class="production-item">
+                                <h4>⚡ Electrical Factory</h4>
+                                <p>Produces: Electrical Goods</p>
+                                <p>Requires: 5 Raw Materials per building</p>
+                                <p>Buildings: <span id="electrical_factory-count">0</span></p>
+                                <p>Challenge: <span id="electrical_factory-challenge">15 Burpees</span></p>
+                                <button class="btn btn-success" onclick="startProduction('electrical_factory')">Produce</button>
+                            </div>
+                            <div class="production-item">
+                                <h4>🏥 Medical Factory</h4>
+                                <p>Produces: Medical Goods</p>
+                                <p>Requires: 5 Food per building</p>
+                                <p>Buildings: <span id="medical_factory-count">0</span></p>
+                                <p>Challenge: <span id="medical_factory-challenge">25 Star Jumps</span></p>
+                                <button class="btn btn-success" onclick="startProduction('medical_factory')">Produce</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Trading -->
+                    <div class="card full-width">
+                        <h3>Trading</h3>
+                        <div class="trading-controls">
+                            <button class="btn btn-primary" onclick="openTradeWindow('bank')">💰 Trade with Bank</button>
+                            <button class="btn btn-primary" onclick="openTradeWindow('nation')">🤝 Trade with Nation</button>
+                        </div>
+                    </div>
+
+                    <!-- Build Buildings -->
+                    <div class="card full-width">
+                        <h3>Build New Buildings</h3>
+                        <div id="build-controls" class="build-grid">
+                            <!-- Building options will be added here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trade Modal -->
+    <div id="trade-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeTradeModal()">&times;</span>
+            <h2>Trade Resources</h2>
+            <div id="trade-form">
+                <!-- Trade form will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Production Challenge Modal -->
+    <div id="challenge-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Complete Physical Challenge</h2>
+            <div id="challenge-content">
+                <p id="challenge-description"></p>
+                <div class="challenge-buttons">
+                    <button class="btn btn-success" onclick="completeChallenge()">✅ Challenge Completed</button>
+                    <button class="btn btn-secondary" onclick="closeChallengeModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game-api.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>

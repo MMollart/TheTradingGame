@@ -319,58 +319,52 @@
             }
             
             try {
-                // In real implementation, this would call the API
-                // For now, generate a mock game code
-                const gameCode = generateMockGameCode();
-                currentGameCode = gameCode;
-                playerRole = 'host';
+                const api = new GameAPI();
                 
-                document.getElementById('display-game-code').textContent = gameCode;
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('lobby-screen').classList.remove('hidden');
+                // Create game session
+                const game = await api.createGame();
+                const gameCode = game.game_code;
                 
-                // Add host to player list
-                addPlayerToList(hostName, 'host');
+                // Join as host
+                const player = await api.joinGame(gameCode, hostName, 'host', null);
                 
-                // Start polling for players (in real implementation)
-                // pollForPlayers();
+                // Redirect to dashboard
+                window.location.href = `dashboard.html?gameCode=${gameCode}&playerId=${player.id}&playerName=${encodeURIComponent(hostName)}&role=host`;
             } catch (error) {
                 alert('Error creating game: ' + error.message);
             }
         }
         
-        // Join existing game
+                // Join existing game
         async function joinGame() {
-            const gameCode = document.getElementById('game-code').value.trim().toUpperCase();
-            const playerName = document.getElementById('player-name').value.trim();
-            const role = document.getElementById('player-role').value;
+            const gameCode = document.getElementById('join-game-code').value.trim().toUpperCase();
+            const playerName = document.getElementById('join-name').value.trim();
+            const selectedRole = document.getElementById('join-role').value;
             const groupNumber = document.getElementById('group-number').value;
             
-            if (!gameCode || gameCode.length !== 6) {
-                alert('Please enter a valid 6-digit game code');
+            if (!gameCode || !playerName || !selectedRole) {
+                alert('Please fill in all fields');
                 return;
             }
             
-            if (!playerName) {
-                alert('Please enter your name');
-                return;
-            }
-            
-            if (role === 'player' && !groupNumber) {
-                alert('Please enter your group number');
+            if (selectedRole === 'player' && !groupNumber) {
+                alert('Please select a nation');
                 return;
             }
             
             try {
-                // In real implementation, this would call the API
-                currentGameCode = gameCode;
-                playerRole = role;
+                const api = new GameAPI();
                 
-                // Navigate to game screen
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('game-screen').classList.remove('hidden');
+                // Join game session
+                const player = await api.joinGame(
+                    gameCode, 
+                    playerName, 
+                    selectedRole, 
+                    selectedRole === 'player' ? parseInt(groupNumber) : null
+                );
                 
-                loadGameInterface(role);
+                // Redirect to dashboard
+                window.location.href = `dashboard.html?gameCode=${gameCode}&playerId=${player.id}&playerName=${encodeURIComponent(playerName)}&role=${selectedRole}`;
             } catch (error) {
                 alert('Error joining game: ' + error.message);
             }
@@ -459,5 +453,6 @@
             return code;
         }
     </script>
+    <script src="game-api.js"></script>
 </body>
 </html>
