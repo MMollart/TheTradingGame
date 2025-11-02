@@ -64,7 +64,7 @@ class GameSession(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     game_code = Column(String(6), unique=True, index=True, nullable=False)  # 6-digit code
-    host_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    host_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Allow anonymous game creation
     config_id = Column(Integer, ForeignKey("game_configurations.id"), nullable=True)
     
     status = Column(Enum(GameStatus), default=GameStatus.WAITING)
