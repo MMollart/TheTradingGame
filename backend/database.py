@@ -3,8 +3,11 @@ Database configuration and session management
 """
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from backend.models import Base
+from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import StaticPool
+
+# Import Base from models to avoid circular imports
+from models import Base
 import os
 from dotenv import load_dotenv
 

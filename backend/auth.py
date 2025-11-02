@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 import os
 from dotenv import load_dotenv
 
-from backend.database import get_db
-from backend.models import User
+from database import get_db
+from models import User
 
 load_dotenv()
 

@@ -5,7 +5,7 @@ Pydantic schemas for request/response validation
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from backend.models import PlayerRole, GameStatus
+from models import PlayerRole, GameStatus
 
 
 # User schemas

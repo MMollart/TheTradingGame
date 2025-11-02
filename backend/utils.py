@@ -5,7 +5,7 @@ Utility functions for game management
 import random
 import string
 from sqlalchemy.orm import Session
-from backend.models import GameSession
+from models import GameSession
 
 
 def generate_game_code(db: Session) -> str:

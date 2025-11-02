@@ -1,10 +1,10 @@
 """
-Trading Game Logic - Core game mechanics implementation
+Game logic and mechanics for The Trading Game
 """
 
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
-from backend.game_constants import (
+from game_constants import (
     ResourceType, BuildingType, NationType, GameEventType,
     NATION_STARTING_RESOURCES, BUILDING_COSTS, BUILDING_PRODUCTION,
     FOOD_TAX_DEVELOPED, FOOD_TAX_DEVELOPING, BANK_INITIAL_PRICES,

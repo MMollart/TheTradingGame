@@ -9,22 +9,22 @@ from sqlalchemy.orm import Session
 from datetime import timedelta
 from typing import List, Dict, Any
 
-from backend.database import get_db, init_db
-from backend.models import User, GameSession, Player, GameConfiguration, GameStatus
-from backend.schemas import (
+from database import get_db, init_db
+from models import User, GameSession, Player, GameConfiguration, GameStatus
+from schemas import (
     UserCreate, UserResponse, Token,
     GameConfigCreate, GameConfigResponse,
     GameSessionCreate, GameSessionResponse,
     PlayerJoin, PlayerResponse
 )
-from backend.auth import (
+from auth import (
     get_password_hash, verify_password, create_access_token,
     get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from backend.utils import generate_game_code
-from backend.websocket_manager import manager
-from backend.game_logic import GameLogic
-from backend.game_constants import NationType
+from utils import generate_game_code
+from websocket_manager import manager
+from game_logic import GameLogic
+from game_constants import NationType
 
 app = FastAPI(
     title="The Trading Game",
