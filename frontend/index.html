@@ -205,7 +205,57 @@
         <h1>🎮 The Trading Game</h1>
         <p class="subtitle">Multiplayer Trading Simulation</p>
         
-        <div id="login-screen">
+        <!-- Authentication Screen -->
+        <div id="auth-screen">
+            <div class="tabs">
+                <button class="tab active" onclick="showAuthTab('login')">Login</button>
+                <button class="tab" onclick="showAuthTab('register')">Register</button>
+            </div>
+            
+            <!-- Login Tab -->
+            <div id="login-auth-tab" class="tab-content active">
+                <div class="input-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" placeholder="Enter your username" required>
+                </div>
+                
+                <div class="input-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="Enter your password" required>
+                </div>
+                
+                <button onclick="performLogin()">🔐 Login</button>
+                <button onclick="skipAuth()" style="margin-top: 10px; background: #6c757d;">⚡ Quick Start (No Account)</button>
+            </div>
+            
+            <!-- Register Tab -->
+            <div id="register-auth-tab" class="tab-content">
+                <div class="input-group">
+                    <label for="register-username">Username</label>
+                    <input type="text" id="register-username" placeholder="Choose a username (min 3 characters)" required>
+                </div>
+                
+                <div class="input-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" placeholder="Enter your email" required>
+                </div>
+                
+                <div class="input-group">
+                    <label for="register-password">Password</label>
+                    <input type="password" id="register-password" placeholder="Choose a password (min 8 characters)" required>
+                </div>
+                
+                <div class="input-group">
+                    <label for="register-password-confirm">Confirm Password</label>
+                    <input type="password" id="register-password-confirm" placeholder="Confirm your password" required>
+                </div>
+                
+                <button onclick="performRegister()">✨ Create Account</button>
+            </div>
+        </div>
+        
+        <!-- Main Game Screen (shown after login or quick start) -->
+        <div id="login-screen" class="hidden">
             <div class="tabs">
                 <button class="tab active" onclick="showTab('create')">Create Game</button>
                 <button class="tab" onclick="showTab('join')">Join Game</button>
@@ -294,6 +344,134 @@
         let currentGameCode = null;
         let currentPlayerId = null;
         let playerRole = null;
+        let currentUser = null;
+        let authToken = null;
+        
+        // Check if user is already logged in
+        window.onload = function() {
+            const token = localStorage.getItem('authToken');
+            const username = localStorage.getItem('username');
+            if (token && username) {
+                authToken = token;
+                currentUser = username;
+                showGameScreen();
+            }
+        };
+        
+        // Auth tab switching
+        function showAuthTab(tabName) {
+            const tabs = document.querySelectorAll('#auth-screen .tab');
+            const contents = document.querySelectorAll('#auth-screen .tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-auth-tab').classList.add('active');
+        }
+        
+        // Register new user
+        async function performRegister() {
+            const username = document.getElementById('register-username').value.trim();
+            const email = document.getElementById('register-email').value.trim();
+            const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-password-confirm').value;
+            
+            if (!username || !email || !password) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
+            if (username.length < 3) {
+                alert('Username must be at least 3 characters');
+                return;
+            }
+            
+            if (password.length < 8) {
+                alert('Password must be at least 8 characters');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                alert('Passwords do not match');
+                return;
+            }
+            
+            try {
+                const api = new GameAPI();
+                await api.register(username, email, password);
+                alert('Account created successfully! Please log in.');
+                showAuthTab('login');
+            } catch (error) {
+                alert('Registration failed: ' + error.message);
+            }
+        }
+        
+        // Login user
+        async function performLogin() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            
+            if (!username || !password) {
+                alert('Please enter username and password');
+                return;
+            }
+            
+            try {
+                const api = new GameAPI();
+                const response = await api.login(username, password);
+                
+                // Store auth token and username
+                authToken = response.access_token;
+                currentUser = username;
+                localStorage.setItem('authToken', authToken);
+                localStorage.setItem('username', username);
+                
+                // Show game screen
+                showGameScreen();
+            } catch (error) {
+                alert('Login failed: ' + error.message);
+            }
+        }
+        
+        // Skip authentication (guest mode)
+        function skipAuth() {
+            currentUser = null;
+            authToken = null;
+            showGameScreen();
+        }
+        
+        // Logout
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
+            
+            // Show auth screen
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('login-screen').classList.add('hidden');
+        }
+        
+        // Show game screen after auth
+        function showGameScreen() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            
+            if (currentUser) {
+                // Add welcome message and logout button
+                const welcomeDiv = document.createElement('div');
+                welcomeDiv.className = 'success';
+                welcomeDiv.style.marginBottom = '20px';
+                welcomeDiv.innerHTML = `
+                    <strong>Welcome, ${currentUser}!</strong>
+                    <button onclick="logout()" style="float: right; padding: 5px 15px; font-size: 14px; background: #dc3545;">Logout</button>
+                    <div style="clear: both;"></div>
+                `;
+                const loginScreen = document.getElementById('login-screen');
+                loginScreen.insertBefore(welcomeDiv, loginScreen.firstChild);
+            }
+        }
         
         // Tab switching
         function showTab(tabName) {
@@ -320,6 +498,11 @@
             
             try {
                 const api = new GameAPI();
+                
+                // Set auth token if logged in
+                if (authToken) {
+                    api.setToken(authToken);
+                }
                 
                 // Create game session
                 const game = await api.createGame();
