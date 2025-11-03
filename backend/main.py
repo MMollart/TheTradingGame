@@ -262,6 +262,60 @@ def set_game_duration(
     }
 
 
+@app.post("/games/{game_code}/teams/{team_number}/set-name")
+def set_team_name(
+    game_code: str,
+    team_number: int,
+    name: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Set or update the name for a specific team.
+    """
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Validate team number
+    if game.num_teams and (team_number < 1 or team_number > game.num_teams):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Team number must be between 1 and {game.num_teams}"
+        )
+    
+    # Initialize game_state if needed
+    if not game.game_state:
+        game.game_state = {}
+    
+    if "teams" not in game.game_state:
+        game.game_state["teams"] = {}
+    
+    # Update or create team configuration
+    team_key = str(team_number)
+    if team_key not in game.game_state["teams"]:
+        game.game_state["teams"][team_key] = {
+            "nation_type": f"nation_{((team_number - 1) % 4) + 1}",  # Default nation type
+            "nation_name": name
+        }
+    else:
+        game.game_state["teams"][team_key]["nation_name"] = name
+    
+    # Mark the column as modified for SQLAlchemy to detect the JSON change
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(game, "game_state")
+    
+    db.commit()
+    db.refresh(game)
+    
+    return {
+        "success": True,
+        "message": f"Team {team_number} renamed to '{name}'",
+        "team_number": team_number,
+        "team_name": name,
+        "team_config": game.game_state["teams"][team_key]
+    }
+
+
 @app.get("/games/{game_code}", response_model=GameSessionResponse)
 def get_game_session(game_code: str, db: Session = Depends(get_db)):
     """Get game session by game code"""
