@@ -315,9 +315,17 @@ function connectWebSocket() {
         } else if (data.status === 'completed') {
             stopCountdownTimer();
             
-            // Show final scores
-            if (data.scores) {
-                console.log('Final scores:', data.scores);
+            // Host gets redirected to report page (done in endGame function)
+            // Non-host players see a notification
+            if (currentPlayer.role !== 'host') {
+                addEventLog('Game has ended!', 'success');
+                
+                // Show final scores if available
+                if (data.scores) {
+                    setTimeout(() => {
+                        showFinalScores(data.scores);
+                    }, 1000);
+                }
             }
         }
     });
@@ -1285,6 +1293,12 @@ function updateCountdownDisplay() {
             clearInterval(countdownInterval);
             countdownInterval = null;
         }
+        
+        // Auto-end the game when timer reaches zero (only if host)
+        if (currentPlayer.role === 'host' && currentGameStatus === 'in_progress') {
+            console.log('[updateCountdownDisplay] Time expired, auto-ending game...');
+            autoEndGameOnTimeout();
+        }
         return;
     }
     
@@ -1994,10 +2008,38 @@ async function endGame() {
         updateControlButtons();
         updateGameStatusDisplay();
         
-        // Show final scores
-        showFinalScores(result.scores);
+        // Redirect host to game report
+        if (currentPlayer.role === 'host') {
+            setTimeout(() => {
+                window.location.href = `game-report.html?gameCode=${currentGameCode}`;
+            }, 1000);
+        } else {
+            // Show final scores for non-hosts
+            showFinalScores(result.scores);
+        }
     } catch (error) {
         alert('Failed to end game: ' + error.message);
+    }
+}
+
+async function autoEndGameOnTimeout() {
+    console.log('[autoEndGameOnTimeout] Auto-ending game due to timeout');
+    
+    try {
+        const result = await gameAPI.endGame(currentGameCode);
+        // Note: WebSocket will broadcast the status change
+        currentGameStatus = 'completed';
+        addEventLog('Game ended - Time expired!', 'info');
+        
+        // Redirect host to game report
+        if (currentPlayer.role === 'host') {
+            setTimeout(() => {
+                window.location.href = `game-report.html?gameCode=${currentGameCode}`;
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('[autoEndGameOnTimeout] Failed to end game:', error);
+        alert('Failed to auto-end game: ' + error.message);
     }
 }
 
