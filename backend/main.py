@@ -2,12 +2,14 @@
 The Trading Game - FastAPI Main Application
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, attributes
+from sqlalchemy.orm.attributes import flag_modified
 from datetime import timedelta, datetime
 from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
 import asyncio
 
 from database import get_db, init_db
@@ -27,6 +29,7 @@ from websocket_manager import manager
 from game_logic import GameLogic
 from game_constants import NationType
 from email_utils import send_registration_email
+from challenge_api import router as challenge_router_v2
 
 app = FastAPI(
     title="The Trading Game",
@@ -48,6 +51,10 @@ app.add_middleware(
 def on_startup():
     """Initialize database on startup"""
     init_db()
+
+
+# Include v2 Challenge API routes
+app.include_router(challenge_router_v2)
 
 
 @app.get("/")
@@ -263,7 +270,7 @@ def set_game_duration(
 
 
 @app.post("/games/{game_code}/teams/{team_number}/set-name")
-def set_team_name(
+async def set_team_name(
     game_code: str,
     team_number: int,
     name: str,
@@ -306,6 +313,16 @@ def set_team_name(
     
     db.commit()
     db.refresh(game)
+    
+    # Broadcast team name change to all players via WebSocket
+    await manager.broadcast_to_game(
+        game_code.upper(),
+        {
+            "type": "team_name_changed",
+            "team_number": team_number,
+            "team_name": name
+        }
+    )
     
     return {
         "success": True,
@@ -1026,20 +1043,41 @@ async def start_game(
     if game.status != GameStatus.WAITING:
         raise HTTPException(status_code=400, detail="Game already started")
     
-    # Initialize nation states for players
+    # Initialize TEAM-LEVEL resources and buildings in game_state
+    if not game.game_state:
+        game.game_state = {}
+    
+    if 'teams' not in game.game_state:
+        game.game_state['teams'] = {}
+    
+    # Get all unique team numbers
+    team_numbers = set(p.group_number for p in game.players if p.role.value == "player" and p.group_number)
+    
+    # Initialize each team with nation-specific starting resources
+    # Dynamically get all available nation types from the enum
+    nation_types = [nation_type.value for nation_type in NationType]
+    num_nation_types = len(nation_types)
+    
+    for team_number in team_numbers:
+        # Cycle through nation types using modulo (team 5+ get same types as 1-4, etc.)
+        nation_index = (team_number - 1) % num_nation_types
+        nation_type = nation_types[nation_index]
+        
+        # Initialize team state with nation-specific resources
+        team_state = GameLogic.initialize_nation(nation_type)
+        game.game_state['teams'][str(team_number)] = {
+            'resources': team_state['resources'],
+            'buildings': team_state['buildings'],
+            'name': team_state['name'],  # Store nation name for dynamic frontend display
+            'nation_type': team_state['nation_type']  # Store nation type identifier
+        }
+    
+    # Mark game_state as modified so SQLAlchemy knows to persist the changes
+    flag_modified(game, 'game_state')
+    
+    # Initialize banker state (if needed for banker role)
     for player in game.players:
-        if player.role.value == "player" and player.group_number:
-            # Map group number to nation type
-            nation_map = {
-                1: NationType.NATION_1_FOOD.value,
-                2: NationType.NATION_2_RAW.value,
-                3: NationType.NATION_3_ELEC.value,
-                4: NationType.NATION_4_MED.value
-            }
-            nation_type = nation_map.get(player.group_number)
-            if nation_type:
-                player.player_state = GameLogic.initialize_nation(nation_type)
-        elif player.role.value == "banker":
+        if player.role.value == "banker":
             player.player_state = GameLogic.initialize_banker()
     
     game.status = GameStatus.IN_PROGRESS
@@ -1172,6 +1210,130 @@ async def end_game(
     )
     
     return {"message": "Game ended", "scores": scores}
+
+
+# ==================== MANUAL RESOURCE/BUILDING MANAGEMENT (HOST ONLY) ====================
+
+class ManualResourceRequest(BaseModel):
+    team_number: int
+    resource_type: str
+    amount: int
+
+class ManualBuildingRequest(BaseModel):
+    team_number: int
+    building_type: str
+    quantity: int
+
+@app.post("/games/{game_code}/manual-resources")
+async def give_manual_resources(
+    game_code: str,
+    request: ManualResourceRequest,
+    db: Session = Depends(get_db)
+):
+    """Manually give resources to a team (host only)"""
+    team_number = request.team_number
+    resource_type = request.resource_type
+    amount = request.amount
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Validate inputs
+    if team_number not in [1, 2, 3, 4]:
+        raise HTTPException(status_code=400, detail="Invalid team number (must be 1-4)")
+    
+    valid_resources = ['currency', 'food', 'raw_materials', 'electrical_goods', 'medical_goods']
+    if resource_type not in valid_resources:
+        raise HTTPException(status_code=400, detail=f"Invalid resource type. Must be one of: {valid_resources}")
+    
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+    
+    # Initialize game_state.teams if needed
+    if not game.game_state:
+        game.game_state = {}
+    if 'teams' not in game.game_state:
+        game.game_state['teams'] = {}
+    if str(team_number) not in game.game_state['teams']:
+        game.game_state['teams'][str(team_number)] = {'resources': {}, 'buildings': {}}
+    
+    # Add resources to team
+    team_state = game.game_state['teams'][str(team_number)]
+    if 'resources' not in team_state:
+        team_state['resources'] = {}
+    
+    current_amount = team_state['resources'].get(resource_type, 0)
+    team_state['resources'][resource_type] = current_amount + amount
+    
+    # Mark as modified for SQLAlchemy
+    flag_modified(game, 'game_state')
+    db.commit()
+    
+    return {
+        "message": f"Successfully gave {amount} {resource_type} to Team {team_number}",
+        "team_number": team_number,
+        "resource_type": resource_type,
+        "new_amount": team_state['resources'][resource_type]
+    }
+
+
+@app.post("/games/{game_code}/manual-buildings")
+async def give_manual_buildings(
+    game_code: str,
+    request: ManualBuildingRequest,
+    db: Session = Depends(get_db)
+):
+    """Manually give buildings to a team (host only)"""
+    team_number = request.team_number
+    building_type = request.building_type
+    quantity = request.quantity
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Validate inputs
+    if team_number not in [1, 2, 3, 4]:
+        raise HTTPException(status_code=400, detail="Invalid team number (must be 1-4)")
+    
+    valid_buildings = ['farm', 'mine', 'electrical_factory', 'medical_factory', 'school', 'hospital', 'restaurant', 'infrastructure']
+    if building_type not in valid_buildings:
+        raise HTTPException(status_code=400, detail=f"Invalid building type. Must be one of: {valid_buildings}")
+    
+    if quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+    
+    # Initialize game_state.teams if needed
+    if not game.game_state:
+        game.game_state = {}
+    if 'teams' not in game.game_state:
+        game.game_state['teams'] = {}
+    if str(team_number) not in game.game_state['teams']:
+        game.game_state['teams'][str(team_number)] = {'resources': {}, 'buildings': {}}
+    
+    # Add buildings to team
+    team_state = game.game_state['teams'][str(team_number)]
+    if 'buildings' not in team_state:
+        team_state['buildings'] = {}
+    
+    current_count = team_state['buildings'].get(building_type, 0)
+    team_state['buildings'][building_type] = current_count + quantity
+    
+    # Mark as modified for SQLAlchemy
+    flag_modified(game, 'game_state')
+    db.commit()
+    
+    return {
+        "message": f"Successfully gave {quantity} {building_type}(s) to Team {team_number}",
+        "team_number": team_number,
+        "building_type": building_type,
+        "new_count": team_state['buildings'][building_type]
+    }
 
 
 # ==================== CHALLENGE ENDPOINTS ====================
@@ -1326,6 +1488,57 @@ def update_challenge(
         "requested_at": challenge.requested_at.isoformat() if challenge.requested_at else None,
         "assigned_at": challenge.assigned_at.isoformat() if challenge.assigned_at else None,
         "completed_at": challenge.completed_at.isoformat() if challenge.completed_at else None
+    }
+
+
+@app.post("/games/{game_code}/challenges/adjust-for-pause")
+def adjust_challenge_times_for_pause(
+    game_code: str,
+    pause_duration_ms: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Adjust assigned_at timestamps for all active challenges to account for pause duration.
+    This extends the challenge deadline by the pause duration.
+    """
+    from models import Challenge, ChallengeStatus
+    from datetime import datetime, timedelta
+    
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Get all active (assigned) challenges for this game
+    active_challenges = db.query(Challenge).filter(
+        Challenge.game_session_id == game.id,
+        Challenge.status == ChallengeStatus.ASSIGNED,
+        Challenge.assigned_at.isnot(None)
+    ).all()
+    
+    if not active_challenges:
+        return {
+            "success": True,
+            "message": "No active challenges to adjust",
+            "adjusted_count": 0
+        }
+    
+    # Convert milliseconds to timedelta
+    pause_duration = timedelta(milliseconds=pause_duration_ms)
+    
+    adjusted_count = 0
+    for challenge in active_challenges:
+        # Add the pause duration to the assigned_at time
+        # This effectively extends the deadline
+        challenge.assigned_at = challenge.assigned_at + pause_duration
+        adjusted_count += 1
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Adjusted {adjusted_count} challenge(s) for pause duration",
+        "adjusted_count": adjusted_count,
+        "pause_duration_ms": pause_duration_ms
     }
 
 

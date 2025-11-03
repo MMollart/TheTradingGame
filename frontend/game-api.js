@@ -92,6 +92,7 @@ class GameAPI {
     }
 
     async request(method, endpoint, data = null) {
+        console.log(`[GameAPI] ${method} ${endpoint}`, data);
         const options = {
             method,
             headers: {
@@ -269,7 +270,8 @@ class GameAPI {
     // ==================== CHALLENGE METHODS ====================
 
     async createChallenge(gameCode, challengeData) {
-        return this.request('POST', `/games/${gameCode}/challenges`, challengeData);
+        // Use v2 API endpoint which triggers WebSocket broadcasts
+        return this.request('POST', `/api/v2/challenges/${gameCode}/request`, challengeData);
     }
 
     async getChallenges(gameCode, status = null) {

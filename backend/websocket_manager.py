@@ -102,6 +102,81 @@ class ConnectionManager:
                     except Exception:
                         pass
                     break
+    
+    # ==================== Challenge-Specific Broadcasts ====================
+    
+    async def broadcast_challenge_requested(self, game_code: str, challenge_data: dict):
+        """
+        Broadcast that a new challenge has been requested.
+        
+        This notifies host/banker that a player needs a challenge assigned.
+        Frontend expects format: {"event_type": "challenge_request", "data": {...}}
+        """
+        await self.broadcast_to_game(game_code, {
+            "type": "event",
+            "event_type": "challenge_request",
+            "data": challenge_data
+        })
+    
+    async def broadcast_challenge_assigned(self, game_code: str, challenge_data: dict):
+        """
+        Broadcast that a challenge has been assigned.
+        
+        This notifies:
+        - The requesting player: their challenge is ready
+        - Host/banker: challenge moved from pending to active
+        - Other players: awareness of ongoing challenges
+        
+        Frontend expects format: {"event_type": "challenge_assigned", "data": {...}}
+        """
+        await self.broadcast_to_game(game_code, {
+            "type": "event",
+            "event_type": "challenge_assigned",
+            "data": challenge_data
+        })
+    
+    async def broadcast_challenge_completed(self, game_code: str, challenge_data: dict):
+        """
+        Broadcast that a challenge has been completed.
+        
+        This notifies all users that the challenge is done and can be removed
+        from active lists.
+        
+        Frontend expects format: {"event_type": "challenge_completed", "data": {...}}
+        """
+        await self.broadcast_to_game(game_code, {
+            "type": "event",
+            "event_type": "challenge_completed",
+            "data": challenge_data
+        })
+    
+    async def broadcast_challenge_cancelled(self, game_code: str, challenge_data: dict):
+        """
+        Broadcast that a challenge has been cancelled.
+        
+        This notifies all users to remove the challenge from their UI.
+        
+        Frontend expects format: {"event_type": "challenge_cancelled", "data": {...}}
+        """
+        await self.broadcast_to_game(game_code, {
+            "type": "event",
+            "event_type": "challenge_cancelled",
+            "data": challenge_data
+        })
+    
+    async def broadcast_challenge_expired(self, game_code: str, challenge_data: dict):
+        """
+        Broadcast that a challenge has expired (time ran out).
+        
+        This notifies all users that the challenge deadline passed.
+        
+        Frontend expects format: {"event_type": "challenge_expired", "data": {...}}
+        """
+        await self.broadcast_to_game(game_code, {
+            "type": "event",
+            "event_type": "challenge_expired",
+            "data": challenge_data
+        })
 
 
 # Global connection manager instance
