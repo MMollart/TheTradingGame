@@ -729,7 +729,7 @@ async def delete_game(
 
 
 @app.post("/games/{game_code}/auto-assign-groups")
-def auto_assign_groups(
+async def auto_assign_groups(
     game_code: str,
     num_teams: int = 4,
     db: Session = Depends(get_db)
@@ -775,14 +775,32 @@ def auto_assign_groups(
     
     # Assign players to groups with fewest members
     assigned_count = 0
+    assigned_players_list = []
     for player in unassigned_players:
         # Find group with fewest members
         min_group = min(group_counts.items(), key=lambda x: x[1])[0]
         player.group_number = min_group
         group_counts[min_group] += 1
         assigned_count += 1
+        assigned_players_list.append({
+            'player_id': player.id,
+            'player_name': player.player_name,
+            'team_number': min_group
+        })
     
     db.commit()
+    
+    # Broadcast WebSocket events for each assigned player
+    for assignment in assigned_players_list:
+        await manager.broadcast_to_game(
+            game_code.upper(),
+            {
+                "type": "player_assigned_team",
+                "player_id": assignment['player_id'],
+                "player_name": assignment['player_name'],
+                "team_number": assignment['team_number']
+            }
+        )
     
     # Initialize game state with team configurations if not exists
     if not game.game_state:
