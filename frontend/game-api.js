@@ -24,8 +24,10 @@ class GameWebSocket {
 
         this.ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            console.log('Received:', data);
+            console.log('[WebSocket] Received message:', data);
+            console.log('[WebSocket] Message type:', data.type);
             this.trigger(data.type, data);
+            console.log('[WebSocket] Triggered event handler for type:', data.type);
         };
 
         this.ws.onerror = (error) => {

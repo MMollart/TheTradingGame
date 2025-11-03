@@ -845,7 +845,9 @@ async def auto_assign_groups(
     db.commit()
     
     # Broadcast WebSocket events for each assigned player
+    print(f"[auto_assign_groups] Broadcasting {len(assigned_players_list)} team assignments")
     for assignment in assigned_players_list:
+        print(f"[auto_assign_groups] Broadcasting: player_id={assignment['player_id']}, team={assignment['team_number']}")
         await manager.broadcast_to_game(
             game_code.upper(),
             {
@@ -855,6 +857,7 @@ async def auto_assign_groups(
                 "team_number": assignment['team_number']
             }
         )
+        print(f"[auto_assign_groups] Broadcast complete for player {assignment['player_id']}")
     
     # Initialize game state with team configurations if not exists
     if not game.game_state:
