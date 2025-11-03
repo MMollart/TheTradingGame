@@ -258,6 +258,10 @@ class GameAPI {
         return this.request('POST', `/games/${gameCode}/pause`);
     }
 
+    async resumeGame(gameCode) {
+        return this.request('POST', `/games/${gameCode}/resume`);
+    }
+
     async endGame(gameCode) {
         return this.request('POST', `/games/${gameCode}/end`);
     }

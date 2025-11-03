@@ -6,7 +6,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocke
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import List, Dict, Any, Optional
 import asyncio
 
@@ -1043,6 +1043,7 @@ async def start_game(
             player.player_state = GameLogic.initialize_banker()
     
     game.status = GameStatus.IN_PROGRESS
+    game.started_at = datetime.utcnow()
     db.commit()
     
     # Broadcast game status change to all players
@@ -1051,7 +1052,9 @@ async def start_game(
         {
             "type": "game_status_changed",
             "status": "in_progress",
-            "message": "Game has started!"
+            "message": "Game has started!",
+            "started_at": game.started_at.isoformat(),
+            "game_duration_minutes": game.game_duration_minutes or 120
         }
     )
     
@@ -1085,6 +1088,38 @@ async def pause_game(
     )
     
     return {"message": "Game paused"}
+
+
+@app.post("/games/{game_code}/resume")
+async def resume_game(
+    game_code: str,
+    db: Session = Depends(get_db)
+):
+    """Resume a paused game session"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    if game.status != GameStatus.PAUSED:
+        raise HTTPException(status_code=400, detail="Game is not paused")
+    
+    game.status = GameStatus.IN_PROGRESS
+    db.commit()
+    
+    # Broadcast game status change to all players
+    await manager.broadcast_to_game(
+        game_code.upper(),
+        {
+            "type": "game_status_changed",
+            "status": "in_progress",
+            "message": "Game has been resumed"
+        }
+    )
+    
+    return {"message": "Game resumed"}
 
 
 @app.post("/games/{game_code}/end")

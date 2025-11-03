@@ -12,6 +12,13 @@ let playerState = {};
 let gameState = {};
 let currentGameStatus = 'waiting'; // Track game status (waiting, in_progress, paused, completed)
 
+// Countdown timer variables
+let countdownInterval = null;
+let gameStartTime = null;
+let gameDurationMinutes = 120; // Default 2 hours
+let totalPausedTime = 0; // Track total paused duration in milliseconds
+let lastPauseTime = null; // Track when pause started
+
 // Initialize dashboard from URL parameters
 async function initDashboard() {
     const params = new URLSearchParams(window.location.search);
@@ -285,18 +292,33 @@ function connectWebSocket() {
         // Update control buttons visibility
         updateControlButtons();
         
-        // If game started, refresh player state
+        // Handle countdown timer based on status
         if (data.status === 'in_progress') {
+            if (data.started_at && data.game_duration_minutes) {
+                // Game starting or resuming
+                if (gameStartTime) {
+                    // Resuming from pause
+                    resumeCountdownTimer();
+                } else {
+                    // Starting fresh
+                    startCountdownTimer(data.started_at, data.game_duration_minutes);
+                }
+            }
+            
+            // Refresh player state
             loadGameData().then(() => {
                 updatePlayerCardsVisibility();
                 updateDashboard();
             });
-        }
-        
-        // If game ended, show final scores
-        if (data.status === 'completed' && data.scores) {
-            // TODO: Display final scores in a modal or dedicated section
-            console.log('Final scores:', data.scores);
+        } else if (data.status === 'paused') {
+            pauseCountdownTimer();
+        } else if (data.status === 'completed') {
+            stopCountdownTimer();
+            
+            // Show final scores
+            if (data.scores) {
+                console.log('Final scores:', data.scores);
+            }
         }
     });
     
@@ -340,6 +362,14 @@ async function loadGameData() {
         
         // Update game status display
         updateGameStatusDisplay();
+        
+        // Initialize countdown timer if game is in progress or paused
+        if (currentGameStatus === 'in_progress' && game.started_at && game.game_duration_minutes) {
+            startCountdownTimer(game.started_at, game.game_duration_minutes);
+        } else if (currentGameStatus === 'paused' && game.started_at && game.game_duration_minutes) {
+            startCountdownTimer(game.started_at, game.game_duration_minutes);
+            pauseCountdownTimer();
+        }
         
         // Update test mode toggle state based on game status
         updateTestModeToggleState();
@@ -1202,6 +1232,132 @@ function updateGameStatusDisplay() {
     }
 }
 
+function startCountdownTimer(startTime, durationMinutes) {
+    console.log('[startCountdownTimer] Starting timer:', { startTime, durationMinutes });
+    
+    // Store game start time and duration
+    gameStartTime = new Date(startTime);
+    gameDurationMinutes = durationMinutes;
+    totalPausedTime = 0;
+    lastPauseTime = null;
+    
+    // Show the countdown timer
+    const timerContainer = document.getElementById('countdown-timer');
+    if (timerContainer) {
+        timerContainer.style.display = 'flex';
+        timerContainer.style.alignItems = 'center';
+    }
+    
+    // Clear any existing interval
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+    }
+    
+    // Update immediately, then every second
+    updateCountdownDisplay();
+    countdownInterval = setInterval(updateCountdownDisplay, 1000);
+}
+
+function updateCountdownDisplay() {
+    const display = document.getElementById('countdown-display');
+    if (!display || !gameStartTime) return;
+    
+    const now = new Date();
+    const gameEndTime = new Date(gameStartTime.getTime() + (gameDurationMinutes * 60 * 1000));
+    
+    // Calculate elapsed time minus paused time
+    let elapsedTime = now - gameStartTime;
+    elapsedTime -= totalPausedTime;
+    
+    // If currently paused, also subtract the current pause duration
+    if (lastPauseTime) {
+        elapsedTime -= (now - lastPauseTime);
+    }
+    
+    // Calculate remaining time
+    const totalGameTime = gameDurationMinutes * 60 * 1000;
+    const remainingTime = totalGameTime - elapsedTime;
+    
+    if (remainingTime <= 0) {
+        display.textContent = '00:00';
+        display.style.color = '#dc3545'; // Red
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
+        return;
+    }
+    
+    // Convert to minutes:seconds
+    const totalSeconds = Math.floor(remainingTime / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    
+    // Format display
+    display.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    
+    // Color coding based on time remaining
+    if (minutes < 5) {
+        display.style.color = '#dc3545'; // Red - less than 5 minutes
+    } else if (minutes < 15) {
+        display.style.color = '#ffc107'; // Yellow - less than 15 minutes
+    } else {
+        display.style.color = '#fff'; // White - plenty of time
+    }
+}
+
+function pauseCountdownTimer() {
+    console.log('[pauseCountdownTimer] Pausing timer');
+    lastPauseTime = new Date();
+    
+    // Stop the interval but keep display visible
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+    
+    // Update display to show paused state
+    const display = document.getElementById('countdown-display');
+    if (display) {
+        display.style.color = '#ffc107'; // Yellow to indicate paused
+    }
+}
+
+function resumeCountdownTimer() {
+    console.log('[resumeCountdownTimer] Resuming timer');
+    
+    if (lastPauseTime) {
+        // Add the pause duration to total paused time
+        const pauseDuration = new Date() - lastPauseTime;
+        totalPausedTime += pauseDuration;
+        lastPauseTime = null;
+    }
+    
+    // Restart the interval
+    updateCountdownDisplay();
+    countdownInterval = setInterval(updateCountdownDisplay, 1000);
+}
+
+function stopCountdownTimer() {
+    console.log('[stopCountdownTimer] Stopping timer');
+    
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+    
+    // Hide the countdown timer
+    const timerContainer = document.getElementById('countdown-timer');
+    if (timerContainer) {
+        timerContainer.style.display = 'none';
+    }
+    
+    // Reset variables
+    gameStartTime = null;
+    totalPausedTime = 0;
+    lastPauseTime = null;
+}
+
 // Load game data and create team boxes if teams are configured
 async function loadGameAndCreateTeamBoxes() {
     try {
@@ -1816,7 +1972,7 @@ async function pauseGame() {
 
 async function resumeGame() {
     try {
-        await gameAPI.startGame(currentGameCode);
+        await gameAPI.resumeGame(currentGameCode);
         // Note: WebSocket will broadcast the status change
         currentGameStatus = 'in_progress';
         addEventLog('Game resumed');
