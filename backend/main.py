@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from database import get_db, init_db
 from models import User, GameSession, Player, GameConfiguration, GameStatus
@@ -19,12 +19,13 @@ from schemas import (
 )
 from auth import (
     get_password_hash, verify_password, create_access_token,
-    get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
+    get_current_user, get_current_user_optional, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from utils import generate_game_code
 from websocket_manager import manager
 from game_logic import GameLogic
 from game_constants import NationType
+from email_utils import send_registration_email
 
 app = FastAPI(
     title="The Trading Game",
@@ -62,7 +63,7 @@ def read_root():
 
 @app.post("/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    """Register a new user account"""
+    """Register a new user account and send welcome email"""
     # Check if username exists
     existing_user = db.query(User).filter(User.username == user.username).first()
     if existing_user:
@@ -82,6 +83,13 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    
+    # Send welcome email (non-blocking - don't fail registration if email fails)
+    try:
+        send_registration_email(user.username, user.email)
+    except Exception as e:
+        print(f"Failed to send registration email: {str(e)}")
+    
     return db_user
 
 
@@ -172,7 +180,8 @@ def create_game_session(
         game_code=game_code,
         host_user_id=None,  # Allow creating without user account
         config_id=game.config_id,
-        game_state=game.config_data or {}
+        game_state=game.config_data or {},
+        num_teams=None  # Host must set this before players can join
     )
     db.add(db_game)
     db.commit()
@@ -182,6 +191,34 @@ def create_game_session(
     # This allows for simpler flow without authentication
     
     return db_game
+
+
+@app.post("/games/{game_code}/set-teams")
+def set_number_of_teams(
+    game_code: str,
+    num_teams: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Set the number of teams for a game.
+    Must be called by host before players can join.
+    """
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    if num_teams < 1 or num_teams > 20:
+        raise HTTPException(status_code=400, detail="Number of teams must be between 1 and 20")
+    
+    game.num_teams = num_teams
+    db.commit()
+    db.refresh(game)
+    
+    return {
+        "success": True,
+        "message": f"Game configured for {num_teams} teams",
+        "num_teams": num_teams
+    }
 
 
 @app.get("/games/{game_code}", response_model=GameSessionResponse)
@@ -202,9 +239,116 @@ def list_game_players(game_code: str, db: Session = Depends(get_db)):
     return game.players
 
 
-@app.post("/games/join", response_model=PlayerResponse, status_code=status.HTTP_201_CREATED)
-def join_game(player_join: PlayerJoin, db: Session = Depends(get_db)):
-    """Join a game session"""
+@app.get("/games/{game_code}/unassigned-players")
+def list_unassigned_players(game_code: str, db: Session = Depends(get_db)):
+    """List all players who haven't been assigned to a team yet"""
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    unassigned = db.query(Player).filter(
+        Player.game_session_id == game.id,
+        Player.role == "player",
+        Player.group_number == None
+    ).all()
+    
+    return {
+        "unassigned_count": len(unassigned),
+        "players": [{"id": p.id, "name": p.player_name, "joined_at": p.joined_at} for p in unassigned]
+    }
+
+
+@app.post("/games/{game_code}/create-fake-players")
+def create_fake_players(
+    game_code: str,
+    num_players: int = 5,
+    db: Session = Depends(get_db)
+):
+    """
+    TEST MODE: Create fake players for testing team assignment.
+    Creates unassigned players with generated names.
+    """
+    import random
+    
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    if num_players < 1 or num_players > 50:
+        raise HTTPException(status_code=400, detail="Number of fake players must be between 1 and 50")
+    
+    # Fun fake player names
+    first_names = [
+        "Alex", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Avery", "Quinn",
+        "Skylar", "Dakota", "River", "Sage", "Phoenix", "Cameron", "Emerson", "Parker",
+        "Rowan", "Blake", "Charlie", "Drew", "Finley", "Harper", "Hayden", "Kendall"
+    ]
+    
+    last_names = [
+        "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+        "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
+        "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Thompson", "White"
+    ]
+    
+    created_players = []
+    
+    for i in range(num_players):
+        # Generate a unique fake name
+        attempts = 0
+        while attempts < 10:
+            first = random.choice(first_names)
+            last = random.choice(last_names)
+            player_name = f"{first} {last}"
+            
+            # Check if name already exists
+            existing = db.query(Player).filter(
+                Player.game_session_id == game.id,
+                Player.player_name == player_name
+            ).first()
+            
+            if not existing:
+                break
+            attempts += 1
+        else:
+            # If we couldn't find a unique name, add a number
+            player_name = f"{first} {last} #{i+1}"
+        
+        # Create the fake player
+        fake_player = Player(
+            game_session_id=game.id,
+            player_name=player_name,
+            role="player",
+            group_number=None,  # Unassigned
+            is_approved=True,  # Auto-approve fake players
+            is_connected=False,  # Not actually connected
+            player_state={}
+        )
+        db.add(fake_player)
+        created_players.append(player_name)
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Created {num_players} fake players",
+        "created_count": num_players,
+        "player_names": created_players
+    }
+
+
+@app.post("/api/join")
+async def join_game(
+    player_join: PlayerJoin,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """
+    Join a game session. 
+    - Authenticated users join immediately with is_approved=True
+    - Guest users need host approval with is_approved=False
+    - All users join as 'player' role initially, host assigns roles later
+    """
+    
     game = db.query(GameSession).filter(
         GameSession.game_code == player_join.game_code.upper()
     ).first()
@@ -221,12 +365,22 @@ def join_game(player_join: PlayerJoin, db: Session = Depends(get_db)):
     if existing_player:
         raise HTTPException(status_code=400, detail="Player name already taken in this game")
     
-    # Create player
+    # Determine if user is authenticated and should be auto-approved
+    is_authenticated = current_user is not None
+    user_id = current_user.id if current_user else None
+    
+    # Auto-approve if: authenticated OR joining as host/banker
+    is_approved = is_authenticated or player_join.role in ['host', 'banker']
+    
+    # Create player without group assignment
+    # Authenticated users, hosts, and bankers auto-approved; regular players need host approval
     new_player = Player(
         game_session_id=game.id,
+        user_id=user_id,
         player_name=player_join.player_name,
         role=player_join.role,
-        group_number=player_join.group_number,
+        group_number=None,  # No group assigned yet
+        is_approved=is_approved,  # Auto-approve hosts, bankers, and authenticated users
         is_connected=True,
         player_state={}
     )
@@ -234,7 +388,315 @@ def join_game(player_join: PlayerJoin, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_player)
     
-    return new_player
+    # Broadcast player joined to all connected players
+    await manager.broadcast_to_game(
+        game.game_code,
+        {
+            "type": "player_joined",
+            "player_id": new_player.id,
+            "player_name": new_player.player_name,
+            "role": new_player.role,
+            "is_approved": new_player.is_approved
+        }
+    )
+    
+    # Add needs_approval flag for client
+    response = PlayerResponse.model_validate(new_player)
+    response.needs_approval = not is_authenticated
+    
+    return response
+
+
+@app.put("/games/{game_code}/players/{player_id}/assign-role")
+def assign_player_role(
+    game_code: str,
+    player_id: int,
+    role: str,
+    db: Session = Depends(get_db)
+):
+    """Assign a role to a player (host dashboard action)"""
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    player = db.query(Player).filter(
+        Player.id == player_id,
+        Player.game_session_id == game.id
+    ).first()
+    
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    if role not in ["player", "banker", "host"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    
+    player.role = role
+    
+    # If promoting to banker or host, remove them from any team
+    if role in ["banker", "host"]:
+        player.group_number = None
+    
+    db.commit()
+    db.refresh(player)
+    
+    return {"success": True, "player": player}
+
+
+@app.put("/games/{game_code}/players/{player_id}/approve")
+def approve_player(
+    game_code: str,
+    player_id: int,
+    db: Session = Depends(get_db)
+):
+    """Approve a pending player (host dashboard action)"""
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    player = db.query(Player).filter(
+        Player.id == player_id,
+        Player.game_session_id == game.id
+    ).first()
+    
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    player.is_approved = True
+    db.commit()
+    db.refresh(player)
+    
+    return {"success": True, "player": player}
+
+
+@app.get("/games/{game_code}/pending-players")
+def list_pending_players(game_code: str, db: Session = Depends(get_db)):
+    """List all players waiting for host approval"""
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    pending = db.query(Player).filter(
+        Player.game_session_id == game.id,
+        Player.is_approved == False
+    ).all()
+    
+    return {
+        "pending_count": len(pending),
+        "players": [{"id": p.id, "name": p.player_name, "joined_at": p.joined_at, "role": p.role.value} for p in pending]
+    }
+
+
+@app.put("/games/{game_code}/players/{player_id}/assign-group")
+def assign_player_group(
+    game_code: str,
+    player_id: int,
+    group_number: int,
+    db: Session = Depends(get_db)
+):
+    """Manually assign a player to a group (host dashboard action)"""
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    player = db.query(Player).filter(
+        Player.id == player_id,
+        Player.game_session_id == game.id
+    ).first()
+    
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    if player.role.value != "player":
+        raise HTTPException(status_code=400, detail="Can only assign groups to players, not hosts or bankers")
+    
+    if group_number < 1 or group_number > 4:
+        raise HTTPException(status_code=400, detail="Group number must be between 1 and 4")
+    
+    player.group_number = group_number
+    db.commit()
+    db.refresh(player)
+    
+    return {"success": True, "player": player}
+
+
+@app.delete("/games/{game_code}/players/{player_id}/unassign-group")
+def unassign_player_group(
+    game_code: str,
+    player_id: int,
+    db: Session = Depends(get_db)
+):
+    """Remove a player from their assigned group"""
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    player = db.query(Player).filter(
+        Player.id == player_id,
+        Player.game_session_id == game.id
+    ).first()
+    
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    player.group_number = None
+    db.commit()
+    db.refresh(player)
+    
+    return {"success": True, "player": player}
+
+
+@app.delete("/games/{game_code}/players/{player_id}")
+def remove_player_from_game(
+    game_code: str,
+    player_id: int,
+    db: Session = Depends(get_db)
+):
+    """Remove a player from the game entirely (host action)"""
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    player = db.query(Player).filter(
+        Player.id == player_id,
+        Player.game_session_id == game.id
+    ).first()
+    
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    # Don't allow removing the host
+    if player.role.value == "host":
+        raise HTTPException(status_code=400, detail="Cannot remove the host from the game")
+    
+    player_name = player.player_name
+    db.delete(player)
+    db.commit()
+    
+    return {"success": True, "message": f"Player {player_name} removed from game"}
+
+
+@app.delete("/games/{game_code}/players")
+def clear_all_players(
+    game_code: str,
+    db: Session = Depends(get_db)
+):
+    """Remove all non-host players from the game (host action to clear lobby)"""
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Delete all players except the host
+    deleted_count = db.query(Player).filter(
+        Player.game_session_id == game.id,
+        Player.role != "host"
+    ).delete()
+    
+    db.commit()
+    
+    return {"success": True, "message": f"Cleared {deleted_count} players from lobby", "deleted_count": deleted_count}
+
+
+@app.post("/games/{game_code}/auto-assign-groups")
+def auto_assign_groups(
+    game_code: str,
+    num_teams: int = 4,
+    db: Session = Depends(get_db)
+):
+    """
+    Automatically assign unassigned players to teams evenly.
+    Nation types are randomly assigned and can be duplicated across teams.
+    
+    Args:
+        game_code: The game code
+        num_teams: Number of teams to create (default 4)
+    """
+    import random
+    
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    if num_teams < 1 or num_teams > 20:
+        raise HTTPException(status_code=400, detail="Number of teams must be between 1 and 20")
+    
+    # Get all players without group assignments
+    unassigned_players = db.query(Player).filter(
+        Player.game_session_id == game.id,
+        Player.role == "player",
+        Player.group_number == None
+    ).all()
+    
+    if not unassigned_players:
+        return {"success": True, "message": "No unassigned players found", "assigned_count": 0}
+    
+    # Get current group counts
+    group_counts = {i: 0 for i in range(1, num_teams + 1)}
+    assigned_players = db.query(Player).filter(
+        Player.game_session_id == game.id,
+        Player.role == "player",
+        Player.group_number != None
+    ).all()
+    
+    for player in assigned_players:
+        if player.group_number and player.group_number <= num_teams:
+            group_counts[player.group_number] = group_counts.get(player.group_number, 0) + 1
+    
+    # Assign players to groups with fewest members
+    assigned_count = 0
+    for player in unassigned_players:
+        # Find group with fewest members
+        min_group = min(group_counts.items(), key=lambda x: x[1])[0]
+        player.group_number = min_group
+        group_counts[min_group] += 1
+        assigned_count += 1
+    
+    db.commit()
+    
+    # Initialize game state with team configurations if not exists
+    if not game.game_state:
+        game.game_state = {}
+    
+    if "teams" not in game.game_state:
+        game.game_state["teams"] = {}
+    
+    # Assign nation types ensuring all 4 types are used before repeating
+    nation_types = ["nation_1", "nation_2", "nation_3", "nation_4"]
+    
+    # Create a shuffled pool that repeats nation types only after all are used
+    nation_pool = []
+    full_cycles = num_teams // len(nation_types)
+    remaining = num_teams % len(nation_types)
+    
+    # Add complete cycles of all nation types
+    for _ in range(full_cycles):
+        shuffled = nation_types.copy()
+        random.shuffle(shuffled)
+        nation_pool.extend(shuffled)
+    
+    # Add remaining nations (less than a full cycle)
+    if remaining > 0:
+        shuffled = nation_types.copy()
+        random.shuffle(shuffled)
+        nation_pool.extend(shuffled[:remaining])
+    
+    # Assign nation types to teams
+    for team_num in range(1, num_teams + 1):
+        if str(team_num) not in game.game_state["teams"]:
+            game.game_state["teams"][str(team_num)] = {
+                "nation_type": nation_pool[team_num - 1],
+                "nation_name": f"Team {team_num}"
+            }
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Assigned {assigned_count} players to {num_teams} teams",
+        "assigned_count": assigned_count,
+        "num_teams": num_teams,
+        "group_distribution": group_counts,
+        "team_configurations": game.game_state["teams"]
+    }
 
 
 @app.get("/my-games", response_model=List[GameSessionResponse])
@@ -344,17 +806,15 @@ async def websocket_endpoint(websocket: WebSocket, game_code: str, player_id: in
 @app.post("/games/{game_code}/start")
 def start_game(
     game_code: str,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Start a game session"""
+    """Start a game session (works for both authenticated and anonymous games)"""
     game = db.query(GameSession).filter(
-        GameSession.game_code == game_code.upper(),
-        GameSession.host_user_id == current_user.id
+        GameSession.game_code == game_code.upper()
     ).first()
     
     if not game:
-        raise HTTPException(status_code=404, detail="Game not found or not authorized")
+        raise HTTPException(status_code=404, detail="Game not found")
     
     if game.status != GameStatus.WAITING:
         raise HTTPException(status_code=400, detail="Game already started")
@@ -384,17 +844,15 @@ def start_game(
 @app.post("/games/{game_code}/pause")
 def pause_game(
     game_code: str,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Pause a game session"""
+    """Pause a game session (works for both authenticated and anonymous games)"""
     game = db.query(GameSession).filter(
-        GameSession.game_code == game_code.upper(),
-        GameSession.host_user_id == current_user.id
+        GameSession.game_code == game_code.upper()
     ).first()
     
     if not game:
-        raise HTTPException(status_code=404, detail="Game not found or not authorized")
+        raise HTTPException(status_code=404, detail="Game not found")
     
     game.status = GameStatus.PAUSED
     db.commit()
@@ -405,17 +863,15 @@ def pause_game(
 @app.post("/games/{game_code}/end")
 def end_game(
     game_code: str,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """End a game session and calculate scores"""
+    """End a game session and calculate scores (works for both authenticated and anonymous games)"""
     game = db.query(GameSession).filter(
-        GameSession.game_code == game_code.upper(),
-        GameSession.host_user_id == current_user.id
+        GameSession.game_code == game_code.upper()
     ).first()
     
     if not game:
-        raise HTTPException(status_code=404, detail="Game not found or not authorized")
+        raise HTTPException(status_code=404, detail="Game not found")
     
     # Calculate scores for each nation
     scores = {}

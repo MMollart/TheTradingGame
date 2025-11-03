@@ -69,6 +69,7 @@ class GameSession(Base):
     
     status = Column(Enum(GameStatus), default=GameStatus.WAITING)
     game_state = Column(JSON)  # Store current game state
+    num_teams = Column(Integer, nullable=True)  # Number of teams configured by host
     
     created_at = Column(DateTime, default=datetime.utcnow)
     started_at = Column(DateTime, nullable=True)
@@ -86,6 +87,7 @@ class Player(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     game_session_id = Column(Integer, ForeignKey("game_sessions.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Link to authenticated user
     
     # Player identity
     player_name = Column(String(100), nullable=False)
@@ -94,6 +96,9 @@ class Player(Base):
     # For player groups - maps to nation types (1-4)
     # Nation 1 = Food, Nation 2 = Raw Materials, Nation 3 = Electrical, Nation 4 = Medical
     group_number = Column(Integer, nullable=True)
+    
+    # Approval system for guest users
+    is_approved = Column(Boolean, default=False)  # Requires host approval if not authenticated
     
     # Player state (stores resources, buildings, etc. for nations)
     # For banker: stores bank prices and inventory

@@ -155,13 +155,59 @@ class GameAPI {
         return this.request('GET', `/games/${gameCode}/players`);
     }
 
-    async joinGame(gameCode, playerName, role, groupNumber = null) {
-        return this.request('POST', '/games/join', {
+    async joinGame(gameCode, playerName, role) {
+        return this.request('POST', '/api/join', {
             game_code: gameCode,
             player_name: playerName,
-            role,
-            group_number: groupNumber
+            role
         });
+    }
+
+    // Group assignment (host actions)
+    async assignPlayerGroup(gameCode, playerId, groupNumber) {
+        return this.request('PUT', `/games/${gameCode}/players/${playerId}/assign-group?group_number=${groupNumber}`);
+    }
+
+    async unassignPlayerGroup(gameCode, playerId) {
+        return this.request('DELETE', `/games/${gameCode}/players/${playerId}/unassign-group`);
+    }
+
+    async removePlayerFromGame(gameCode, playerId) {
+        return this.request('DELETE', `/games/${gameCode}/players/${playerId}`);
+    }
+
+    async clearAllPlayersFromLobby(gameCode) {
+        return this.request('DELETE', `/games/${gameCode}/players`);
+    }
+
+    async autoAssignGroups(gameCode, numTeams = 4) {
+        return this.request('POST', `/games/${gameCode}/auto-assign-groups?num_teams=${numTeams}`);
+    }
+
+    async getUnassignedPlayers(gameCode) {
+        return this.request('GET', `/games/${gameCode}/unassigned-players`);
+    }
+
+    // Test mode
+    async createFakePlayers(gameCode, numPlayers) {
+        return this.request('POST', `/games/${gameCode}/create-fake-players?num_players=${numPlayers}`);
+    }
+
+    async setNumberOfTeams(gameCode, numTeams) {
+        return this.request('POST', `/games/${gameCode}/set-teams?num_teams=${numTeams}`);
+    }
+
+    // Player management
+    async assignPlayerRole(gameCode, playerId, role) {
+        return this.request('PUT', `/games/${gameCode}/players/${playerId}/assign-role?role=${role}`);
+    }
+
+    async approvePlayer(gameCode, playerId) {
+        return this.request('PUT', `/games/${gameCode}/players/${playerId}/approve`);
+    }
+
+    async getPendingPlayers(gameCode) {
+        return this.request('GET', `/games/${gameCode}/pending-players`);
     }
 
     async startGame(gameCode) {

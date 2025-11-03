@@ -99,6 +99,25 @@ TheTradingGame/
 
 ### Running the Application
 
+#### Quick Start (Recommended)
+
+**Using the convenience scripts:**
+
+```bash
+# Restart both servers (kills existing and starts fresh)
+./restart-servers.sh
+
+# Stop both servers
+./stop-servers.sh
+```
+
+The scripts will:
+- Start backend at `http://localhost:8000`
+- Start frontend at `http://localhost:3000`
+- Create log files at `/tmp/trading-game-backend.log` and `/tmp/trading-game-frontend.log`
+
+#### Manual Start
+
 1. **Start the backend server**
    ```bash
    cd backend
@@ -106,18 +125,27 @@ TheTradingGame/
    ```
    The API will be available at `http://localhost:8000`
 
-2. **Access the frontend**
-   Open `frontend/index.html` in your web browser, or serve it with:
+2. **Start the frontend server**
    ```bash
    cd frontend
-   python -m http.server 8080
+   python3 -m http.server 3000
    ```
-   Then navigate to `http://localhost:8080`
+   Then navigate to `http://localhost:3000`
 
 3. **API Documentation**
    FastAPI provides automatic interactive API docs at:
    - Swagger UI: `http://localhost:8000/docs`
    - ReDoc: `http://localhost:8000/redoc`
+
+#### View Logs
+
+```bash
+# Backend logs
+tail -f /tmp/trading-game-backend.log
+
+# Frontend logs
+tail -f /tmp/trading-game-frontend.log
+```
 
 ## API Endpoints
 

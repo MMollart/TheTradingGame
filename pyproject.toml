@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trading-game"
+version = "0.1.0"
+description = "A multiplayer web-based trading simulation game with role-based gameplay"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[project.scripts]
+trading-game = "trading_game_cli:main"
+tg = "trading_game_cli:main"
+
+[tool.setuptools]
+py-modules = ["trading_game_cli"]

@@ -208,8 +208,8 @@
         <!-- Authentication Screen -->
         <div id="auth-screen">
             <div class="tabs">
-                <button class="tab active" onclick="showAuthTab('login')">Login</button>
-                <button class="tab" onclick="showAuthTab('register')">Register</button>
+                <button class="tab active" onclick="showAuthTab('login', event)">Login</button>
+                <button class="tab" onclick="showAuthTab('register', event)">Register</button>
             </div>
             
             <!-- Login Tab -->
@@ -293,17 +293,8 @@
                     <input type="text" id="player-name" placeholder="Enter your name" required>
                 </div>
                 
-                <div class="input-group">
-                    <label for="player-role">Your Role</label>
-                    <select id="player-role">
-                        <option value="player">Player Group</option>
-                        <option value="banker">Banker</option>
-                    </select>
-                </div>
-                
-                <div class="input-group" id="group-number-div">
-                    <label for="group-number">Group Number</label>
-                    <input type="number" id="group-number" placeholder="Enter group number (e.g., 1, 2, 3...)" min="1">
+                <div class="info" style="margin-top: 20px; background: #e3f2fd; color: #1565c0;">
+                    <strong>Note:</strong> All players join initially without a role. The host will assign roles (player/banker) from the dashboard. Authenticated users join immediately, while guest users need host approval.
                 </div>
                 
                 <button onclick="joinGame()">🚀 Join Game</button>
@@ -359,14 +350,23 @@
         };
         
         // Auth tab switching
-        function showAuthTab(tabName) {
+        function showAuthTab(tabName, event) {
             const tabs = document.querySelectorAll('#auth-screen .tab');
             const contents = document.querySelectorAll('#auth-screen .tab-content');
             
             tabs.forEach(tab => tab.classList.remove('active'));
             contents.forEach(content => content.classList.remove('active'));
             
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // If no event, find and activate by tab name
+                tabs.forEach(tab => {
+                    if (tab.textContent.toLowerCase() === tabName) {
+                        tab.classList.add('active');
+                    }
+                });
+            }
             document.getElementById(tabName + '-auth-tab').classList.add('active');
         }
         
@@ -401,7 +401,7 @@
                 const api = new GameAPI();
                 await api.register(username, email, password);
                 alert('Account created successfully! Please log in.');
-                showAuthTab('login');
+                showAuthTab('login', null);
             } catch (error) {
                 alert('Registration failed: ' + error.message);
             }
@@ -482,11 +482,7 @@
             document.getElementById(tabName + '-tab').classList.add('active');
         }
         
-        // Show/hide group number based on role
-        document.getElementById('player-role').addEventListener('change', function() {
-            const groupDiv = document.getElementById('group-number-div');
-            groupDiv.style.display = this.value === 'player' ? 'block' : 'none';
-        });
+        // Group number selection removed - will be assigned by host
         
         // Create new game
         async function createGame() {
@@ -511,8 +507,8 @@
                 // Join as host
                 const player = await api.joinGame(gameCode, hostName, 'host', null);
                 
-                // Redirect to dashboard
-                window.location.href = `dashboard.html?gameCode=${gameCode}&playerId=${player.id}&playerName=${encodeURIComponent(hostName)}&role=host`;
+                // Redirect to settings page first
+                window.location.href = `game-settings.html?gameCode=${gameCode}&playerId=${player.id}&playerName=${encodeURIComponent(hostName)}&role=host`;
             } catch (error) {
                 alert('Error creating game: ' + error.message);
             }
@@ -520,34 +516,37 @@
         
                 // Join existing game
         async function joinGame() {
-            const gameCode = document.getElementById('join-game-code').value.trim().toUpperCase();
-            const playerName = document.getElementById('join-name').value.trim();
-            const selectedRole = document.getElementById('join-role').value;
-            const groupNumber = document.getElementById('group-number').value;
+            const gameCode = document.getElementById('game-code').value.trim().toUpperCase();
+            const playerName = document.getElementById('player-name').value.trim();
             
-            if (!gameCode || !playerName || !selectedRole) {
+            if (!gameCode || !playerName) {
                 alert('Please fill in all fields');
-                return;
-            }
-            
-            if (selectedRole === 'player' && !groupNumber) {
-                alert('Please select a nation');
                 return;
             }
             
             try {
                 const api = new GameAPI();
                 
-                // Join game session
+                // Set auth token if logged in
+                if (authToken) {
+                    api.setToken(authToken);
+                }
+                
+                // Everyone joins as "player" initially - host will assign roles
                 const player = await api.joinGame(
                     gameCode, 
                     playerName, 
-                    selectedRole, 
-                    selectedRole === 'player' ? parseInt(groupNumber) : null
+                    'player'
                 );
                 
-                // Redirect to dashboard
-                window.location.href = `dashboard.html?gameCode=${gameCode}&playerId=${player.id}&playerName=${encodeURIComponent(playerName)}&role=${selectedRole}`;
+                // Check if approval is needed (for non-authenticated users)
+                if (player.needs_approval) {
+                    alert('Your join request has been sent to the host. Please wait for approval.');
+                    return;
+                }
+                
+                // Redirect to dashboard with player role (will be updated by host if needed)
+                window.location.href = `dashboard.html?gameCode=${gameCode}&playerId=${player.id}&playerName=${encodeURIComponent(playerName)}&role=player`;
             } catch (error) {
                 alert('Error joining game: ' + error.message);
             }
@@ -636,6 +635,6 @@
             return code;
         }
     </script>
-    <script src="game-api.js"></script>
+    <script src="game-api.js?v=2"></script>
 </body>
 </html>

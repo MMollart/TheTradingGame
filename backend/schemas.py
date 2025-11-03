@@ -59,6 +59,7 @@ class GameSessionResponse(BaseModel):
     config_id: Optional[int]
     status: GameStatus
     game_state: Optional[Dict[str, Any]]
+    num_teams: Optional[int]  # Number of teams configured by host
     created_at: datetime
     started_at: Optional[datetime]
     ended_at: Optional[datetime]
@@ -72,18 +73,21 @@ class PlayerJoin(BaseModel):
     game_code: str = Field(..., min_length=6, max_length=6)
     player_name: str = Field(..., min_length=1, max_length=100)
     role: PlayerRole
-    group_number: Optional[int] = None
+    # Group number removed - will be assigned by host from dashboard or automatically
 
 
 class PlayerResponse(BaseModel):
     id: int
     game_session_id: int
+    user_id: Optional[int]
     player_name: str
     role: PlayerRole
     group_number: Optional[int]
+    is_approved: bool
     is_connected: bool
     player_state: Optional[Dict[str, Any]]
     joined_at: datetime
+    needs_approval: Optional[bool] = None  # Client-side field
     
     class Config:
         from_attributes = True

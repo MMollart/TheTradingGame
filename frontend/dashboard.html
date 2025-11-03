@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trading Game - Dashboard</title>
-    <link rel="stylesheet" href="dashboard-styles.css">
+    <link rel="stylesheet" href="dashboard-styles.css?v=26">
 </head>
 <body>
     <div class="dashboard-container">
@@ -14,6 +14,29 @@
                 <h1>🎮 Trading Game</h1>
                 <div class="game-code-display">
                     Game Code: <span id="header-game-code">------</span>
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="test-mode-toggle" id="test-mode-toggle-container" style="display: none;">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="test-mode-toggle" onchange="toggleTestMode(this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">🧪 Test Mode</span>
+                </div>
+                <div class="role-view-switcher" id="role-view-switcher" style="display: none;">
+                    <label for="view-as-role" style="font-weight: 600; font-size: 14px; color: white; margin-right: 10px;">👁️ View As:</label>
+                    <select id="view-as-role" onchange="switchRoleView(this.value)" class="role-selector">
+                        <option value="host">Host</option>
+                        <option value="banker">Banker</option>
+                        <option value="player">Player</option>
+                    </select>
+                </div>
+                <div class="player-view-switcher" id="player-view-switcher" style="display: none;">
+                    <label for="view-as-player" style="font-weight: 600; font-size: 14px; color: white; margin-right: 10px;">👤 View Player:</label>
+                    <select id="view-as-player" onchange="switchPlayerView(this.value)" class="player-selector">
+                        <option value="">Select Player...</option>
+                    </select>
                 </div>
             </div>
             <div class="header-right">
@@ -28,15 +51,37 @@
             <div id="host-dashboard" class="role-dashboard hidden">
                 <h2>🎮 Game Host Dashboard</h2>
                 
+                <!-- Dashboard Tabs -->
+                <div class="dashboard-tabs" id="dashboard-tabs-container">
+                    <button class="tab-btn active" id="tab-btn-controls" onclick="switchHostTab('controls')">🎮 Game Controls</button>
+                    <button class="tab-btn" id="tab-btn-nations" onclick="switchHostTab('nations')">🌍 Nations Overview</button>
+                    <button class="tab-btn" id="tab-btn-banker" onclick="switchHostTab('banker')">🏦 Banker View</button>
+                </div>
+                
+                <!-- Welcome Banner with Game Code -->
+                <div id="welcome-banner" class="welcome-banner">
+                    <div class="welcome-content">
+                        <h3>🎉 Game Created Successfully!</h3>
+                        <p>Share this code with players to join:</p>
+                        <div class="big-game-code" id="big-game-code">------</div>
+                        <button class="btn btn-secondary" onclick="copyGameCode()">📋 Copy Code</button>
+                        <button class="btn btn-primary" onclick="dismissWelcome()">✓ Got It</button>
+                    </div>
+                </div>
+                
+                <!-- Game Controls Tab -->
+                <div id="host-tab-controls" class="host-tab-content active">
                 <div class="dashboard-grid">
                     <!-- Game Controls -->
-                    <div class="card">
+                    <div class="card" id="card-game-controls">
                         <h3>Game Controls</h3>
                         <div class="button-group">
                             <button id="start-game-btn" class="btn btn-primary">▶️ Start Game</button>
                             <button id="pause-game-btn" class="btn btn-warning" disabled>⏸️ Pause Game</button>
                             <button id="resume-game-btn" class="btn btn-success" disabled>▶️ Resume</button>
                             <button id="end-game-btn" class="btn btn-danger" disabled>🏁 End Game</button>
+                            <button class="btn btn-secondary" onclick="openGameSettings()">⚙️ Settings</button>
+                            <button class="btn btn-danger" onclick="clearAllPlayers()">🗑️ Clear Lobby</button>
                         </div>
                         <div class="game-status">
                             Status: <span id="game-status-display">Waiting</span>
@@ -44,114 +89,169 @@
                     </div>
 
                     <!-- Players Overview -->
-                    <div class="card">
+                    <div class="card" id="card-connected-players">
                         <h3>Connected Players</h3>
                         <div id="players-list" class="players-list">
                             <!-- Players will be added here -->
                         </div>
                     </div>
 
-                    <!-- Nations Overview -->
-                    <div class="card full-width">
-                        <h3>Nations Overview</h3>
-                        <div id="nations-overview" class="nations-grid">
-                            <!-- Nation cards will be added here -->
+                    <!-- Pending Approvals (Host Only) -->
+                    <div class="card" id="card-pending-approvals">
+                        <h3>Pending Approvals</h3>
+                        <div class="pending-approval-section">
+                            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                                Guest users need approval before they can join. Authenticated users join automatically.
+                            </p>
+                            <div class="pending-count" style="margin-bottom: 15px;">
+                                <strong>Waiting for approval: <span id="pending-count" style="color: #ff9800;">0</span></strong>
+                            </div>
+                            <div id="pending-players-list" class="pending-list">
+                                <!-- Pending players will be listed here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Team Assignment (Host Only) -->
+                    <div class="card full-width" id="card-team-assignment">
+                        <h3>Team Assignment</h3>
+                        <div class="team-assignment-section">
+                            <div class="assignment-controls">
+                                <button id="auto-assign-btn" class="btn btn-success" onclick="autoAssignTeams()">🎲 Auto-Assign All Players</button>
+                                <button class="btn btn-secondary" onclick="refreshUnassigned()">🔄 Refresh</button>
+                            </div>
+                            
+                            <div class="drag-drop-info" style="padding: 10px; background: #e3f2fd; border-radius: 6px; margin: 15px 0;">
+                                <p style="font-size: 14px; margin: 0;">
+                                    💡 <strong>Drag & Drop:</strong> Drag players from the list below and drop them into a team box to assign them.
+                                </p>
+                            </div>
+                            
+                            <!-- Hidden input for fake players (used by modal) -->
+                            <input type="hidden" id="num-fake-players" value="8">
+                            
+                            <!-- Team Boxes -->
+                            <div class="teams-grid" id="teams-grid">
+                                <!-- Team boxes will be dynamically created here -->
+                            </div>
+
+                            <div class="unassigned-section">
+                                <h4>Unassigned Players (<span id="unassigned-count">0</span>)</h4>
+                                <div id="unassigned-players-list" class="unassigned-list">
+                                    <!-- Unassigned players will be listed here -->
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Game Events Log -->
-                    <div class="card full-width">
+                    <div class="card full-width" id="card-game-events">
                         <h3>Game Events</h3>
                         <div id="events-log" class="events-log">
                             <!-- Events will be added here -->
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Banker Dashboard -->
-            <div id="banker-dashboard" class="role-dashboard hidden">
-                <h2>🏦 Central Bank Dashboard</h2>
+                </div>
+                <!-- End Game Controls Tab -->
                 
-                <div class="dashboard-grid">
-                    <!-- Bank Inventory -->
-                    <div class="card">
-                        <h3>Bank Inventory</h3>
-                        <div id="bank-inventory" class="resource-list">
-                            <!-- Bank resources will be listed here -->
-                        </div>
-                    </div>
-
-                    <!-- Resource Prices -->
-                    <div class="card">
-                        <h3>Resource Prices</h3>
-                        <div id="bank-prices" class="price-controls">
-                            <div class="price-item">
-                                <label>Food</label>
-                                <input type="number" id="price-food" min="1" value="2">
-                                <button onclick="updatePrice('food')">Update</button>
-                            </div>
-                            <div class="price-item">
-                                <label>Raw Materials</label>
-                                <input type="number" id="price-raw-materials" min="1" value="3">
-                                <button onclick="updatePrice('raw_materials')">Update</button>
-                            </div>
-                            <div class="price-item">
-                                <label>Electrical Goods</label>
-                                <input type="number" id="price-electrical-goods" min="1" value="15">
-                                <button onclick="updatePrice('electrical_goods')">Update</button>
-                            </div>
-                            <div class="price-item">
-                                <label>Medical Goods</label>
-                                <input type="number" id="price-medical-goods" min="1" value="20">
-                                <button onclick="updatePrice('medical_goods')">Update</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Events & Disasters -->
-                    <div class="card full-width">
-                        <h3>Trigger Events</h3>
-                        <div class="event-controls">
-                            <div class="event-section">
-                                <h4>Food Tax</h4>
-                                <button class="btn btn-primary" onclick="triggerFoodTax()">💰 Apply Food Tax (All Nations)</button>
-                            </div>
-                            
-                            <div class="event-section">
-                                <h4>Natural Disasters</h4>
-                                <select id="disaster-nation">
-                                    <option value="all">All Nations</option>
-                                    <option value="1">Nation 1</option>
-                                    <option value="2">Nation 2</option>
-                                    <option value="3">Nation 3</option>
-                                    <option value="4">Nation 4</option>
-                                </select>
-                                <select id="disaster-type">
-                                    <option value="natural_disaster">Natural Disaster</option>
-                                    <option value="drought">Drought</option>
-                                    <option value="disease">Disease</option>
-                                    <option value="famine">Famine</option>
-                                    <option value="climate_change">Climate Change</option>
-                                </select>
-                                <input type="number" id="disaster-severity" min="1" max="5" value="1" placeholder="Severity (1-5)">
-                                <button class="btn btn-danger" onclick="triggerDisaster()">⚠️ Trigger</button>
-                            </div>
-
-                            <div class="event-section">
-                                <h4>Trade with Nations</h4>
-                                <select id="trade-nation">
-                                    <option value="">Select Nation</option>
-                                    <option value="1">Nation 1</option>
-                                    <option value="2">Nation 2</option>
-                                    <option value="3">Nation 3</option>
-                                    <option value="4">Nation 4</option>
-                                </select>
-                                <button class="btn btn-success" onclick="openBankTrade()">💱 Open Trade Window</button>
+                <!-- Nations Overview Tab -->
+                <div id="host-tab-nations" class="host-tab-content">
+                    <div class="dashboard-grid">
+                        <!-- Nations Overview (shared with banker) -->
+                        <div class="card full-width">
+                            <h3>🌍 All Nations Overview</h3>
+                            <div id="host-nations-overview" class="nations-grid">
+                                <!-- Nation cards will be added here -->
                             </div>
                         </div>
                     </div>
                 </div>
+                <!-- End Nations Overview Tab -->
+                
+                <!-- Banker View Tab (Host Only) -->
+                <div id="host-tab-banker" class="host-tab-content">
+                    <div class="dashboard-grid">
+                        <!-- Bank Inventory -->
+                        <div class="card">
+                            <h3>Bank Inventory</h3>
+                            <div id="host-bank-inventory" class="resource-list">
+                                <!-- Bank resources will be listed here -->
+                            </div>
+                        </div>
+
+                        <!-- Resource Prices -->
+                        <div class="card">
+                            <h3>Resource Prices</h3>
+                            <div id="host-bank-prices" class="price-controls">
+                                <div class="price-item">
+                                    <label>Food</label>
+                                    <input type="number" id="host-price-food" min="1" value="2">
+                                    <button onclick="updatePrice('food', 'host')">Update</button>
+                                </div>
+                                <div class="price-item">
+                                    <label>Raw Materials</label>
+                                    <input type="number" id="host-price-raw-materials" min="1" value="3">
+                                    <button onclick="updatePrice('raw_materials', 'host')">Update</button>
+                                </div>
+                                <div class="price-item">
+                                    <label>Electrical Goods</label>
+                                    <input type="number" id="host-price-electrical-goods" min="1" value="15">
+                                    <button onclick="updatePrice('electrical_goods', 'host')">Update</button>
+                                </div>
+                                <div class="price-item">
+                                    <label>Medical Goods</label>
+                                    <input type="number" id="host-price-medical-goods" min="1" value="20">
+                                    <button onclick="updatePrice('medical_goods', 'host')">Update</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Events & Disasters -->
+                        <div class="card full-width">
+                            <h3>Trigger Events</h3>
+                            <div class="event-controls">
+                                <div class="event-section">
+                                    <h4>Food Tax</h4>
+                                    <button class="btn btn-primary" onclick="triggerFoodTax()">💰 Apply Food Tax (All Nations)</button>
+                                </div>
+                                
+                                <div class="event-section">
+                                    <h4>Natural Disasters</h4>
+                                    <select id="host-disaster-nation">
+                                        <option value="all">All Nations</option>
+                                        <option value="1">Nation 1</option>
+                                        <option value="2">Nation 2</option>
+                                        <option value="3">Nation 3</option>
+                                        <option value="4">Nation 4</option>
+                                    </select>
+                                    <select id="host-disaster-type">
+                                        <option value="natural_disaster">Natural Disaster</option>
+                                        <option value="drought">Drought</option>
+                                        <option value="disease">Disease</option>
+                                        <option value="famine">Famine</option>
+                                        <option value="climate_change">Climate Change</option>
+                                    </select>
+                                    <input type="number" id="host-disaster-severity" min="1" max="5" value="1" placeholder="Severity (1-5)">
+                                    <button class="btn btn-danger" onclick="triggerDisaster('host')">⚠️ Trigger</button>
+                                </div>
+
+                                <div class="event-section">
+                                    <h4>Trade with Nations</h4>
+                                    <select id="host-trade-nation">
+                                        <option value="">Select Nation</option>
+                                        <option value="1">Nation 1</option>
+                                        <option value="2">Nation 2</option>
+                                        <option value="3">Nation 3</option>
+                                        <option value="4">Nation 4</option>
+                                    </select>
+                                    <button class="btn btn-success" onclick="openBankTrade('host')">💱 Open Trade Window</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End Banker View Tab -->
             </div>
 
             <!-- Nation/Player Dashboard -->
@@ -172,6 +272,17 @@
                         <h3>Buildings</h3>
                         <div id="nation-buildings" class="building-list">
                             <!-- Buildings will be listed here -->
+                        </div>
+                    </div>
+
+                    <!-- Team Members -->
+                    <div class="card full-width">
+                        <h3>Your Team</h3>
+                        <div id="team-info" style="margin-bottom: 12px; font-size: 16px; color: #666;">
+                            <!-- Team assignment info will appear here -->
+                        </div>
+                        <div id="team-members-list" class="team-members-list">
+                            <!-- Team members will be listed here -->
                         </div>
                     </div>
 
@@ -258,7 +369,55 @@
         </div>
     </div>
 
-    <script src="game-api.js"></script>
-    <script src="dashboard.js"></script>
+    <!-- Game Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Game Settings</h2>
+                <button class="modal-close" onclick="closeGameSettings()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-section">
+                    <h3>Team Configuration</h3>
+                    <p class="setting-warning">
+                        <strong>⚠️ Important:</strong> Set the number of teams BEFORE players join the game!
+                    </p>
+                    <div class="setting-control">
+                        <label for="num-teams-modal">Number of Teams:</label>
+                        <input type="number" id="num-teams-modal" min="1" max="20" value="4">
+                        <button class="btn btn-primary" onclick="applyTeamConfiguration()">✓ Apply</button>
+                        <span id="teams-status-modal" class="status-text"></span>
+                    </div>
+                </div>
+
+                <div class="setting-section">
+                    <h3>Game Rules</h3>
+                    <div class="setting-control">
+                        <label for="food-tax-timer">Food Tax Timer (minutes):</label>
+                        <input type="number" id="food-tax-timer" min="1" max="60" value="15">
+                    </div>
+                    <div class="setting-control">
+                        <label for="starting-resources">Starting Resources per Team:</label>
+                        <input type="number" id="starting-resources" min="0" max="1000" value="100">
+                    </div>
+                </div>
+
+                <div class="setting-section test-mode-section" id="test-mode-settings" style="display: none;">
+                    <h3>🧪 Test Mode</h3>
+                    <div class="setting-control">
+                        <label for="num-fake-players-modal">Number of Fake Players:</label>
+                        <input type="number" id="num-fake-players-modal" min="1" max="50" value="8">
+                        <button class="btn btn-success" onclick="createFakePlayersFromModal()">➕ Add Fake Players</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeGameSettings()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game-api.js?v=35"></script>
+    <script src="dashboard.js?v=35"></script>
 </body>
 </html>

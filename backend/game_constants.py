@@ -82,27 +82,54 @@ BUILDING_PRODUCTION = {
         "output": ResourceType.FOOD,
         "amount": 5,
         "input_required": None,
-        "requires_full_team": True
+        "requires_full_team_default": True  # True without School, False with School
     },
     BuildingType.MINE: {
         "output": ResourceType.RAW_MATERIALS,
         "amount": 5,
         "input_required": None,
-        "requires_full_team": True
+        "requires_full_team_default": True  # True without School, False with School
     },
     BuildingType.ELECTRICAL_FACTORY: {
         "output": ResourceType.ELECTRICAL_GOODS,
         "amount": 5,
         "input_required": {ResourceType.RAW_MATERIALS: 5},
-        "requires_full_team": False
+        "requires_full_team_default": True  # True without School, False with School
     },
     BuildingType.MEDICAL_FACTORY: {
         "output": ResourceType.MEDICAL_GOODS,
         "amount": 5,
         "input_required": {ResourceType.FOOD: 5},
-        "requires_full_team": False
+        "requires_full_team_default": True  # True without School, False with School
     }
 }
+
+
+def requires_full_team_for_production(building_type: BuildingType, has_school: bool) -> bool:
+    """
+    Determine if a building requires the full team for production.
+    
+    School effect: If a nation has a School, production buildings (Farm, Mine) 
+    only require a single team member instead of the full team.
+    
+    Parameters:
+        building_type: The type of building being used for production
+        has_school: Whether the nation has built at least one School
+    
+    Returns:
+        True if full team is required, False if single member can operate
+    """
+    production_info = BUILDING_PRODUCTION.get(building_type)
+    if not production_info:
+        return False
+    
+    requires_full_team_default = production_info.get("requires_full_team_default", False)
+    
+    # If building normally requires full team AND nation has a School, only single member needed
+    if requires_full_team_default and has_school:
+        return False
+    
+    return requires_full_team_default
 
 # Building scoring (double currency value)
 BUILDING_SCORES = {
@@ -196,12 +223,31 @@ class GameEventType(str, Enum):
     DROUGHT = "drought"
     DISEASE = "disease"
     CLIMATE_CHANGE = "climate_change"
+    SPECIAL_EVENT = "special_event"
     
     # Game control
     GAME_STARTED = "game_started"
     GAME_PAUSED = "game_paused"
     GAME_RESUMED = "game_resumed"
     GAME_ENDED = "game_ended"
+
+
+# Special events (like Olympics)
+SPECIAL_EVENTS = {
+    "OLYMPICS": {
+        "cost_to_host": {
+            ResourceType.FOOD: 25,
+            ResourceType.RAW_MATERIALS: 25,
+            ResourceType.ELECTRICAL_GOODS: 10,
+            ResourceType.MEDICAL_GOODS: 5,
+            ResourceType.CURRENCY: 100
+        },
+        "return": {
+            "multiplier": 5
+        },
+        "is_developed": True
+    }
+}
 
 
 # ==================== Taxes and Penalties ====================
@@ -229,6 +275,26 @@ BANK_INITIAL_PRICES = {
 MAX_HOSPITALS = 5
 MAX_RESTAURANTS = 5
 MAX_INFRASTRUCTURE = 5
+
+# Optional building benefits
+BUILDING_BENEFITS = {
+    BuildingType.SCHOOL: {
+        "description": "Reduces production team requirements",
+        "effect": "Farm and Mine production only requires 1 team member instead of full team"
+    },
+    BuildingType.HOSPITAL: {
+        "description": "Provides disease protection",
+        "effect": "Reduces impact of disease events"
+    },
+    BuildingType.RESTAURANT: {
+        "description": "Reduces food consumption",
+        "effect": "Lower food tax requirements"
+    },
+    BuildingType.INFRASTRUCTURE: {
+        "description": "Improves efficiency",
+        "effect": "Faster production and trading"
+    }
+}
 
 
 # ==================== Physical Challenges ====================
