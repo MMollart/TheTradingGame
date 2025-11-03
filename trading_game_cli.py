@@ -177,6 +177,41 @@ def reset_database():
         print("❌ Database reset cancelled")
 
 
+def restart_database():
+    """Restart servers with a fresh database (no confirmation)."""
+    print("🔄 Restarting with fresh database...")
+    
+    # Stop servers first
+    stop_servers()
+    time.sleep(1)
+    
+    # Delete database
+    if DB_FILE.exists():
+        DB_FILE.unlink()
+        print("  ✓ Database deleted")
+    
+    # Initialize fresh database
+    print("  • Initializing fresh database...")
+    try:
+        result = subprocess.run(
+            ["python", "-c", "from database import init_db; init_db(); print('Database tables created')"],
+            cwd=str(BACKEND_DIR),
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            print("  ✓ Database initialized")
+        else:
+            print(f"  ⚠️  Database init warning: {result.stderr}")
+    except Exception as e:
+        print(f"  ⚠️  Could not initialize database: {e}")
+        print("     It will be created when backend starts")
+    
+    # Start servers
+    time.sleep(1)
+    start_servers()
+
+
 def print_help():
     """Print help information."""
     help_text = """
@@ -194,6 +229,7 @@ Commands:
   logs, l [server]    View server logs (backend|frontend)
   open, o             Open game in browser
   db-reset            Reset database (with confirmation)
+  db-restart          Restart servers with fresh database (no confirmation)
   help, h             Show this help message
 
 Examples:
@@ -203,7 +239,8 @@ Examples:
   tg logs backend            # View backend logs
   tg l b                     # Same as above (short aliases)
   tg open                    # Open game in browser
-  tg db-reset                # Reset database
+  tg db-reset                # Reset database (asks for confirmation)
+  tg db-restart              # Quick restart with fresh database
 
 Log files:
   Backend:  /tmp/trading-game-backend.log
@@ -239,6 +276,8 @@ def main():
         open_browser()
     elif command == "db-reset":
         reset_database()
+    elif command == "db-restart":
+        restart_database()
     elif command in ["help", "h", "--help", "-h"]:
         print_help()
     else:

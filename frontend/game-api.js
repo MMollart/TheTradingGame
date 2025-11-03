@@ -105,14 +105,35 @@ class GameAPI {
             options.body = JSON.stringify(data);
         }
 
-        const response = await fetch(`${this.baseUrl}${endpoint}`, options);
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Request failed');
-        }
+        try {
+            const response = await fetch(`${this.baseUrl}${endpoint}`, options);
+            
+            if (!response.ok) {
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const error = await response.json();
+                    errorMessage = error.detail || error.message || errorMessage;
+                } catch (jsonError) {
+                    // If response is not JSON, use the text
+                    try {
+                        const errorText = await response.text();
+                        if (errorText) errorMessage = errorText;
+                    } catch (textError) {
+                        // Use the default error message
+                    }
+                }
+                throw new Error(errorMessage);
+            }
 
-        return response.json();
+            return response.json();
+        } catch (error) {
+            // If it's already an Error, re-throw it
+            if (error instanceof Error) {
+                throw error;
+            }
+            // Otherwise, wrap it in an Error
+            throw new Error('Network request failed: ' + error);
+        }
     }
 
     // Authentication
@@ -180,6 +201,10 @@ class GameAPI {
         return this.request('DELETE', `/games/${gameCode}/players`);
     }
 
+    async deleteGame(gameCode) {
+        return this.request('DELETE', `/games/${gameCode}`);
+    }
+
     async autoAssignGroups(gameCode, numTeams = 4) {
         return this.request('POST', `/games/${gameCode}/auto-assign-groups?num_teams=${numTeams}`);
     }
@@ -195,6 +220,19 @@ class GameAPI {
 
     async setNumberOfTeams(gameCode, numTeams) {
         return this.request('POST', `/games/${gameCode}/set-teams?num_teams=${numTeams}`);
+    }
+
+    // Alias for setNumberOfTeams
+    async setNumTeams(gameCode, numTeams) {
+        return this.setNumberOfTeams(gameCode, numTeams);
+    }
+
+    async setGameDuration(gameCode, durationMinutes) {
+        return this.request('POST', `/games/${gameCode}/set-duration?duration_minutes=${durationMinutes}`);
+    }
+
+    async updateTeamName(gameCode, teamNumber, teamName) {
+        return this.request('POST', `/games/${gameCode}/teams/${teamNumber}/set-name?name=${encodeURIComponent(teamName)}`);
     }
 
     // Player management
@@ -220,6 +258,25 @@ class GameAPI {
 
     async endGame(gameCode) {
         return this.request('POST', `/games/${gameCode}/end`);
+    }
+
+    // ==================== CHALLENGE METHODS ====================
+
+    async createChallenge(gameCode, challengeData) {
+        return this.request('POST', `/games/${gameCode}/challenges`, challengeData);
+    }
+
+    async getChallenges(gameCode, status = null) {
+        const statusParam = status ? `?status=${status}` : '';
+        return this.request('GET', `/games/${gameCode}/challenges${statusParam}`);
+    }
+
+    async updateChallenge(gameCode, challengeId, updateData) {
+        return this.request('PATCH', `/games/${gameCode}/challenges/${challengeId}`, updateData);
+    }
+
+    async deleteChallenge(gameCode, challengeId) {
+        return this.request('DELETE', `/games/${gameCode}/challenges/${challengeId}`);
     }
 }
 

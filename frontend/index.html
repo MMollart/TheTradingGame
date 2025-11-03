@@ -328,7 +328,39 @@
                 <!-- Game interface will be loaded based on role -->
             </div>
         </div>
+        
+        <!-- Waiting for Approval Screen -->
+        <div id="waiting-approval-screen" class="hidden">
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 64px; margin-bottom: 20px;">⏳</div>
+                <h2 style="color: #667eea; margin-bottom: 10px;">Waiting for Approval</h2>
+                <p style="color: #666; margin-bottom: 30px;">
+                    Your join request has been sent to the host.<br>
+                    Please wait while they approve your access.
+                </p>
+                
+                <div class="info" style="margin-bottom: 20px;">
+                    <strong>Game Code:</strong> <span id="waiting-game-code" style="font-size: 1.5em; letter-spacing: 3px; font-weight: bold;">------</span>
+                </div>
+                
+                <div style="padding: 20px; background: #f8f9fa; border-radius: 12px; margin-bottom: 20px;">
+                    <div class="spinner" style="margin: 0 auto 15px; width: 50px; height: 50px; border: 5px solid #eee; border-top: 5px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                    <p style="color: #999; font-style: italic;">Waiting for host approval...</p>
+                </div>
+                
+                <p style="color: #999; font-size: 14px;">
+                    This page will automatically refresh once you're approved.
+                </p>
+            </div>
+        </div>
     </div>
+    
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
     
     <script>
         const API_URL = 'http://localhost:8000';
@@ -541,7 +573,8 @@
                 
                 // Check if approval is needed (for non-authenticated users)
                 if (player.needs_approval) {
-                    alert('Your join request has been sent to the host. Please wait for approval.');
+                    // Show waiting screen and set up WebSocket to listen for approval
+                    showWaitingScreen(gameCode, player.id, playerName);
                     return;
                 }
                 
@@ -633,6 +666,69 @@
                 code += chars.charAt(Math.floor(Math.random() * chars.length));
             }
             return code;
+        }
+        
+        // Show waiting for approval screen
+        function showWaitingScreen(gameCode, playerId, playerName) {
+            // Hide join screen, show waiting screen
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('waiting-approval-screen').classList.remove('hidden');
+            
+            // Display game code
+            document.getElementById('waiting-game-code').textContent = gameCode;
+            
+            // Store info for redirect after approval
+            currentGameCode = gameCode;
+            currentPlayerId = playerId;
+            
+            // Set up WebSocket connection to listen for approval
+            setupWaitingWebSocket(gameCode, playerId, playerName);
+        }
+        
+        // Set up WebSocket for waiting player
+        function setupWaitingWebSocket(gameCode, playerId, playerName) {
+            const WS_URL = 'ws://localhost:8000';
+            const ws = new WebSocket(`${WS_URL}/ws/${gameCode}/${playerId}`);
+            
+            ws.onopen = () => {
+                console.log('[WaitingScreen] WebSocket connected');
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('[WaitingScreen] Received message:', data);
+                
+                // Listen for approval notification
+                if (data.type === 'player_approved' && data.player_id === playerId) {
+                    console.log('[WaitingScreen] Approved! Redirecting to dashboard...');
+                    
+                    // Show success message briefly
+                    const waitingDiv = document.querySelector('#waiting-approval-screen > div');
+                    waitingDiv.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
+                            <h2 style="color: #4caf50; margin-bottom: 10px;">Approved!</h2>
+                            <p style="color: #666;">You've been approved. Loading dashboard...</p>
+                        </div>
+                    `;
+                    
+                    // Close WebSocket and redirect to dashboard after brief delay
+                    // Extra delay to ensure database commit completes
+                    setTimeout(() => {
+                        ws.close();
+                        // Add timestamp to force fresh load and bypass any caching
+                        window.location.href = `dashboard.html?gameCode=${gameCode}&playerId=${playerId}&playerName=${encodeURIComponent(playerName)}&role=player&t=${Date.now()}`;
+                    }, 2000);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('[WaitingScreen] WebSocket error:', error);
+            };
+            
+            ws.onclose = () => {
+                console.log('[WaitingScreen] WebSocket disconnected');
+            };
         }
     </script>
     <script src="game-api.js?v=2"></script>

@@ -70,6 +70,7 @@ class GameSession(Base):
     status = Column(Enum(GameStatus), default=GameStatus.WAITING)
     game_state = Column(JSON)  # Store current game state
     num_teams = Column(Integer, nullable=True)  # Number of teams configured by host
+    game_duration_minutes = Column(Integer, nullable=True)  # Game duration in minutes (60, 90, 120, 150, 180, 210, 240)
     
     created_at = Column(DateTime, default=datetime.utcnow)
     started_at = Column(DateTime, nullable=True)
@@ -127,6 +128,46 @@ class GameEvent(Base):
     event_type = Column(String(50), nullable=False)  # trade, bank_transaction, etc.
     event_data = Column(JSON, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    game_session = relationship("GameSession")
+    player = relationship("Player")
+
+
+class ChallengeStatus(str, enum.Enum):
+    """Challenge lifecycle status"""
+    REQUESTED = "requested"  # Challenge requested, awaiting assignment
+    ASSIGNED = "assigned"    # Challenge assigned and active
+    COMPLETED = "completed"  # Challenge completed successfully
+    CANCELLED = "cancelled"  # Challenge cancelled by host/banker
+    DISMISSED = "dismissed"  # Challenge request dismissed
+    EXPIRED = "expired"      # Challenge expired (10 min timeout)
+
+
+class Challenge(Base):
+    """Active production challenges"""
+    __tablename__ = "challenges"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    game_session_id = Column(Integer, ForeignKey("game_sessions.id"), nullable=False)
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    
+    # Challenge details
+    building_type = Column(String(50), nullable=False)  # farm, mine, electrical_factory, medical_factory
+    building_name = Column(String(100), nullable=False)  # Formatted name with emoji
+    team_number = Column(Integer, nullable=False)
+    has_school = Column(Boolean, default=False)  # Whether team has a school (individual vs team-wide lock)
+    
+    # Challenge assignment details
+    challenge_type = Column(String(50), nullable=True)  # push_ups, sit_ups, etc.
+    challenge_description = Column(String(200), nullable=True)  # "20 Push-ups"
+    target_number = Column(Integer, nullable=True)
+    
+    # Lifecycle
+    status = Column(Enum(ChallengeStatus), default=ChallengeStatus.REQUESTED, nullable=False)
+    requested_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    assigned_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
     
     # Relationships
     game_session = relationship("GameSession")

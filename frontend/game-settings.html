@@ -80,6 +80,52 @@
             border-color: #667eea;
         }
 
+        .setting-item input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            margin: 10px 0;
+        }
+
+        .setting-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .setting-item input[type="range"]::-webkit-slider-thumb:hover {
+            background: #5568d3;
+            transform: scale(1.2);
+        }
+
+        .setting-item input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s;
+        }
+
+        .setting-item input[type="range"]::-moz-range-thumb:hover {
+            background: #5568d3;
+            transform: scale(1.2);
+        }
+
+        #duration-display {
+            color: #667eea;
+            font-weight: bold;
+        }
+
         .setting-description {
             font-size: 14px;
             color: #666;
@@ -217,6 +263,16 @@
             <h2>📜 Game Rules</h2>
             
             <div class="setting-item">
+                <label for="game-duration">Game Duration: <span id="duration-display">2 hours</span></label>
+                <input type="range" id="game-duration" min="60" max="240" step="30" value="120" 
+                       oninput="updateDurationDisplay(this.value)" 
+                       style="width: 100%; height: 8px; border-radius: 5px; background: #ddd; outline: none; cursor: pointer;">
+                <div class="setting-description">
+                    How long the game will last (1 to 4 hours in 30-minute intervals).
+                </div>
+            </div>
+
+            <div class="setting-item">
                 <label for="food-tax-minutes">Food Tax Timer (minutes)</label>
                 <input type="number" id="food-tax-minutes" min="5" max="60" value="15">
                 <div class="setting-description">
@@ -294,8 +350,25 @@
             }
         });
 
+        function updateDurationDisplay(minutes) {
+            const hours = Math.floor(minutes / 60);
+            const remainingMinutes = minutes % 60;
+            
+            let displayText = '';
+            if (hours > 0) {
+                displayText = hours + (hours === 1 ? ' hour' : ' hours');
+            }
+            if (remainingMinutes > 0) {
+                if (displayText) displayText += ' ';
+                displayText += remainingMinutes + ' minutes';
+            }
+            
+            document.getElementById('duration-display').textContent = displayText;
+        }
+
         async function saveSettingsAndContinue() {
             const numTeams = parseInt(document.getElementById('num-teams').value);
+            const gameDuration = parseInt(document.getElementById('game-duration').value);
             const foodTaxMinutes = parseInt(document.getElementById('food-tax-minutes').value);
             const startingResources = document.getElementById('starting-resources').value;
             const disasterFrequency = document.getElementById('disaster-frequency').value;
@@ -309,8 +382,11 @@
                 // Save number of teams
                 await gameAPI.setNumberOfTeams(currentGameCode, numTeams);
                 
+                // Save game duration
+                await gameAPI.setGameDuration(currentGameCode, gameDuration);
+                
                 // TODO: Save other settings to game_state when backend supports it
-                // For now, just save the teams configuration
+                // For now, just save the teams configuration and duration
 
                 showStatus('Settings saved successfully!', 'success');
                 

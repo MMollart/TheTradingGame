@@ -2,12 +2,13 @@
 The Trading Game - FastAPI Main Application
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from typing import List, Dict, Any, Optional
+import asyncio
 
 from database import get_db, init_db
 from models import User, GameSession, Player, GameConfiguration, GameStatus
@@ -221,6 +222,46 @@ def set_number_of_teams(
     }
 
 
+@app.post("/games/{game_code}/set-duration")
+def set_game_duration(
+    game_code: str,
+    duration_minutes: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Set the game duration in minutes.
+    Duration must be in 30-minute intervals from 60 to 240 minutes (1-4 hours).
+    Valid values: 60, 90, 120, 150, 180, 210, 240
+    """
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Validate duration is in 30-minute intervals between 1-4 hours
+    valid_durations = [60, 90, 120, 150, 180, 210, 240]
+    if duration_minutes not in valid_durations:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Duration must be one of {valid_durations} minutes (1-4 hours in 30-minute intervals)"
+        )
+    
+    game.game_duration_minutes = duration_minutes
+    db.commit()
+    db.refresh(game)
+    
+    hours = duration_minutes // 60
+    remaining_mins = duration_minutes % 60
+    duration_str = f"{hours} hour{'s' if hours != 1 else ''}"
+    if remaining_mins:
+        duration_str += f" {remaining_mins} minutes"
+    
+    return {
+        "success": True,
+        "message": f"Game duration set to {duration_str}",
+        "game_duration_minutes": duration_minutes
+    }
+
+
 @app.get("/games/{game_code}", response_model=GameSessionResponse)
 def get_game_session(game_code: str, db: Session = Depends(get_db)):
     """Get game session by game code"""
@@ -408,7 +449,7 @@ async def join_game(
 
 
 @app.put("/games/{game_code}/players/{player_id}/assign-role")
-def assign_player_role(
+async def assign_player_role(
     game_code: str,
     player_id: int,
     role: str,
@@ -437,13 +478,22 @@ def assign_player_role(
         player.group_number = None
     
     db.commit()
+    db.flush()
     db.refresh(player)
+    
+    # Notify player via WebSocket that their role has changed
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "player_role_changed",
+        "player_id": player.id,
+        "player_name": player.player_name,
+        "new_role": role
+    })
     
     return {"success": True, "player": player}
 
 
 @app.put("/games/{game_code}/players/{player_id}/approve")
-def approve_player(
+async def approve_player(
     game_code: str,
     player_id: int,
     db: Session = Depends(get_db)
@@ -463,7 +513,18 @@ def approve_player(
     
     player.is_approved = True
     db.commit()
+    db.flush()  # Ensure commit is fully written to database
     db.refresh(player)
+    
+    # Small delay to ensure database transaction completes
+    await asyncio.sleep(0.1)
+    
+    # Notify player via WebSocket that they've been approved
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "player_approved",
+        "player_id": player.id,
+        "player_name": player.player_name
+    })
     
     return {"success": True, "player": player}
 
@@ -487,7 +548,7 @@ def list_pending_players(game_code: str, db: Session = Depends(get_db)):
 
 
 @app.put("/games/{game_code}/players/{player_id}/assign-group")
-def assign_player_group(
+async def assign_player_group(
     game_code: str,
     player_id: int,
     group_number: int,
@@ -514,13 +575,22 @@ def assign_player_group(
     
     player.group_number = group_number
     db.commit()
+    db.flush()
     db.refresh(player)
+    
+    # Notify player via WebSocket that they've been assigned to a team
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "player_assigned_team",
+        "player_id": player.id,
+        "player_name": player.player_name,
+        "team_number": group_number
+    })
     
     return {"success": True, "player": player}
 
 
 @app.delete("/games/{game_code}/players/{player_id}/unassign-group")
-def unassign_player_group(
+async def unassign_player_group(
     game_code: str,
     player_id: int,
     db: Session = Depends(get_db)
@@ -541,6 +611,16 @@ def unassign_player_group(
     player.group_number = None
     db.commit()
     db.refresh(player)
+    
+    # Broadcast WebSocket event to the player who was unassigned
+    await manager.broadcast_to_game(
+        game_code.upper(),
+        {
+            "type": "player_unassigned_team",
+            "player_id": player.id,
+            "player_name": player.player_name
+        }
+    )
     
     return {"success": True, "player": player}
 
@@ -576,7 +656,7 @@ def remove_player_from_game(
 
 
 @app.delete("/games/{game_code}/players")
-def clear_all_players(
+async def clear_all_players(
     game_code: str,
     db: Session = Depends(get_db)
 ):
@@ -584,6 +664,12 @@ def clear_all_players(
     game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Get list of players to be removed (for notification)
+    players_to_remove = db.query(Player).filter(
+        Player.game_session_id == game.id,
+        Player.role != "host"
+    ).all()
     
     # Delete all players except the host
     deleted_count = db.query(Player).filter(
@@ -593,7 +679,53 @@ def clear_all_players(
     
     db.commit()
     
+    # Notify all players that lobby has been cleared
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "lobby_cleared",
+        "message": "The host has closed the lobby. You have been removed from the game."
+    })
+    
     return {"success": True, "message": f"Cleared {deleted_count} players from lobby", "deleted_count": deleted_count}
+
+
+@app.delete("/games/{game_code}")
+async def delete_game(
+    game_code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a game and all associated data (players, challenges, etc.)
+    This prevents the game code from being reused.
+    Player names can be reused in different games.
+    """
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Get player count before deletion
+    player_count = db.query(Player).filter(Player.game_session_id == game.id).count()
+    
+    # Notify all connected players that the game is being deleted
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "game_deleted",
+        "message": "This game has been deleted by the host."
+    })
+    
+    # SQLAlchemy will cascade delete players and challenges due to relationship configuration
+    # But we'll be explicit for clarity
+    
+    # Delete all players
+    db.query(Player).filter(Player.game_session_id == game.id).delete()
+    
+    # Delete the game session
+    db.delete(game)
+    db.commit()
+    
+    return {
+        "success": True, 
+        "message": f"Game {game_code.upper()} deleted successfully",
+        "deleted_players": player_count
+    }
 
 
 @app.post("/games/{game_code}/auto-assign-groups")
@@ -899,6 +1031,188 @@ def end_game(
     db.commit()
     
     return {"message": "Game ended", "scores": scores}
+
+
+# ==================== CHALLENGE ENDPOINTS ====================
+
+@app.post("/games/{game_code}/challenges")
+def create_challenge(
+    game_code: str,
+    player_id: int,
+    building_type: str,
+    building_name: str,
+    team_number: int,
+    has_school: bool,
+    db: Session = Depends(get_db)
+):
+    """Create a new challenge request"""
+    from models import Challenge, ChallengeStatus
+    
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Check if player already has an active challenge
+    existing = db.query(Challenge).filter(
+        Challenge.game_session_id == game.id,
+        Challenge.player_id == player_id,
+        Challenge.status.in_([ChallengeStatus.REQUESTED, ChallengeStatus.ASSIGNED])
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Player already has an active challenge")
+    
+    challenge = Challenge(
+        game_session_id=game.id,
+        player_id=player_id,
+        building_type=building_type,
+        building_name=building_name,
+        team_number=team_number,
+        has_school=has_school,
+        status=ChallengeStatus.REQUESTED
+    )
+    
+    db.add(challenge)
+    db.commit()
+    db.refresh(challenge)
+    
+    return {
+        "id": challenge.id,
+        "player_id": challenge.player_id,
+        "building_type": challenge.building_type,
+        "building_name": challenge.building_name,
+        "team_number": challenge.team_number,
+        "has_school": challenge.has_school,
+        "status": challenge.status.value,
+        "requested_at": challenge.requested_at.isoformat()
+    }
+
+
+@app.get("/games/{game_code}/challenges")
+def get_challenges(
+    game_code: str,
+    status: str = None,
+    db: Session = Depends(get_db)
+):
+    """Get all challenges for a game, optionally filtered by status"""
+    from models import Challenge, ChallengeStatus
+    
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    query = db.query(Challenge).filter(Challenge.game_session_id == game.id)
+    
+    if status:
+        query = query.filter(Challenge.status == status)
+    
+    challenges = query.all()
+    
+    return [{
+        "id": c.id,
+        "player_id": c.player_id,
+        "building_type": c.building_type,
+        "building_name": c.building_name,
+        "team_number": c.team_number,
+        "has_school": c.has_school,
+        "challenge_type": c.challenge_type,
+        "challenge_description": c.challenge_description,
+        "target_number": c.target_number,
+        "status": c.status.value,
+        "requested_at": c.requested_at.isoformat() if c.requested_at else None,
+        "assigned_at": c.assigned_at.isoformat() if c.assigned_at else None,
+        "completed_at": c.completed_at.isoformat() if c.completed_at else None
+    } for c in challenges]
+
+
+@app.patch("/games/{game_code}/challenges/{challenge_id}")
+def update_challenge(
+    game_code: str,
+    challenge_id: int,
+    status: str = None,
+    challenge_type: str = None,
+    challenge_description: str = None,
+    target_number: int = None,
+    db: Session = Depends(get_db)
+):
+    """Update a challenge (assign, complete, cancel, etc.)"""
+    from models import Challenge, ChallengeStatus
+    from datetime import datetime
+    
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    challenge = db.query(Challenge).filter(
+        Challenge.id == challenge_id,
+        Challenge.game_session_id == game.id
+    ).first()
+    
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    
+    # Update fields
+    if status:
+        challenge.status = ChallengeStatus(status)
+        
+        # Set timestamps based on status
+        if status == ChallengeStatus.ASSIGNED.value and not challenge.assigned_at:
+            challenge.assigned_at = datetime.utcnow()
+        elif status == ChallengeStatus.COMPLETED.value and not challenge.completed_at:
+            challenge.completed_at = datetime.utcnow()
+    
+    if challenge_type:
+        challenge.challenge_type = challenge_type
+    if challenge_description:
+        challenge.challenge_description = challenge_description
+    if target_number:
+        challenge.target_number = target_number
+    
+    db.commit()
+    db.refresh(challenge)
+    
+    return {
+        "id": challenge.id,
+        "player_id": challenge.player_id,
+        "building_type": challenge.building_type,
+        "building_name": challenge.building_name,
+        "team_number": challenge.team_number,
+        "has_school": challenge.has_school,
+        "challenge_type": challenge.challenge_type,
+        "challenge_description": challenge.challenge_description,
+        "target_number": challenge.target_number,
+        "status": challenge.status.value,
+        "requested_at": challenge.requested_at.isoformat() if challenge.requested_at else None,
+        "assigned_at": challenge.assigned_at.isoformat() if challenge.assigned_at else None,
+        "completed_at": challenge.completed_at.isoformat() if challenge.completed_at else None
+    }
+
+
+@app.delete("/games/{game_code}/challenges/{challenge_id}")
+def delete_challenge(
+    game_code: str,
+    challenge_id: int,
+    db: Session = Depends(get_db)
+):
+    """Delete a challenge (for cleanup)"""
+    from models import Challenge
+    
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    challenge = db.query(Challenge).filter(
+        Challenge.id == challenge_id,
+        Challenge.game_session_id == game.id
+    ).first()
+    
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    
+    db.delete(challenge)
+    db.commit()
+    
+    return {"message": "Challenge deleted"}
 
 
 if __name__ == "__main__":

@@ -55,6 +55,8 @@
                 <div class="dashboard-tabs" id="dashboard-tabs-container">
                     <button class="tab-btn active" id="tab-btn-controls" onclick="switchHostTab('controls')">🎮 Game Controls</button>
                     <button class="tab-btn" id="tab-btn-nations" onclick="switchHostTab('nations')">🌍 Nations Overview</button>
+                    <button class="tab-btn" id="tab-btn-resources" onclick="switchHostTab('resources')">📦 Team Resources</button>
+                    <button class="tab-btn" id="tab-btn-challenges" onclick="switchHostTab('challenges')">⏱️ Active Challenges</button>
                     <button class="tab-btn" id="tab-btn-banker" onclick="switchHostTab('banker')">🏦 Banker View</button>
                 </div>
                 
@@ -81,7 +83,8 @@
                             <button id="resume-game-btn" class="btn btn-success" disabled>▶️ Resume</button>
                             <button id="end-game-btn" class="btn btn-danger" disabled>🏁 End Game</button>
                             <button class="btn btn-secondary" onclick="openGameSettings()">⚙️ Settings</button>
-                            <button class="btn btn-danger" onclick="clearAllPlayers()">🗑️ Clear Lobby</button>
+                            <button class="btn btn-warning" onclick="clearAllPlayers()">👥 Remove All Players</button>
+                            <button class="btn btn-danger" onclick="deleteGame()">🗑️ Delete Game</button>
                         </div>
                         <div class="game-status">
                             Status: <span id="game-status-display">Waiting</span>
@@ -169,6 +172,38 @@
                 </div>
                 <!-- End Nations Overview Tab -->
                 
+                <!-- Team Resources Tab -->
+                <div id="host-tab-resources" class="host-tab-content">
+                    <div class="dashboard-grid">
+                        <div class="card full-width">
+                            <h3>📦 Team Resources & Buildings</h3>
+                            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                                Quick overview of each team's current resources and buildings
+                            </p>
+                            <div id="team-resources-overview" class="teams-resources-grid">
+                                <!-- Team resource cards will be added here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End Team Resources Tab -->
+                
+                <!-- Active Challenges Tab -->
+                <div id="host-tab-challenges" class="host-tab-content">
+                    <div class="dashboard-grid">
+                        <div class="card full-width">
+                            <h3>⏱️ Active Challenges</h3>
+                            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                                Monitor active challenges with countdown timers. Challenges expire after 10 minutes.
+                            </p>
+                            <div id="active-challenges-list" class="active-challenges-list">
+                                <p style="color: #999; font-style: italic;">No active challenges</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End Active Challenges Tab -->
+                
                 <!-- Banker View Tab (Host Only) -->
                 <div id="host-tab-banker" class="host-tab-content">
                     <div class="dashboard-grid">
@@ -203,6 +238,19 @@
                                     <label>Medical Goods</label>
                                     <input type="number" id="host-price-medical-goods" min="1" value="20">
                                     <button onclick="updatePrice('medical_goods', 'host')">Update</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Challenge Requests -->
+                        <div class="card full-width" id="card-challenge-requests">
+                            <h3>🏋️ Production Challenge Requests</h3>
+                            <div class="challenge-requests-section">
+                                <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                                    Players will request challenges before they can produce resources. Assign appropriate physical challenges.
+                                </p>
+                                <div id="challenge-requests-list" class="challenge-requests-list">
+                                    <p style="color: #999; font-style: italic;">No pending challenge requests</p>
                                 </div>
                             </div>
                         </div>
@@ -256,11 +304,11 @@
 
             <!-- Nation/Player Dashboard -->
             <div id="nation-dashboard" class="role-dashboard hidden">
-                <h2 id="nation-title">Nation Dashboard</h2>
+                <h2 id="player-title">Player Dashboard</h2>
                 
                 <div class="dashboard-grid">
                     <!-- Resources -->
-                    <div class="card">
+                    <div class="card" id="card-resources">
                         <h3>Resources</h3>
                         <div id="nation-resources" class="resource-list">
                             <!-- Resources will be listed here -->
@@ -268,7 +316,7 @@
                     </div>
 
                     <!-- Buildings -->
-                    <div class="card">
+                    <div class="card" id="card-buildings">
                         <h3>Buildings</h3>
                         <div id="nation-buildings" class="building-list">
                             <!-- Buildings will be listed here -->
@@ -281,50 +329,67 @@
                         <div id="team-info" style="margin-bottom: 12px; font-size: 16px; color: #666;">
                             <!-- Team assignment info will appear here -->
                         </div>
+                        <div id="team-name-section" style="margin-bottom: 15px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea; display: none;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-weight: 600; color: #333;">Team Name:</span>
+                                <span id="current-team-name" ondblclick="editPlayerTeamName()" title="Double-click to edit" style="flex: 1; color: #667eea; font-weight: 600; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background 0.2s;">Loading...</span>
+                                <input type="text" id="team-name-edit-input" style="display: none; flex: 1; padding: 6px 10px; border: 2px solid #667eea; border-radius: 4px; font-size: 14px; font-weight: 600;" />
+                                <button class="btn-icon-edit" onclick="editPlayerTeamName()" title="Edit team name" style="background: #667eea; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                         <div id="team-members-list" class="team-members-list">
                             <!-- Team members will be listed here -->
                         </div>
                     </div>
 
                     <!-- Production -->
-                    <div class="card full-width">
+                    <div class="card full-width" id="card-production">
                         <h3>Production</h3>
                         <div id="production-controls" class="production-grid">
                             <div class="production-item">
                                 <h4>🌾 Farm</h4>
                                 <p>Produces: Food</p>
                                 <p>Buildings: <span id="farm-count">0</span></p>
-                                <p>Challenge: <span id="farm-challenge">20 Press-ups</span></p>
-                                <button class="btn btn-success" onclick="startProduction('farm')">Produce</button>
+                                <p class="challenge-display" id="farm-challenge-display" style="display: none;">Challenge: <span id="farm-challenge">Awaiting challenge...</span></p>
+                                <button class="btn btn-primary" onclick="requestChallenge('farm')" id="farm-request-btn">📋 Request Challenge</button>
+                                <button class="btn btn-success" onclick="startProduction('farm')" id="farm-produce-btn" style="display: none;">✅ Complete Challenge</button>
                             </div>
                             <div class="production-item">
                                 <h4>⛏️ Mine</h4>
                                 <p>Produces: Raw Materials</p>
                                 <p>Buildings: <span id="mine-count">0</span></p>
-                                <p>Challenge: <span id="mine-challenge">30 Sit-ups</span></p>
-                                <button class="btn btn-success" onclick="startProduction('mine')">Produce</button>
+                                <p class="challenge-display" id="mine-challenge-display" style="display: none;">Challenge: <span id="mine-challenge">Awaiting challenge...</span></p>
+                                <button class="btn btn-primary" onclick="requestChallenge('mine')" id="mine-request-btn">📋 Request Challenge</button>
+                                <button class="btn btn-success" onclick="startProduction('mine')" id="mine-produce-btn" style="display: none;">✅ Complete Challenge</button>
                             </div>
                             <div class="production-item">
                                 <h4>⚡ Electrical Factory</h4>
                                 <p>Produces: Electrical Goods</p>
                                 <p>Requires: 5 Raw Materials per building</p>
                                 <p>Buildings: <span id="electrical_factory-count">0</span></p>
-                                <p>Challenge: <span id="electrical_factory-challenge">15 Burpees</span></p>
-                                <button class="btn btn-success" onclick="startProduction('electrical_factory')">Produce</button>
+                                <p class="challenge-display" id="electrical_factory-challenge-display" style="display: none;">Challenge: <span id="electrical_factory-challenge">Awaiting challenge...</span></p>
+                                <button class="btn btn-primary" onclick="requestChallenge('electrical_factory')" id="electrical_factory-request-btn">📋 Request Challenge</button>
+                                <button class="btn btn-success" onclick="startProduction('electrical_factory')" id="electrical_factory-produce-btn" style="display: none;">✅ Complete Challenge</button>
                             </div>
                             <div class="production-item">
                                 <h4>🏥 Medical Factory</h4>
                                 <p>Produces: Medical Goods</p>
                                 <p>Requires: 5 Food per building</p>
                                 <p>Buildings: <span id="medical_factory-count">0</span></p>
-                                <p>Challenge: <span id="medical_factory-challenge">25 Star Jumps</span></p>
-                                <button class="btn btn-success" onclick="startProduction('medical_factory')">Produce</button>
+                                <p class="challenge-display" id="medical_factory-challenge-display" style="display: none;">Challenge: <span id="medical_factory-challenge">Awaiting challenge...</span></p>
+                                <button class="btn btn-primary" onclick="requestChallenge('medical_factory')" id="medical_factory-request-btn">📋 Request Challenge</button>
+                                <button class="btn btn-success" onclick="startProduction('medical_factory')" id="medical_factory-produce-btn" style="display: none;">✅ Complete Challenge</button>
                             </div>
                         </div>
                     </div>
 
                     <!-- Trading -->
-                    <div class="card full-width">
+                    <div class="card full-width" id="card-trading">
                         <h3>Trading</h3>
                         <div class="trading-controls">
                             <button class="btn btn-primary" onclick="openTradeWindow('bank')">💰 Trade with Bank</button>
@@ -333,7 +398,7 @@
                     </div>
 
                     <!-- Build Buildings -->
-                    <div class="card full-width">
+                    <div class="card full-width" id="card-build-buildings">
                         <h3>Build New Buildings</h3>
                         <div id="build-controls" class="build-grid">
                             <!-- Building options will be added here -->
@@ -393,12 +458,102 @@
                 <div class="setting-section">
                     <h3>Game Rules</h3>
                     <div class="setting-control">
+                        <label for="game-duration-modal">Game Duration: <span id="duration-display-modal">2 hours</span></label>
+                        <input type="range" id="game-duration-modal" min="60" max="240" step="30" value="120" 
+                               oninput="updateDurationDisplayModal(this.value)">
+                        <small style="color: #666;">How long the game will last (1 to 4 hours)</small>
+                    </div>
+                    <div class="setting-control">
                         <label for="food-tax-timer">Food Tax Timer (minutes):</label>
                         <input type="number" id="food-tax-timer" min="1" max="60" value="15">
                     </div>
                     <div class="setting-control">
                         <label for="starting-resources">Starting Resources per Team:</label>
                         <input type="number" id="starting-resources" min="0" max="1000" value="100">
+                    </div>
+                    <div class="setting-control">
+                        <label for="allow-team-names">
+                            <input type="checkbox" id="allow-team-names" style="width: auto; margin-right: 8px;">
+                            Allow teams to choose their own names
+                        </label>
+                    </div>
+                </div>
+
+                <div class="setting-section">
+                    <h3>🏋️ Challenge Activities</h3>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                        Configure default target numbers for production challenges
+                    </p>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                <th style="padding: 10px; text-align: left; font-weight: 600;">Activity</th>
+                                <th style="padding: 10px; text-align: center; font-weight: 600; width: 150px;">Default Target</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                <td style="padding: 10px;">Push-ups</td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <input type="number" id="challenge-push_ups" min="1" max="999" value="20" 
+                                           style="width: 80px; padding: 5px; border: 2px solid #ddd; border-radius: 4px; text-align: center;">
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                <td style="padding: 10px;">Sit-ups</td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <input type="number" id="challenge-sit_ups" min="1" max="999" value="20" 
+                                           style="width: 80px; padding: 5px; border: 2px solid #ddd; border-radius: 4px; text-align: center;">
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                <td style="padding: 10px;">Burpees</td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <input type="number" id="challenge-burpees" min="1" max="999" value="20" 
+                                           style="width: 80px; padding: 5px; border: 2px solid #ddd; border-radius: 4px; text-align: center;">
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                <td style="padding: 10px;">Star Jumps</td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <input type="number" id="challenge-star_jumps" min="1" max="999" value="20" 
+                                           style="width: 80px; padding: 5px; border: 2px solid #ddd; border-radius: 4px; text-align: center;">
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                <td style="padding: 10px;">Squats</td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <input type="number" id="challenge-squats" min="1" max="999" value="20" 
+                                           style="width: 80px; padding: 5px; border: 2px solid #ddd; border-radius: 4px; text-align: center;">
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                <td style="padding: 10px;">Lunges</td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <input type="number" id="challenge-lunges" min="1" max="999" value="20" 
+                                           style="width: 80px; padding: 5px; border: 2px solid #ddd; border-radius: 4px; text-align: center;">
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #dee2e6;">
+                                <td style="padding: 10px;">Plank (seconds)</td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <input type="number" id="challenge-plank" min="1" max="999" value="20" 
+                                           style="width: 80px; padding: 5px; border: 2px solid #ddd; border-radius: 4px; text-align: center;">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px;">Jumping Jacks</td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <input type="number" id="challenge-jumping_jacks" min="1" max="999" value="20" 
+                                           style="width: 80px; padding: 5px; border: 2px solid #ddd; border-radius: 4px; text-align: center;">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 15px; text-align: right;">
+                        <button class="btn btn-primary" onclick="applyChallengeDefaults()" style="padding: 8px 20px; font-size: 14px;">
+                            ✓ Apply Challenge Defaults
+                        </button>
                     </div>
                 </div>
 
