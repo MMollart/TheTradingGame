@@ -1011,7 +1011,7 @@ async def websocket_endpoint(websocket: WebSocket, game_code: str, player_id: in
 # ==================== Game Action Endpoints ====================
 
 @app.post("/games/{game_code}/start")
-def start_game(
+async def start_game(
     game_code: str,
     db: Session = Depends(get_db)
 ):
@@ -1045,11 +1045,21 @@ def start_game(
     game.status = GameStatus.IN_PROGRESS
     db.commit()
     
+    # Broadcast game status change to all players
+    await manager.broadcast_to_game(
+        game_code.upper(),
+        {
+            "type": "game_status_changed",
+            "status": "in_progress",
+            "message": "Game has started!"
+        }
+    )
+    
     return {"message": "Game started", "game_code": game_code.upper()}
 
 
 @app.post("/games/{game_code}/pause")
-def pause_game(
+async def pause_game(
     game_code: str,
     db: Session = Depends(get_db)
 ):
@@ -1064,11 +1074,21 @@ def pause_game(
     game.status = GameStatus.PAUSED
     db.commit()
     
+    # Broadcast game status change to all players
+    await manager.broadcast_to_game(
+        game_code.upper(),
+        {
+            "type": "game_status_changed",
+            "status": "paused",
+            "message": "Game has been paused"
+        }
+    )
+    
     return {"message": "Game paused"}
 
 
 @app.post("/games/{game_code}/end")
-def end_game(
+async def end_game(
     game_code: str,
     db: Session = Depends(get_db)
 ):
@@ -1104,6 +1124,17 @@ def end_game(
     game.status = GameStatus.COMPLETED
     game.game_state = {"final_scores": scores}
     db.commit()
+    
+    # Broadcast game status change to all players
+    await manager.broadcast_to_game(
+        game_code.upper(),
+        {
+            "type": "game_status_changed",
+            "status": "completed",
+            "message": "Game has ended!",
+            "scores": scores
+        }
+    )
     
     return {"message": "Game ended", "scores": scores}
 

@@ -275,6 +275,31 @@ function connectWebSocket() {
         }
     });
     
+    gameWS.on('game_status_changed', (data) => {
+        console.log('[game_status_changed] Game status changed:', data);
+        // Update the game status for all players
+        currentGameStatus = data.status;
+        updateGameStatusDisplay();
+        addEventLog(data.message, data.status === 'in_progress' ? 'success' : 'info');
+        
+        // Update control buttons visibility
+        updateControlButtons();
+        
+        // If game started, refresh player state
+        if (data.status === 'in_progress') {
+            loadGameData().then(() => {
+                updatePlayerCardsVisibility();
+                updateDashboard();
+            });
+        }
+        
+        // If game ended, show final scores
+        if (data.status === 'completed' && data.scores) {
+            // TODO: Display final scores in a modal or dedicated section
+            console.log('Final scores:', data.scores);
+        }
+    });
+    
     gameWS.on('lobby_cleared', (data) => {
         console.log('[lobby_cleared] Lobby has been cleared by host');
         // If I'm not the host, redirect to join screen
@@ -312,6 +337,9 @@ async function loadGameData() {
         
         gameState = game.game_state || {};
         currentGameStatus = game.status || 'waiting';
+        
+        // Update game status display
+        updateGameStatusDisplay();
         
         // Update test mode toggle state based on game status
         updateTestModeToggleState();
@@ -821,6 +849,10 @@ function addPlayerToTeamBox(player) {
     const playerItem = document.createElement('div');
     playerItem.className = 'team-player-item';
     playerItem.dataset.playerId = player.id;
+    playerItem.dataset.playerName = player.player_name;
+    playerItem.dataset.currentTeam = player.group_number;
+    playerItem.draggable = true;
+    playerItem.ondragstart = handleDragStart;
     playerItem.innerHTML = `
         <span><strong>${player.player_name}</strong></span>
         <button class="remove-btn" onclick="unassignPlayer(${player.id}, '${player.player_name}')">✕</button>
@@ -845,13 +877,27 @@ async function handleDrop(e) {
     
     const playerId = parseInt(e.dataTransfer.getData('playerId'));
     const playerName = e.dataTransfer.getData('playerName');
-    const teamNumber = parseInt(e.currentTarget.dataset.teamNumber);
+    const currentTeam = e.dataTransfer.getData('currentTeam');
+    const targetTeam = parseInt(e.currentTarget.dataset.teamNumber);
     
-    if (!playerId || !teamNumber) return;
+    if (!playerId || !targetTeam) return;
+    
+    // Check if player is already on this team
+    if (currentTeam && parseInt(currentTeam) === targetTeam) {
+        console.log(`${playerName} is already on Team ${targetTeam}`);
+        return;
+    }
     
     try {
-        await gameAPI.assignPlayerGroup(currentGameCode, playerId, teamNumber);
-        console.log(`Assigned ${playerName} to Team ${teamNumber}`);
+        await gameAPI.assignPlayerGroup(currentGameCode, playerId, targetTeam);
+        
+        if (currentTeam) {
+            console.log(`Moved ${playerName} from Team ${currentTeam} to Team ${targetTeam}`);
+            addEventLog(`${playerName} moved from Team ${currentTeam} to Team ${targetTeam}`, 'info');
+        } else {
+            console.log(`Assigned ${playerName} to Team ${targetTeam}`);
+            addEventLog(`${playerName} assigned to Team ${targetTeam}`, 'success');
+        }
         
         // Refresh displays
         await loadTeamAssignments();
@@ -1116,6 +1162,46 @@ function updateControlButtons() {
     }
 }
 
+function updateGameStatusDisplay() {
+    const statusDisplay = document.getElementById('game-status-display');
+    
+    if (!statusDisplay) {
+        console.warn('updateGameStatusDisplay: Status display element not found');
+        return;
+    }
+    
+    const gameStatus = currentGameStatus || 'waiting';
+    
+    // Map status values to display text
+    const statusMap = {
+        'waiting': 'Waiting',
+        'in_progress': 'In Progress',
+        'paused': 'Paused',
+        'completed': 'Completed'
+    };
+    
+    // Update text
+    statusDisplay.textContent = statusMap[gameStatus] || 'Unknown';
+    
+    // Update styling based on status
+    statusDisplay.className = ''; // Clear existing classes
+    switch(gameStatus) {
+        case 'waiting':
+            statusDisplay.style.color = '#6c757d'; // Gray
+            break;
+        case 'in_progress':
+            statusDisplay.style.color = '#28a745'; // Green
+            statusDisplay.style.fontWeight = 'bold';
+            break;
+        case 'paused':
+            statusDisplay.style.color = '#ffc107'; // Yellow/Orange
+            break;
+        case 'completed':
+            statusDisplay.style.color = '#dc3545'; // Red
+            break;
+    }
+}
+
 // Load game data and create team boxes if teams are configured
 async function loadGameAndCreateTeamBoxes() {
     try {
@@ -1206,10 +1292,14 @@ async function refreshUnassigned() {
 function handleDragStart(e) {
     const playerId = e.currentTarget.dataset.playerId;
     const playerName = e.currentTarget.dataset.playerName;
+    const currentTeam = e.currentTarget.dataset.currentTeam; // May be undefined for unassigned
     
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('playerId', playerId);
     e.dataTransfer.setData('playerName', playerName);
+    if (currentTeam) {
+        e.dataTransfer.setData('currentTeam', currentTeam);
+    }
     
     e.currentTarget.classList.add('dragging');
     
@@ -1680,22 +1770,33 @@ async function updateNationsOverview() {
 
 async function startGame() {
     try {
+        console.log('[startGame] Starting game...');
         await gameAPI.startGame(currentGameCode);
+        console.log('[startGame] Game started on backend');
+        
+        // Note: WebSocket will broadcast the status change to all players
+        // This function is just for the host's immediate feedback
         currentGameStatus = 'in_progress';
+        
         addEventLog('Game started!', 'success');
         
-        // Update button states
+        // Update UI immediately
         updateControlButtons();
+        updateGameStatusDisplay();
+        console.log('[startGame] Control buttons and status display updated');
         
         // Disable test mode when game starts
         updateTestModeToggleState();
         
-        // Refresh game data for all players
-        await loadGameData();
-        
         // Update player card visibility (for players)
         updatePlayerCardsVisibility();
+        console.log('[startGame] Player cards visibility updated');
+        
+        // Update dashboard to show new status
+        updateDashboard();
+        console.log('[startGame] Dashboard updated');
     } catch (error) {
+        console.error('[startGame] Error:', error);
         alert('Failed to start game: ' + error.message);
     }
 }
@@ -1703,9 +1804,11 @@ async function startGame() {
 async function pauseGame() {
     try {
         await gameAPI.pauseGame(currentGameCode);
+        // Note: WebSocket will broadcast the status change
+        currentGameStatus = 'paused';
         addEventLog('Game paused');
-        document.getElementById('pause-game-btn').disabled = true;
-        document.getElementById('resume-game-btn').disabled = false;
+        updateControlButtons();
+        updateGameStatusDisplay();
     } catch (error) {
         alert('Failed to pause game: ' + error.message);
     }
@@ -1714,9 +1817,11 @@ async function pauseGame() {
 async function resumeGame() {
     try {
         await gameAPI.startGame(currentGameCode);
+        // Note: WebSocket will broadcast the status change
+        currentGameStatus = 'in_progress';
         addEventLog('Game resumed');
-        document.getElementById('pause-game-btn').disabled = false;
-        document.getElementById('resume-game-btn').disabled = true;
+        updateControlButtons();
+        updateGameStatusDisplay();
     } catch (error) {
         alert('Failed to resume game: ' + error.message);
     }
@@ -1727,7 +1832,11 @@ async function endGame() {
     
     try {
         const result = await gameAPI.endGame(currentGameCode);
+        // Note: WebSocket will broadcast the status change
+        currentGameStatus = 'completed';
         addEventLog('Game ended!', 'success');
+        updateControlButtons();
+        updateGameStatusDisplay();
         
         // Show final scores
         showFinalScores(result.scores);
