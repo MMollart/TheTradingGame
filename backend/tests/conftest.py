@@ -42,14 +42,21 @@ def db():
 
 @pytest.fixture(scope="function")
 def client(db):
-    """Create a test client with overridden database"""
+    """Create a test client with overridden database and optional auth bypass"""
     def override_get_db():
         try:
             yield db
         finally:
             pass
     
+    # Override auth to return None (simulate unauthenticated but allowed access)
+    from auth import get_current_user_optional
+    def override_get_current_user_optional():
+        return None
+    
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user_optional] = override_get_current_user_optional
+    
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -57,13 +64,31 @@ def client(db):
 
 @pytest.fixture
 def sample_game(client):
-    """Create a sample game session"""
-    response = client.post("/games/", json={
-        "host_name": "TestHost",
-        "num_teams": 4
+    """Create a sample game session with host"""
+    # Step 1: Create game session
+    response = client.post("/games", json={
+        "config_id": None,
+        "config_data": {}
     })
-    assert response.status_code == 201
+    assert response.status_code == 201, f"Failed to create game: {response.status_code} - {response.text}"
     game_data = response.json()
+    game_code = game_data["game_code"]
+    
+    # Step 2: Set number of teams
+    teams_response = client.post(f"/games/{game_code}/set-teams", params={"num_teams": 4})
+    assert teams_response.status_code == 200, f"Failed to set teams: {teams_response.status_code}"
+    
+    # Step 3: Host joins the game
+    host_response = client.post("/api/join", json={
+        "game_code": game_code,
+        "player_name": "TestHost",
+        "role": "host"  # Host role auto-approves
+    })
+    assert host_response.status_code == 200, f"Failed to add host: {host_response.status_code} - {host_response.text}"
+    
+    # Return game data with updated team count
+    game_data["num_teams"] = 4
+    game_data["host_player"] = host_response.json()
     return game_data
 
 
@@ -73,16 +98,32 @@ def sample_players(client, sample_game):
     game_code = sample_game["game_code"]
     players = []
     
-    # Add host (already exists from game creation)
-    # Add 3 regular players
+    # Get the host player that was created with the game
+    host_response = client.get(f"/games/{game_code}/players")
+    if host_response.status_code == 200:
+        host_players = [p for p in host_response.json() if p.get("role") == "host"]
+        if host_players:
+            players.extend(host_players)
+    
+    # Add 3 regular players (will join as guests with is_approved=False)
     for i in range(1, 4):
         response = client.post("/api/join", json={
             "game_code": game_code,
             "player_name": f"Player{i}",
             "role": "player"
         })
-        assert response.status_code == 200
-        players.append(response.json())
+        assert response.status_code == 200, f"Failed to add player: {response.status_code} - {response.text}"
+        player_data = response.json()
+        
+        # Approve the player immediately for testing
+        if not player_data.get("is_approved", False):
+            approve_response = client.put(
+                f"/games/{game_code}/players/{player_data['id']}/approve"
+            )
+            if approve_response.status_code == 200:
+                player_data = approve_response.json()
+        
+        players.append(player_data)
     
     return players
 

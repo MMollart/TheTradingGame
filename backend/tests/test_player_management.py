@@ -10,23 +10,26 @@ class TestPlayerJoining:
     def test_player_joins_game(self, client, sample_game):
         """Test a player successfully joining a game"""
         game_code = sample_game["game_code"]
-        response = client.post(f"/games/{game_code}/join", json={
+        response = client.post("/api/join", json={
+            "game_code": game_code,
             "player_name": "NewPlayer",
-            "is_guest": False
+            "role": "player"
         })
         
         assert response.status_code == 200
         data = response.json()
         assert data["player_name"] == "NewPlayer"
         assert data["role"] == "player"
-        assert data["is_approved"] == True
+        # Unauthenticated users need approval
+        assert data["is_approved"] == False
     
     def test_guest_joins_game(self, client, sample_game):
         """Test a guest joining a game (needs approval)"""
         game_code = sample_game["game_code"]
-        response = client.post(f"/games/{game_code}/join", json={
+        response = client.post("/api/join", json={
+            "game_code": game_code,
             "player_name": "GuestPlayer",
-            "is_guest": True
+            "role": "player"
         })
         
         assert response.status_code == 200
@@ -36,9 +39,10 @@ class TestPlayerJoining:
     
     def test_join_nonexistent_game(self, client):
         """Test joining a non-existent game"""
-        response = client.post("/games/XXXXXX/join", json={
+        response = client.post("/api/join", json={
+            "game_code": "XXXXXX",
             "player_name": "Player",
-            "is_guest": False
+            "role": "player"
         })
         
         assert response.status_code == 404
@@ -48,19 +52,21 @@ class TestPlayerJoining:
         game_code = sample_game["game_code"]
         
         # First player joins
-        client.post(f"/games/{game_code}/join", json={
+        client.post("/api/join", json={
+            "game_code": game_code,
             "player_name": "SameName",
-            "is_guest": False
+            "role": "player"
         })
         
         # Second player with same name
-        response = client.post(f"/games/{game_code}/join", json={
+        response = client.post("/api/join", json={
+            "game_code": game_code,
             "player_name": "SameName",
-            "is_guest": False
+            "role": "player"
         })
         
-        # Should either reject or allow (depending on business logic)
-        assert response.status_code in [200, 400, 409]
+        # Should reject duplicate names
+        assert response.status_code == 400
 
 
 class TestPlayerRetrieval:
@@ -96,9 +102,10 @@ class TestPlayerApproval:
         game_code = sample_game["game_code"]
         
         # Add guest player
-        join_response = client.post(f"/games/{game_code}/join", json={
+        join_response = client.post("/api/join", json={
+            "game_code": game_code,
             "player_name": "GuestToApprove",
-            "is_guest": True
+            "role": "player"
         })
         player_id = join_response.json()["id"]
         
@@ -130,13 +137,14 @@ class TestRoleAssignment:
         
         response = client.put(
             f"/games/{game_code}/players/{player_id}/assign-role",
-            params={"new_role": "banker"}
+            params={"role": "banker"}
         )
         
         assert response.status_code == 200
         data = response.json()
-        assert data["role"] == "banker"
-        assert data["group_number"] is None  # Bankers shouldn't have team
+        assert data["success"] == True
+        assert data["player"]["role"] == "banker"
+        assert data["player"]["group_number"] is None  # Bankers shouldn't have team
     
     def test_demote_banker_to_player(self, client, sample_game, sample_players):
         """Test demoting a banker back to player"""
@@ -146,17 +154,17 @@ class TestRoleAssignment:
         # First promote to banker
         client.put(
             f"/games/{game_code}/players/{player_id}/assign-role",
-            params={"new_role": "banker"}
+            params={"role": "banker"}
         )
         
         # Then demote back to player
         response = client.put(
             f"/games/{game_code}/players/{player_id}/assign-role",
-            params={"new_role": "player"}
+            params={"role": "player"}
         )
         
         assert response.status_code == 200
-        assert response.json()["role"] == "player"
+        assert response.json()["player"]["role"] == "player"
     
     def test_assign_invalid_role(self, client, sample_game, sample_players):
         """Test assigning an invalid role"""
@@ -165,7 +173,7 @@ class TestRoleAssignment:
         
         response = client.put(
             f"/games/{game_code}/players/{player_id}/assign-role",
-            params={"new_role": "invalid_role"}
+            params={"role": "invalid_role"}
         )
         
         assert response.status_code == 422  # Validation error
@@ -191,7 +199,8 @@ class TestPlayerRemoval:
         # Get host player
         players_response = client.get(f"/games/{game_code}/players")
         players = players_response.json()
-        host = next(p for p in players if p["role"] == "host")
+        host = next((p for p in players if p["role"] == "host"), None)
+        assert host is not None, "Host player not found"
         
         response = client.delete(f"/games/{game_code}/players/{host['id']}")
         

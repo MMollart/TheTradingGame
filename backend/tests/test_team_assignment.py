@@ -19,7 +19,8 @@ class TestTeamAssignment:
         
         assert response.status_code == 200
         data = response.json()
-        assert data["group_number"] == 1
+        assert data["success"] == True
+        assert data["player"]["group_number"] == 1
     
     def test_assign_multiple_players_to_teams(self, client, sample_game, sample_players):
         """Test assigning multiple players to different teams"""
@@ -31,7 +32,7 @@ class TestTeamAssignment:
                 params={"group_number": i}
             )
             assert response.status_code == 200
-            assert response.json()["group_number"] == i
+            assert response.json()["player"]["group_number"] == i
     
     def test_reassign_player_to_different_team(self, client, sample_game, sample_players):
         """Test moving a player from one team to another"""
@@ -51,7 +52,7 @@ class TestTeamAssignment:
         )
         
         assert response.status_code == 200
-        assert response.json()["group_number"] == 2
+        assert response.json()["player"]["group_number"] == 2
     
     def test_assign_to_invalid_team_number(self, client, sample_game, sample_players):
         """Test assigning to invalid team number"""
@@ -88,7 +89,8 @@ class TestTeamUnassignment:
         
         assert response.status_code == 200
         data = response.json()
-        assert data["group_number"] is None
+        assert data["success"] == True
+        assert data["player"]["group_number"] is None
     
     def test_unassign_unassigned_player(self, client, sample_game, sample_players):
         """Test unassigning a player who has no team"""
