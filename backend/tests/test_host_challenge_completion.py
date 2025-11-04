@@ -17,7 +17,6 @@ def test_host_can_complete_challenge_without_banker(client, sample_game, db):
     "Banker not found" error.
     """
     game_code = sample_game["game_code"]
-    host_player = sample_game["host_player"]
     
     # Add a player to Team 1
     player_response = client.post("/api/join", json={

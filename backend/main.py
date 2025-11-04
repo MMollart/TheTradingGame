@@ -1500,7 +1500,6 @@ async def complete_challenge_with_bank_transfer(
     
     # Initialize bank inventory if it doesn't exist (for hosts managing bank)
     if 'bank_inventory' not in bank_manager.player_state:
-        from game_logic import GameLogic
         bank_manager.player_state = GameLogic.initialize_banker()
     
     bank_inventory = bank_manager.player_state.get('bank_inventory', {})
