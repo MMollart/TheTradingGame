@@ -275,8 +275,8 @@ class GameAPI {
     }
 
     async getChallenges(gameCode, status = null) {
-        const statusParam = status ? `?status=${status}` : '';
-        return this.request('GET', `/games/${gameCode}/challenges${statusParam}`);
+        // Use v2 API endpoint which returns proper challenge format
+        return this.request('GET', `/api/v2/challenges/${gameCode}/active`);
     }
 
     async updateChallenge(gameCode, challengeId, updateData) {

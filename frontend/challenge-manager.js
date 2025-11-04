@@ -50,20 +50,36 @@ class ChallengeManager {
     async loadFromServer() {
         try {
             const challenges = await this.gameAPI.getChallenges(this.gameCode);
+            console.log('[ChallengeManager] loadFromServer - Raw challenges from API:', challenges);
+            
+            // Fetch player names to enrich challenge data
+            const players = await this.gameAPI.getPlayers(this.gameCode);
+            const playerMap = new Map(players.map(p => [p.id, p.player_name]));
             
             // Clear and rebuild challenge map
             this.challenges.clear();
             
             for (const challenge of challenges) {
+                console.log('[ChallengeManager] loadFromServer - Processing challenge:', challenge);
+                console.log('[ChallengeManager] loadFromServer - Challenge status:', challenge.status);
+                console.log('[ChallengeManager] loadFromServer - Challenge assigned_at:', challenge.assigned_at);
+                
                 // Only load active challenges
                 if (challenge.status === 'requested' || challenge.status === 'assigned') {
                     const key = this._getChallengeKey(challenge);
-                    this.challenges.set(key, this._normalizeChallenge(challenge));
+                    const normalizedChallenge = this._normalizeChallenge(challenge);
+                    console.log('[ChallengeManager] loadFromServer - Normalized challenge:', normalizedChallenge);
+                    console.log('[ChallengeManager] loadFromServer - Normalized status:', normalizedChallenge.status);
+                    
+                    // Add player name from players list
+                    normalizedChallenge.player_name = playerMap.get(challenge.player_id) || 'Unknown Player';
+                    this.challenges.set(key, normalizedChallenge);
                 }
             }
             
             this._notifyUpdates();
             console.log('[ChallengeManager] Loaded', this.challenges.size, 'challenges from server');
+            console.log('[ChallengeManager] Final challenges map:', Array.from(this.challenges.entries()));
         } catch (error) {
             console.error('[ChallengeManager] Failed to load challenges:', error);
             throw error;
@@ -256,8 +272,14 @@ class ChallengeManager {
      */
     getRequestedChallenges() {
         console.log('[ChallengeManager] getRequestedChallenges called');
+        console.log('[ChallengeManager] currentPlayer:', this.currentPlayer);
         console.log('[ChallengeManager] currentPlayer.role:', this.currentPlayer?.role);
-        const isHostOrBanker = this.currentPlayer.role === 'host' || this.currentPlayer.role === 'banker';
+        console.log('[ChallengeManager] typeof role:', typeof this.currentPlayer?.role);
+        
+        // Normalize role to lowercase for comparison
+        const role = this.currentPlayer?.role?.toLowerCase();
+        const isHostOrBanker = role === 'host' || role === 'banker';
+        console.log('[ChallengeManager] normalized role:', role);
         console.log('[ChallengeManager] isHostOrBanker:', isHostOrBanker);
         
         if (!isHostOrBanker) {
@@ -267,6 +289,8 @@ class ChallengeManager {
         
         const requested = Array.from(this.challenges.values()).filter(c => c.status === 'requested');
         console.log('[ChallengeManager] Requested challenges:', requested);
+        console.log('[ChallengeManager] Challenges map size:', this.challenges.size);
+        console.log('[ChallengeManager] All challenges:', Array.from(this.challenges.entries()));
         return requested;
     }
     
@@ -362,6 +386,7 @@ class ChallengeManager {
             challenge_description: challenge.challenge_description || null,
             target_number: challenge.target_number || null,
             start_time: challenge.assigned_at ? new Date(challenge.assigned_at).getTime() : null,
+            timestamp: challenge.requested_at || challenge.assigned_at || new Date().toISOString(),
             requested_at: challenge.requested_at,
             assigned_at: challenge.assigned_at,
             completed_at: challenge.completed_at
@@ -395,6 +420,11 @@ class ChallengeManager {
         // Start new interval
         this.timerInterval = setInterval(() => {
             this._checkExpiry();
+            // Also notify updates every second to refresh countdown timers in UI
+            // Only if there are active challenges and game is in progress
+            if (this.gameStatus === 'in_progress' && this.getAssignedChallenges().length > 0) {
+                this._notifyUpdates();
+            }
         }, this.EXPIRY_CHECK_INTERVAL_MS);
     }
     
@@ -425,19 +455,19 @@ class ChallengeManager {
             }
         }
         
-        if (expiredAny) {
-            this._notifyUpdates();
-        }
+        // No need to call _notifyUpdates here since the interval already does it every second
+        // This avoids double notifications
     }
     
     // WebSocket event handlers (to be called from main dashboard code)
     
     handleChallengeRequest(eventData) {
         console.log('[ChallengeManager] WebSocket: challenge_request', eventData);
+        console.log('[ChallengeManager] Current player:', this.currentPlayer);
         console.log('[ChallengeManager] Current player role:', this.currentPlayer?.role);
         
         const challenge = {
-            db_id: null, // Will be set when synced with server
+            db_id: eventData.db_id || null, // Database ID from HTTP response
             player_id: eventData.player_id,
             player_name: eventData.player_name,
             team_number: eventData.team_number,
@@ -457,9 +487,13 @@ class ChallengeManager {
         
         const key = this._getChallengeKey(challenge);
         console.log('[ChallengeManager] Adding challenge with key:', key);
+        console.log('[ChallengeManager] Challenge object:', challenge);
         this.challenges.set(key, challenge);
+        console.log('[ChallengeManager] Challenges map after add:', Array.from(this.challenges.entries()));
         console.log('[ChallengeManager] Challenges map size:', this.challenges.size);
+        console.log('[ChallengeManager] Calling _notifyUpdates()...');
         this._notifyUpdates();
+        console.log('[ChallengeManager] _notifyUpdates() called');
     }
     
     handleChallengeAssigned(eventData) {

@@ -1428,23 +1428,68 @@ def get_challenges(
     } for c in challenges]
 
 
+@app.get("/api/v2/challenges/{game_code}/active")
+def get_active_challenges_v2(
+    game_code: str,
+    db: Session = Depends(get_db)
+):
+    """V2 endpoint: Get active challenges (requested or assigned status) for a game"""
+    from models import Challenge, ChallengeStatus
+    
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Get challenges that are requested or assigned (not completed/cancelled)
+    challenges = db.query(Challenge).filter(
+        Challenge.game_session_id == game.id,
+        Challenge.status.in_([ChallengeStatus.REQUESTED, ChallengeStatus.ASSIGNED])
+    ).all()
+    
+    return [{
+        "id": c.id,
+        "player_id": c.player_id,
+        "building_type": c.building_type,
+        "building_name": c.building_name,
+        "team_number": c.team_number,
+        "has_school": c.has_school,
+        "challenge_type": c.challenge_type,
+        "challenge_description": c.challenge_description,
+        "target_number": c.target_number,
+        "status": c.status.value,
+        "requested_at": c.requested_at.isoformat() if c.requested_at else None,
+        "assigned_at": c.assigned_at.isoformat() if c.assigned_at else None,
+        "completed_at": c.completed_at.isoformat() if c.completed_at else None
+    } for c in challenges]
+
+
 @app.patch("/games/{game_code}/challenges/{challenge_id}")
-def update_challenge(
+async def update_challenge(
     game_code: str,
     challenge_id: int,
-    status: str = None,
-    challenge_type: str = None,
-    challenge_description: str = None,
-    target_number: int = None,
+    update_data: dict = Body(...),
     db: Session = Depends(get_db)
 ):
     """Update a challenge (assign, complete, cancel, etc.)"""
     from models import Challenge, ChallengeStatus
     from datetime import datetime
     
+    # Extract fields from update_data
+    status = update_data.get('status')
+    challenge_type = update_data.get('challenge_type')
+    challenge_description = update_data.get('challenge_description')
+    target_number = update_data.get('target_number')
+    
+    print(f"[update_challenge] game_code: {game_code}, challenge_id: {challenge_id}")
+    print(f"[update_challenge] Received update_data: {update_data}")
+    print(f"[update_challenge] status: {status}, type: {type(status)}")
+    
     game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
     if not game:
+        print(f"[update_challenge] ❌ Game not found: {game_code.upper()}")
         raise HTTPException(status_code=404, detail="Game not found")
+    
+    print(f"[update_challenge] ✅ Game found, ID: {game.id}")
     
     challenge = db.query(Challenge).filter(
         Challenge.id == challenge_id,
@@ -1452,24 +1497,30 @@ def update_challenge(
     ).first()
     
     if not challenge:
+        print(f"[update_challenge] ❌ Challenge not found - ID: {challenge_id}, game_session_id: {game.id}")
+        # Log all challenges for this game to debug
+        all_challenges = db.query(Challenge).filter(Challenge.game_session_id == game.id).all()
+        print(f"[update_challenge] Available challenges for this game: {[(c.id, c.player_id, c.building_type) for c in all_challenges]}")
         raise HTTPException(status_code=404, detail="Challenge not found")
+    
+    print(f"[update_challenge] ✅ Challenge found: ID {challenge.id}, player_id: {challenge.player_id}, building: {challenge.building_type}")
     
     # Update fields
     if status:
-        challenge.status = ChallengeStatus(status)
+        challenge.status = ChallengeStatus(status)  # type: ignore
         
         # Set timestamps based on status
-        if status == ChallengeStatus.ASSIGNED.value and not challenge.assigned_at:
-            challenge.assigned_at = datetime.utcnow()
-        elif status == ChallengeStatus.COMPLETED.value and not challenge.completed_at:
-            challenge.completed_at = datetime.utcnow()
+        if status == ChallengeStatus.ASSIGNED.value and not challenge.assigned_at:  # type: ignore
+            challenge.assigned_at = datetime.utcnow()  # type: ignore
+        elif status == ChallengeStatus.COMPLETED.value and not challenge.completed_at:  # type: ignore
+            challenge.completed_at = datetime.utcnow()  # type: ignore
     
     if challenge_type:
-        challenge.challenge_type = challenge_type
+        challenge.challenge_type = challenge_type  # type: ignore
     if challenge_description:
-        challenge.challenge_description = challenge_description
+        challenge.challenge_description = challenge_description  # type: ignore
     if target_number:
-        challenge.target_number = target_number
+        challenge.target_number = target_number  # type: ignore
     
     db.commit()
     db.refresh(challenge)
@@ -1485,16 +1536,16 @@ def update_challenge(
         "challenge_description": challenge.challenge_description,
         "target_number": challenge.target_number,
         "status": challenge.status.value,
-        "requested_at": challenge.requested_at.isoformat() if challenge.requested_at else None,
-        "assigned_at": challenge.assigned_at.isoformat() if challenge.assigned_at else None,
-        "completed_at": challenge.completed_at.isoformat() if challenge.completed_at else None
+        "requested_at": challenge.requested_at.isoformat() if challenge.requested_at else None,  # type: ignore
+        "assigned_at": challenge.assigned_at.isoformat() if challenge.assigned_at else None,  # type: ignore
+        "completed_at": challenge.completed_at.isoformat() if challenge.completed_at else None  # type: ignore
     }
 
 
 @app.post("/games/{game_code}/challenges/adjust-for-pause")
-def adjust_challenge_times_for_pause(
+async def adjust_challenge_times_for_pause(
     game_code: str,
-    pause_duration_ms: int,
+    request_data: dict = Body(...),
     db: Session = Depends(get_db)
 ):
     """
@@ -1503,6 +1554,10 @@ def adjust_challenge_times_for_pause(
     """
     from models import Challenge, ChallengeStatus
     from datetime import datetime, timedelta
+    
+    pause_duration_ms = request_data.get('pause_duration_ms')
+    if pause_duration_ms is None:
+        raise HTTPException(status_code=422, detail="pause_duration_ms is required")
     
     game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
     if not game:
@@ -1523,13 +1578,14 @@ def adjust_challenge_times_for_pause(
         }
     
     # Convert milliseconds to timedelta
-    pause_duration = timedelta(milliseconds=pause_duration_ms)
+    pause_duration = timedelta(milliseconds=int(pause_duration_ms))
     
     adjusted_count = 0
     for challenge in active_challenges:
         # Add the pause duration to the assigned_at time
         # This effectively extends the deadline
-        challenge.assigned_at = challenge.assigned_at + pause_duration
+        new_assigned_at = challenge.assigned_at + pause_duration  # type: ignore
+        challenge.assigned_at = new_assigned_at  # type: ignore
         adjusted_count += 1
     
     db.commit()
