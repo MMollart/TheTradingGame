@@ -48,6 +48,11 @@ Thumbs.db
 .coverage
 htmlcov/
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
 # Node.js (if using)
 node_modules/
 package-lock.json
