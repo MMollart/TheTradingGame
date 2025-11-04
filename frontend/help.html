@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Play - The Trading Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .help-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .help-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .help-header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .help-header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .help-content {
+            padding: 40px;
+        }
+
+        .help-section {
+            margin-bottom: 35px;
+        }
+
+        .help-section h2 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .help-section p {
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .help-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .help-section li {
+            font-size: 1.05em;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            padding-left: 30px;
+            position: relative;
+        }
+
+        .help-section li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .nations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .nation-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .nation-card h3 {
+            font-size: 1.3em;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .nation-card p {
+            font-size: 0.95em;
+            margin-bottom: 0;
+        }
+
+        .tip-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .tip-box strong {
+            color: #856404;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .close-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+            margin: 30px auto 0;
+            transition: background 0.3s;
+        }
+
+        .close-btn:hover {
+            background: #5568d3;
+        }
+
+        .emoji {
+            font-size: 1.3em;
+            margin-right: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .help-header h1 {
+                font-size: 2em;
+            }
+
+            .help-content {
+                padding: 25px;
+            }
+
+            .nations-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="help-container">
+        <div class="help-header">
+            <h1>🎮 How to Play</h1>
+            <p>A quick guide to get you started in The Trading Game</p>
+        </div>
+
+        <div class="help-content">
+            <!-- Objective Section -->
+            <div class="help-section">
+                <h2><span class="emoji">🎯</span>Your Objective</h2>
+                <p>Work with your team to build the strongest nation by producing resources, constructing buildings, and trading strategically with other teams and the World Bank.</p>
+            </div>
+
+            <!-- Nation Types -->
+            <div class="help-section">
+                <h2><span class="emoji">🌍</span>Nation Types</h2>
+                <p>Each team represents a nation with unique starting resources:</p>
+                
+                <div class="nations-grid">
+                    <div class="nation-card">
+                        <h3>🌾 Nation 1 - Food</h3>
+                        <p>Starts with abundant food resources. Focus on farming.</p>
+                    </div>
+                    <div class="nation-card">
+                        <h3>⛏️ Nation 2 - Raw Materials</h3>
+                        <p>Rich in raw materials. Master mining operations.</p>
+                    </div>
+                    <div class="nation-card">
+                        <h3>⚡ Nation 3 - Electrical</h3>
+                        <p>Specializes in electrical goods and technology.</p>
+                    </div>
+                    <div class="nation-card">
+                        <h3>🏥 Nation 4 - Medical</h3>
+                        <p>Expertise in medical goods and healthcare.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Production -->
+            <div class="help-section">
+                <h2><span class="emoji">🏭</span>Production & Buildings</h2>
+                <p><strong>How to Produce Resources:</strong></p>
+                <ul>
+                    <li>Click "Request Challenge" on any building you've constructed</li>
+                    <li>A physical challenge (push-ups, burpees, etc.) will be assigned by the Banker</li>
+                    <li>Complete the challenge within 10 minutes to earn resources</li>
+                    <li>Buildings multiply your resource production!</li>
+                </ul>
+
+                <p style="margin-top: 20px;"><strong>Building Types:</strong></p>
+                <ul>
+                    <li><strong>🌾 Farm:</strong> Produces food (2x bonus)</li>
+                    <li><strong>⛏️ Mine:</strong> Produces raw materials (2x bonus)</li>
+                    <li><strong>🏭 Factory:</strong> Produces electrical goods (2x bonus)</li>
+                    <li><strong>🏥 Hospital:</strong> Produces medical goods (2x bonus)</li>
+                    <li><strong>🎓 School:</strong> Allows multiple teammates to have challenges simultaneously</li>
+                    <li><strong>🍽️ Restaurant:</strong> Luxury building with extra bonuses</li>
+                </ul>
+
+                <div class="tip-box">
+                    <strong>💡 Pro Tip:</strong>
+                    Build a School early! It lets your whole team do challenges at the same time, dramatically increasing production speed.
+                </div>
+            </div>
+
+            <!-- Key Rules -->
+            <div class="help-section">
+                <h2><span class="emoji">📋</span>Key Rules</h2>
+                <ul>
+                    <li><strong>Challenge Timer:</strong> You have 10 minutes of active game time to complete each challenge</li>
+                    <li><strong>One at a Time:</strong> Without a School, only one teammate can have an active challenge at once</li>
+                    <li><strong>Trading:</strong> Trade resources with other nations or buy/sell from the World Bank</li>
+                    <li><strong>Building Costs:</strong> Each building requires specific resources - check before building</li>
+                    <li><strong>Game Pauses:</strong> When the host pauses, challenge timers freeze (you don't lose time!)</li>
+                    <li><strong>Teamwork:</strong> Coordinate with your teammates - share the workload strategically</li>
+                </ul>
+            </div>
+
+            <!-- Quick Start -->
+            <div class="help-section">
+                <h2><span class="emoji">🚀</span>Quick Start</h2>
+                <p><strong>First Steps:</strong></p>
+                <ul>
+                    <li>Check your starting resources in the Resources card</li>
+                    <li>Look at what buildings you can afford</li>
+                    <li>Request a challenge from an existing building to produce more resources</li>
+                    <li>Build a School as soon as possible to speed up team production</li>
+                    <li>Trade with other teams to get resources you need</li>
+                    <li>Keep an eye on the World Bank prices for good deals</li>
+                </ul>
+
+                <div class="tip-box">
+                    <strong>💡 Strategy Tip:</strong>
+                    Balance production, trading, and building. Don't spend all your resources at once - save some for strategic trades!
+                </div>
+            </div>
+
+            <button class="close-btn" onclick="closeHelp()">Got It! Let's Play</button>
+        </div>
+    </div>
+
+    <script>
+        function closeHelp() {
+            // Check if opened in modal/iframe or standalone
+            if (window.opener) {
+                window.close();
+            } else if (window.parent !== window) {
+                // In iframe - send message to parent
+                window.parent.postMessage('closeHelp', '*');
+            } else {
+                // Standalone - go back to previous page or index
+                if (document.referrer) {
+                    window.history.back();
+                } else {
+                    window.location.href = 'index.html';
+                }
+            }
+        }
+
+        // Handle escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeHelp();
+            }
+        });
+    </script>
+</body>
+</html>
