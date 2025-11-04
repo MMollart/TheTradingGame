@@ -130,6 +130,20 @@ function showDashboard(role) {
     }
 }
 
+// Helper function to update teamState from gameState for the current player
+function updateTeamStateFromGameState(source) {
+    if (currentPlayer.role === 'player' && currentPlayer.groupNumber) {
+        const teamNumber = String(currentPlayer.groupNumber);
+        if (gameState.teams && gameState.teams[teamNumber]) {
+            teamState = {
+                resources: gameState.teams[teamNumber].resources || {},
+                buildings: gameState.teams[teamNumber].buildings || {}
+            };
+            console.log(`[WebSocket ${source}] Updated teamState for team`, teamNumber, teamState);
+        }
+    }
+}
+
 function connectWebSocket() {
     const statusIndicator = document.getElementById('connection-status');
     
@@ -149,6 +163,19 @@ function connectWebSocket() {
     
     gameWS.on('game_state', (data) => {
         gameState = data.state;
+        
+        // Extract player's group number from the players array if available
+        if (data.players && Array.isArray(data.players)) {
+            const playerData = data.players.find(p => p.id === currentPlayer.id);
+            if (playerData && playerData.group_number) {
+                currentPlayer.groupNumber = playerData.group_number;
+                console.log('[WebSocket game_state] Set currentPlayer.groupNumber to:', currentPlayer.groupNumber);
+            }
+        }
+        
+        // Update teamState for players
+        updateTeamStateFromGameState('game_state');
+        
         updateDashboard();
     });
     
@@ -156,16 +183,7 @@ function connectWebSocket() {
         gameState = data.state;
         
         // Update teamState for players
-        if (currentPlayer.role === 'player' && currentPlayer.groupNumber) {
-            const teamNumber = String(currentPlayer.groupNumber);
-            if (gameState.teams && gameState.teams[teamNumber]) {
-                teamState = {
-                    resources: gameState.teams[teamNumber].resources || {},
-                    buildings: gameState.teams[teamNumber].buildings || {}
-                };
-                console.log('[WebSocket state_updated] Updated teamState for team', teamNumber, teamState);
-            }
-        }
+        updateTeamStateFromGameState('state_updated');
         
         updateDashboard();
     });
