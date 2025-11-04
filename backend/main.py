@@ -27,7 +27,10 @@ from auth import (
 from utils import generate_game_code
 from websocket_manager import manager
 from game_logic import GameLogic
-from game_constants import NationType
+from game_constants import (
+    NationType, BuildingType, BUILDING_COSTS, 
+    MAX_HOSPITALS, MAX_RESTAURANTS, MAX_INFRASTRUCTURE
+)
 from email_utils import send_registration_email
 from challenge_api import router as challenge_router_v2
 
@@ -1224,6 +1227,10 @@ class ManualBuildingRequest(BaseModel):
     building_type: str
     quantity: int
 
+class BuildBuildingRequest(BaseModel):
+    team_number: int
+    building_type: str
+
 @app.post("/games/{game_code}/manual-resources")
 async def give_manual_resources(
     game_code: str,
@@ -1333,6 +1340,117 @@ async def give_manual_buildings(
         "team_number": team_number,
         "building_type": building_type,
         "new_count": team_state['buildings'][building_type]
+    }
+
+
+@app.post("/games/{game_code}/build-building")
+async def build_building(
+    game_code: str,
+    request: BuildBuildingRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Build a new building by spending resources.
+    Players can build production buildings (farm, mine, etc.) or optional buildings.
+    """
+    team_number = request.team_number
+    building_type = request.building_type
+    
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Validate building type
+    try:
+        building = BuildingType(building_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid building type: {building_type}")
+    
+    # Get building cost
+    if building not in BUILDING_COSTS:
+        raise HTTPException(status_code=400, detail=f"No cost defined for building: {building_type}")
+    
+    cost = BUILDING_COSTS[building]
+    
+    # Initialize game_state.teams if needed
+    if not game.game_state:
+        game.game_state = {}
+    if 'teams' not in game.game_state:
+        game.game_state['teams'] = {}
+    if str(team_number) not in game.game_state['teams']:
+        game.game_state['teams'][str(team_number)] = {'resources': {}, 'buildings': {}}
+    
+    team_state = game.game_state['teams'][str(team_number)]
+    
+    # Initialize resources and buildings if needed
+    if 'resources' not in team_state:
+        team_state['resources'] = {}
+    if 'buildings' not in team_state:
+        team_state['buildings'] = {}
+    
+    # Check optional building limits
+    if building in [BuildingType.HOSPITAL, BuildingType.RESTAURANT, BuildingType.INFRASTRUCTURE]:
+        current_count = team_state['buildings'].get(building_type, 0)
+        max_count = {
+            BuildingType.HOSPITAL: MAX_HOSPITALS,
+            BuildingType.RESTAURANT: MAX_RESTAURANTS,
+            BuildingType.INFRASTRUCTURE: MAX_INFRASTRUCTURE
+        }.get(building, 5)
+        
+        if current_count >= max_count:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Maximum {building_type} limit reached ({max_count})"
+            )
+    
+    # Check if team can afford the building
+    missing_resources = []
+    for resource, amount in cost.items():
+        resource_key = resource.value if hasattr(resource, 'value') else resource
+        current_amount = team_state['resources'].get(resource_key, 0)
+        if current_amount < amount:
+            missing_resources.append(f"{resource_key}: need {amount}, have {current_amount}")
+    
+    if missing_resources:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient resources: {', '.join(missing_resources)}"
+        )
+    
+    # Deduct resources
+    for resource, amount in cost.items():
+        resource_key = resource.value if hasattr(resource, 'value') else resource
+        team_state['resources'][resource_key] = team_state['resources'].get(resource_key, 0) - amount
+    
+    # Add building
+    team_state['buildings'][building_type] = team_state['buildings'].get(building_type, 0) + 1
+    
+    # Mark as modified for SQLAlchemy
+    flag_modified(game, 'game_state')
+    db.commit()
+    
+    # Broadcast building constructed event
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "event",
+        "event_type": "building_constructed",
+        "data": {
+            "team_number": team_number,
+            "building_type": building_type,
+            "new_count": team_state['buildings'][building_type],
+            "resources": team_state['resources']
+        }
+    })
+    
+    return {
+        "success": True,
+        "message": f"Successfully built {building_type} for Team {team_number}",
+        "team_number": team_number,
+        "building_type": building_type,
+        "new_count": team_state['buildings'][building_type],
+        "remaining_resources": team_state['resources']
     }
 
 

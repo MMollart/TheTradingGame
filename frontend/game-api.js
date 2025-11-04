@@ -286,6 +286,13 @@ class GameAPI {
     async deleteChallenge(gameCode, challengeId) {
         return this.request('DELETE', `/games/${gameCode}/challenges/${challengeId}`);
     }
+
+    async buildBuilding(gameCode, teamNumber, buildingType) {
+        return this.request('POST', `/games/${gameCode}/build-building`, {
+            team_number: teamNumber,
+            building_type: buildingType
+        });
+    }
 }
 
 // Export for use in HTML
