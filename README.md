@@ -565,9 +565,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## 👤 Contact & Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/TheTradingGame/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/TheTradingGame/discussions)
-- **Email**: your.email@example.com
+- **Issues**: [GitHub Issues](https://github.com/MMollart/TheTradingGame/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/MMollart/TheTradingGame/discussions)
 
 ---
 
