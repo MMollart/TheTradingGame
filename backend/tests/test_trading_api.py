@@ -1,7 +1,6 @@
 """
 Integration tests for Trading API endpoints
 """
-import pytest
 from sqlalchemy.orm.attributes import flag_modified
 from models import GameSession, GameStatus
 

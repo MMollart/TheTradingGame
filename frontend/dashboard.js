@@ -3434,7 +3434,6 @@ function initializeTradeResourceInputs() {
 
 function addOfferingResource() {
     const container = document.getElementById('offering-resources');
-    const index = container.children.length;
     
     const html = `
         <div class="resource-input-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
@@ -3456,7 +3455,6 @@ function addOfferingResource() {
 
 function addRequestingResource() {
     const container = document.getElementById('requesting-resources');
-    const index = container.children.length;
     
     const html = `
         <div class="resource-input-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
@@ -3520,7 +3518,7 @@ async function createTeamTradeOffer(event) {
     const message = document.getElementById('trade-message').value;
     
     try {
-        const offer = await tradingManager.createTradeOffer(fromTeam, toTeam, offering, requesting, message);
+        await tradingManager.createTradeOffer(fromTeam, toTeam, offering, requesting, message);
         alert('✅ Trade offer sent successfully!');
         
         // Reset form
@@ -3767,7 +3765,7 @@ async function createBuildingRentalRequest(event) {
     const renterTeam = currentPlayer.group_number || teamState.team_number;
     
     try {
-        const offer = await tradingManager.createRentalOffer(
+        await tradingManager.createRentalOffer(
             renterTeam,
             ownerTeam,
             buildingType,
@@ -4450,9 +4448,11 @@ function handleGameEvent(data) {
             addEventLog(`Trade completed between Team ${eventData.from_team} and Team ${eventData.to_team}`, 'success');
             
             // Refresh resources if involved in trade
-            const currentTeam = currentPlayer.group_number || teamState.team_number;
-            if (currentTeam === eventData.from_team || currentTeam === eventData.to_team) {
-                loadGameState();
+            {
+                const currentTeam = currentPlayer.group_number || teamState.team_number;
+                if (currentTeam === eventData.from_team || currentTeam === eventData.to_team) {
+                    loadGameState();
+                }
             }
             break;
         
@@ -4481,9 +4481,11 @@ function handleGameEvent(data) {
         
         case 'building_rental_activated':
             addEventLog(`Building rental activated: Team ${eventData.from_team} renting ${eventData.building_type} from Team ${eventData.to_team}`, 'success');
-            const currentTeam = currentPlayer.group_number || teamState.team_number;
-            if (currentTeam === eventData.from_team || currentTeam === eventData.to_team) {
-                loadGameState();
+            {
+                const currentTeam = currentPlayer.group_number || teamState.team_number;
+                if (currentTeam === eventData.from_team || currentTeam === eventData.to_team) {
+                    loadGameState();
+                }
             }
             if (typeof updateRentalUI === 'function') {
                 updateRentalUI();

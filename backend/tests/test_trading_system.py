@@ -1,7 +1,6 @@
 """
 Tests for the Trading System
 """
-import pytest
 from trading_system import DynamicPricingSystem, TradingManager, TradeOfferStatus
 
 
@@ -352,7 +351,7 @@ class TestTradingManager:
         
         # Create several offers
         offer1 = manager.create_trade_offer(1, 2, {'food': 10}, {'raw_materials': 5})
-        offer2 = manager.create_trade_offer(2, 3, {'currency': 20}, {'food': 10})
+        manager.create_trade_offer(2, 3, {'currency': 20}, {'food': 10})
         offer3 = manager.create_trade_offer(3, 1, {'raw_materials': 10}, {'currency': 30})
         
         # Get offers for team 1

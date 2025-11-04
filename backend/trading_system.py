@@ -11,9 +11,8 @@ Handles:
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from enum import Enum
-import math
 
-from game_constants import ResourceType, BANK_INITIAL_PRICES
+from game_constants import BANK_INITIAL_PRICES
 
 
 class TradeOfferStatus(str, Enum):
@@ -357,13 +356,16 @@ class BuildingRentalOffer:
     def counter(
         self,
         new_rental_price: float,
-        new_duration_cycles: int = None,
+        new_duration_cycles: int = -1,
         message: Optional[str] = None
     ):
-        """Create a counter offer with different price/duration"""
+        """
+        Create a counter offer with different price/duration.
+        If new_duration_cycles is -1 (default), keeps the original duration.
+        """
         self.counter_offer = {
             "rental_price": new_rental_price,
-            "duration_cycles": new_duration_cycles or self.duration_cycles,
+            "duration_cycles": self.duration_cycles if new_duration_cycles == -1 else new_duration_cycles,
             "message": message,
             "created_at": datetime.utcnow().isoformat()
         }
@@ -670,7 +672,9 @@ class TradingManager:
         owner_resources: Dict[str, int]
     ) -> Tuple[bool, Optional[str], Optional[Dict[str, int]], Optional[Dict[str, int]]]:
         """
-        Execute rental payment and activate rental
+        Execute rental payment and activate rental.
+        Charges the full rental cost (rental_price * duration_cycles).
+        For countered offers, uses the counter offer's price and duration.
         
         Returns:
             (success, error_message, updated_renter_resources, updated_owner_resources)
@@ -682,13 +686,14 @@ class TradingManager:
         if offer.status != RentalOfferStatus.ACCEPTED and offer.status != RentalOfferStatus.COUNTERED:
             return False, f"Rental offer is {offer.status.value}", None, None
         
-        # Determine price to use (original or counter)
+        # Determine price and duration to use (original or counter)
         rental_price = offer.rental_price
+        duration_cycles = offer.duration_cycles
         if offer.status == RentalOfferStatus.COUNTERED and offer.counter_offer:
             rental_price = offer.counter_offer["rental_price"]
+            duration_cycles = offer.counter_offer["duration_cycles"]
         
         # Calculate total cost for the entire rental duration
-        duration_cycles = offer.duration_cycles
         total_cost = rental_price * duration_cycles
         
         # Check if renter has enough currency
