@@ -13,6 +13,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 import secrets
+import logging
 
 from database import get_db
 from auth import get_current_user
@@ -21,9 +22,19 @@ from osm_oauth import OSMOAuthClient, OSMAPIClient
 
 router = APIRouter(prefix="/oauth/osm", tags=["OAuth - OnlineScoutManager"])
 
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # In-memory state storage for CSRF protection
-# In production, use Redis or database-backed sessions
+# WARNING: This is not suitable for production use!
+# In production, use Redis or database-backed sessions for:
+# - Thread safety
+# - Persistence across restarts
+# - Multi-server deployment support
+# Example production implementation:
+#   from redis import Redis
+#   redis_client = Redis(host='localhost', port=6379, db=0)
+#   redis_client.setex(f"oauth_state:{state}", 600, user_id)
 _oauth_states = {}
 
 
@@ -149,7 +160,7 @@ async def oauth_callback(
     
     except Exception as e:
         # Log error and return user-friendly message
-        print(f"OAuth callback error: {str(e)}")
+        logger.error(f"OAuth callback error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to exchange authorization code: {str(e)}"
@@ -251,7 +262,7 @@ async def refresh_token(
         }
     
     except Exception as e:
-        print(f"Token refresh error: {str(e)}")
+        logger.error(f"Token refresh error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to refresh token: {str(e)}"
@@ -328,7 +339,7 @@ async def test_get_members(
         )
     
     except Exception as e:
-        print(f"OSM API error: {str(e)}")
+        logger.error(f"OSM API error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch members from OSM: {str(e)}"

@@ -336,39 +336,77 @@ CREATE TABLE oauth_tokens (
 
 ### Production Checklist
 
+**Critical Security Items:**
+- [ ] ⚠️ **ENCRYPT TOKENS AT REST** - Tokens currently stored in plain text!
+- [ ] ⚠️ **USE REDIS FOR STATE STORAGE** - In-memory dict not production-safe!
 - [ ] Use HTTPS for all redirect URIs
 - [ ] Store CLIENT_SECRET in environment variables (never in code)
-- [ ] Implement proper CSRF protection with state parameter
-- [ ] Consider encrypting tokens at rest in database
-- [ ] Use secure session storage for OAuth states
+- [ ] Implement proper CSRF protection with state parameter (✓ implemented)
+- [ ] Use secure session storage for OAuth states (Redis recommended)
 - [ ] Implement rate limiting on OAuth endpoints
+- [ ] Configure proper logging (✓ implemented with logger)
 - [ ] Log OAuth events for audit trail
 - [ ] Set appropriate token expiry times
 - [ ] Validate redirect_uri matches registered URI
 - [ ] Handle token expiry gracefully in UI
+- [ ] Add monitoring for failed OAuth attempts
+- [ ] Implement token rotation policy
 
 ### Token Storage
 
-Currently, tokens are stored in plain text in the database. For production:
+**⚠️ SECURITY WARNING**: Currently, tokens are stored in **plain text** in the database. This is **NOT SECURE for production use**.
+
+For production deployment, **you MUST implement token encryption**:
 
 1. **Encrypt tokens at rest**:
    ```python
    from cryptography.fernet import Fernet
+   import os
    
-   # Generate encryption key (store securely)
-   key = Fernet.generate_key()
-   cipher = Fernet(key)
+   # Generate encryption key (store in environment variable, not in code!)
+   # Generate once with: Fernet.generate_key()
+   ENCRYPTION_KEY = os.getenv("TOKEN_ENCRYPTION_KEY").encode()
+   cipher = Fernet(ENCRYPTION_KEY)
    
    # Encrypt before storing
-   encrypted_token = cipher.encrypt(access_token.encode())
+   encrypted_token = cipher.encrypt(access_token.encode()).decode()
+   oauth_token.access_token = encrypted_token
    
    # Decrypt when retrieving
-   decrypted_token = cipher.decrypt(encrypted_token).decode()
+   decrypted_token = cipher.decrypt(oauth_token.access_token.encode()).decode()
    ```
 
-2. **Use environment-specific encryption keys**
-3. **Rotate encryption keys periodically**
-4. **Consider using a secrets manager (AWS Secrets Manager, HashiCorp Vault)**
+2. **Production Token Encryption Checklist**:
+   - [ ] Generate unique encryption key per environment
+   - [ ] Store encryption key in secure secrets manager (not in .env)
+   - [ ] Use environment-specific encryption keys
+   - [ ] Implement key rotation mechanism
+   - [ ] Encrypt both access_token and refresh_token fields
+   - [ ] Consider using AWS Secrets Manager, HashiCorp Vault, or Azure Key Vault
+   - [ ] Add encryption/decryption to `osm_oauth.py` _store_token() and get_stored_token()
+
+3. **OAuth State Storage**:
+   The current implementation uses an in-memory dictionary for OAuth state storage. This is **NOT SUITABLE FOR PRODUCTION** because:
+   - Not thread-safe
+   - Doesn't persist across server restarts
+   - Won't work in multi-server deployments
+   
+   For production, use Redis:
+   ```python
+   from redis import Redis
+   import json
+   
+   redis_client = Redis(host='localhost', port=6379, db=0)
+   
+   # Store state (expires after 10 minutes)
+   redis_client.setex(f"oauth_state:{state}", 600, json.dumps({"user_id": user.id}))
+   
+   # Retrieve state
+   data = redis_client.get(f"oauth_state:{state}")
+   if data:
+       state_data = json.loads(data)
+       user_id = state_data["user_id"]
+   ```
 
 ## Testing
 

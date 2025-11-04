@@ -11,7 +11,6 @@ from urllib.parse import urlencode
 import os
 
 from authlib.integrations.httpx_client import OAuth2Client
-from authlib.oauth2.rfc6749 import OAuth2Token
 import httpx
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
