@@ -3423,8 +3423,8 @@ async function populateManualManagementTeamDropdowns() {
         // even before players are assigned to them
         const teams = game.game_state?.teams || {};
         const teamNumbers = Object.keys(teams)
-            .filter(key => !isNaN(parseInt(key)))
-            .map(key => parseInt(key))
+            .map(key => Number(key))
+            .filter(num => Number.isInteger(num) && num > 0)
             .sort((a, b) => a - b);
         
         // Populate both dropdowns
