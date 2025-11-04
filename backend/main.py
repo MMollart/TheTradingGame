@@ -5,12 +5,15 @@ The Trading Game - FastAPI Main Application
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, attributes
 from sqlalchemy.orm.attributes import flag_modified
 from datetime import timedelta, datetime
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import asyncio
+from pathlib import Path
 
 from database import get_db, init_db
 from models import User, GameSession, Player, GameConfiguration, GameStatus
@@ -54,6 +57,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files (frontend)
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
 
 @app.on_event("startup")
 def on_startup():
@@ -70,7 +78,19 @@ app.include_router(trading_router_v2)
 
 @app.get("/")
 def read_root():
-    """Root endpoint"""
+    """Serve the frontend index.html"""
+    index_file = Path(__file__).parent / "static" / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return {
+        "message": "The Trading Game API",
+        "version": "0.1.0",
+        "docs": "/docs"
+    }
+
+@app.get("/api")
+def api_root():
+    """API root endpoint"""
     return {
         "message": "The Trading Game API",
         "version": "0.1.0",
