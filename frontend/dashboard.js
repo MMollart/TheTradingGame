@@ -261,6 +261,10 @@ function connectWebSocket() {
                 updatePlayersOverview();
                 refreshUnassigned();
                 updateNationsOverview();
+                // Refresh manual management dropdowns for host
+                if (currentPlayer.role === 'host') {
+                    populateManualManagementTeamDropdowns();
+                }
             }
         }
     });
@@ -3413,14 +3417,14 @@ function addEventLog(message, type = 'info') {
 async function populateManualManagementTeamDropdowns() {
     try {
         const game = await gameAPI.getGame(currentGameCode);
-        const players = await gameAPI.getPlayers(currentGameCode);
         
-        // Get all unique team numbers from players
-        const teamNumbers = [...new Set(
-            players
-                .filter(p => p.role === 'player' && p.group_number)
-                .map(p => p.group_number)
-        )].sort((a, b) => a - b);
+        // Get team numbers from game state, not from player assignments
+        // This allows the host to manually manage resources/buildings for teams
+        // even before players are assigned to them
+        const teams = game.game_state?.teams || {};
+        const teamNumbers = Object.keys(teams)
+            .map(key => parseInt(key))
+            .sort((a, b) => a - b);
         
         // Populate both dropdowns
         const resourcesTeamSelect = document.getElementById('give-resources-team');
@@ -3433,7 +3437,7 @@ async function populateManualManagementTeamDropdowns() {
             
             // Add an option for each team
             teamNumbers.forEach(teamNum => {
-                const teamData = game.game_state?.teams?.[String(teamNum)];
+                const teamData = teams[String(teamNum)];
                 const teamName = teamData?.nation_name || `Team ${teamNum}`;
                 
                 const resourceOption = document.createElement('option');
