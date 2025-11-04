@@ -687,17 +687,21 @@ class TradingManager:
         if offer.status == RentalOfferStatus.COUNTERED and offer.counter_offer:
             rental_price = offer.counter_offer["rental_price"]
         
+        # Calculate total cost for the entire rental duration
+        duration_cycles = offer.duration_cycles
+        total_cost = rental_price * duration_cycles
+        
         # Check if renter has enough currency
         renter_currency = renter_resources.get("currency", 0)
-        if renter_currency < rental_price:
-            return False, f"Insufficient currency. Need {rental_price}, have {renter_currency}", None, None
+        if renter_currency < total_cost:
+            return False, f"Insufficient currency. Need {total_cost}, have {renter_currency}", None, None
         
         # Execute payment
         new_renter_resources = renter_resources.copy()
         new_owner_resources = owner_resources.copy()
         
-        new_renter_resources["currency"] = renter_currency - rental_price
-        new_owner_resources["currency"] = new_owner_resources.get("currency", 0) + rental_price
+        new_renter_resources["currency"] = renter_currency - total_cost
+        new_owner_resources["currency"] = new_owner_resources.get("currency", 0) + total_cost
         
         # Activate rental
         offer.activate()
