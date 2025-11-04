@@ -13,6 +13,7 @@ let teamState = { resources: {}, buildings: {} }; // Team-level resources and bu
 let gameState = {};
 let currentGameStatus = 'waiting'; // Track game status (waiting, in_progress, paused, completed)
 let challengeManager = null; // New challenge management system
+let tradingManager = null; // Trading management system
 
 // Countdown timer variables
 let countdownInterval = null;
@@ -2392,6 +2393,13 @@ async function initializeChallengeManager() {
             updateChallengeRequestsList();
         });
         
+        // Create trading manager
+        if (!tradingManager) {
+            tradingManager = new TradingManager(currentGameCode, gameAPI, gameWS);
+            await tradingManager.initialize();
+            console.log('[TradingManager] Initialized');
+        }
+        
         console.log('[initializeChallengeManager] Challenge manager initialized successfully');
     } catch (error) {
         console.error('[initializeChallengeManager] Failed to initialize challenge manager:', error);
@@ -3211,12 +3219,473 @@ function closeChallengeModal() {
     document.getElementById('challenge-modal').classList.add('hidden');
 }
 
-function openTradeWindow(tradeType) {
-    alert(`${tradeType === 'bank' ? 'Bank' : 'Nation'} trading interface - to be implemented`);
+// ==================== TRADING FUNCTIONS ====================
+
+async function openTradeWindow(tradeType) {
+    if (!tradingManager) {
+        alert('Trading system not initialized. Please wait for game to start.');
+        return;
+    }
+
+    if (tradeType === 'bank') {
+        await openBankTradeModal();
+    } else if (tradeType === 'nation') {
+        await openTeamTradeModal();
+    }
 }
 
-function closeTradeModal() {
-    document.getElementById('trade-modal').classList.add('hidden');
+async function openBankTradeModal() {
+    // Initialize trading manager if not done
+    if (!tradingManager) {
+        tradingManager = new TradingManager(currentGameCode, gameAPI, gameWS);
+        await tradingManager.initialize();
+    }
+    
+    // Show modal
+    document.getElementById('bank-trade-modal').classList.remove('hidden');
+    
+    // Load current prices
+    await tradingManager.loadCurrentPrices();
+}
+
+function closeBankTradeModal() {
+    document.getElementById('bank-trade-modal').classList.add('hidden');
+    
+    // Destroy chart if exists
+    if (tradingManager && tradingManager.priceChart) {
+        tradingManager.priceChart.destroy();
+        tradingManager.priceChart = null;
+    }
+}
+
+async function updateBankTradeDisplay() {
+    const resource = document.getElementById('bank-trade-resource').value;
+    
+    if (!resource) {
+        document.getElementById('price-chart-container').style.display = 'none';
+        document.getElementById('current-prices-display').style.display = 'none';
+        document.getElementById('bank-trade-form').style.display = 'none';
+        return;
+    }
+    
+    // Load and display price history
+    await tradingManager.loadPriceHistory(resource, 50);
+    tradingManager.renderPriceChart('price-chart', resource);
+    document.getElementById('price-chart-container').style.display = 'block';
+    
+    // Display current prices
+    const prices = tradingManager.currentPrices[resource];
+    if (prices) {
+        document.getElementById('bank-buy-price').textContent = prices.buy.toFixed(2) + ' 💰';
+        document.getElementById('bank-sell-price').textContent = prices.sell.toFixed(2) + ' 💰';
+        document.getElementById('current-prices-display').style.display = 'block';
+    }
+    
+    // Show trade form
+    document.getElementById('bank-trade-form').style.display = 'block';
+    
+    // Update your resources display
+    updateBankTradeResourceDisplay();
+    
+    // Setup amount change listeners
+    document.getElementById('buy-amount').oninput = updateBankTradeCosts;
+    document.getElementById('sell-amount').oninput = updateBankTradeCosts;
+    updateBankTradeCosts();
+}
+
+function updateBankTradeResourceDisplay() {
+    const resource = document.getElementById('bank-trade-resource').value;
+    if (!resource || !teamState.resources) return;
+    
+    const currency = teamState.resources.currency || 0;
+    const stock = teamState.resources[resource] || 0;
+    
+    document.getElementById('buy-your-currency').textContent = currency + ' 💰';
+    document.getElementById('sell-your-stock').textContent = stock + ' ' + tradingManager.getResourceEmoji(resource);
+}
+
+function updateBankTradeCosts() {
+    const resource = document.getElementById('bank-trade-resource').value;
+    if (!resource) return;
+    
+    const prices = tradingManager.currentPrices[resource];
+    if (!prices) return;
+    
+    // Buy calculation
+    const buyAmount = parseInt(document.getElementById('buy-amount').value) || 0;
+    const buyCost = (buyAmount * prices.sell).toFixed(2);
+    document.getElementById('buy-total-cost').textContent = buyCost + ' 💰';
+    
+    // Sell calculation
+    const sellAmount = parseInt(document.getElementById('sell-amount').value) || 0;
+    const sellRevenue = (sellAmount * prices.buy).toFixed(2);
+    document.getElementById('sell-total-revenue').textContent = sellRevenue + ' 💰';
+}
+
+async function executeBankTrade(tradeType) {
+    const resource = document.getElementById('bank-trade-resource').value;
+    if (!resource) {
+        alert('Please select a resource');
+        return;
+    }
+    
+    const teamNumber = currentPlayer.group_number || teamState.team_number;
+    if (!teamNumber) {
+        alert('Team number not found');
+        return;
+    }
+    
+    const amount = tradeType === 'buy' 
+        ? parseInt(document.getElementById('buy-amount').value)
+        : parseInt(document.getElementById('sell-amount').value);
+    
+    if (!amount || amount <= 0) {
+        alert('Please enter a valid amount');
+        return;
+    }
+    
+    try {
+        const result = await tradingManager.executeBankTrade(teamNumber, resource, amount, tradeType);
+        
+        if (result.success) {
+            alert(`✅ ${result.message}\n\nTotal ${tradeType === 'buy' ? 'Cost' : 'Revenue'}: ${result.total_cost.toFixed(2)} 💰`);
+            
+            // Update local team state
+            if (result.new_resources) {
+                teamState.resources = result.new_resources;
+                updateResourceDisplay();
+            }
+            
+            // Refresh display
+            await updateBankTradeDisplay();
+        } else {
+            alert('❌ Trade failed: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Trade failed: ' + error.message);
+        console.error('[executeBankTrade] Error:', error);
+    }
+}
+
+async function openTeamTradeModal() {
+    // Initialize trading manager if not done
+    if (!tradingManager) {
+        tradingManager = new TradingManager(currentGameCode, gameAPI, gameAPI);
+        await tradingManager.initialize();
+    }
+    
+    // Show modal
+    document.getElementById('team-trade-modal').classList.remove('hidden');
+    
+    // Populate team dropdown
+    populateTeamDropdown();
+    
+    // Initialize with empty resource inputs
+    initializeTradeResourceInputs();
+    
+    // Load active offers
+    await loadTeamTradeOffers();
+}
+
+function closeTeamTradeModal() {
+    document.getElementById('team-trade-modal').classList.add('hidden');
+}
+
+function switchTeamTradeTab(tab) {
+    // Update tab buttons
+    document.getElementById('team-trade-tab-create').classList.toggle('active', tab === 'create');
+    document.getElementById('team-trade-tab-offers').classList.toggle('active', tab === 'offers');
+    
+    // Update tab styling
+    document.getElementById('team-trade-tab-create').style.borderBottom = tab === 'create' ? '3px solid #667eea' : '3px solid transparent';
+    document.getElementById('team-trade-tab-offers').style.borderBottom = tab === 'offers' ? '3px solid #667eea' : '3px solid transparent';
+    
+    // Show/hide tab content
+    document.getElementById('team-trade-create-tab').classList.toggle('hidden', tab !== 'create');
+    document.getElementById('team-trade-offers-tab').classList.toggle('hidden', tab !== 'offers');
+    
+    if (tab === 'offers') {
+        loadTeamTradeOffers();
+    }
+}
+
+function populateTeamDropdown() {
+    const dropdown = document.getElementById('trade-to-team');
+    const currentTeam = currentPlayer.group_number || teamState.team_number;
+    
+    dropdown.innerHTML = '<option value="">Select Team...</option>';
+    
+    // Add all teams except current team
+    const numTeams = Object.keys(gameState.teams || {}).length;
+    for (let i = 1; i <= numTeams; i++) {
+        if (i !== currentTeam) {
+            dropdown.innerHTML += `<option value="${i}">Team ${i}</option>`;
+        }
+    }
+}
+
+function initializeTradeResourceInputs() {
+    document.getElementById('offering-resources').innerHTML = '';
+    document.getElementById('requesting-resources').innerHTML = '';
+    
+    addOfferingResource();
+    addRequestingResource();
+}
+
+function addOfferingResource() {
+    const container = document.getElementById('offering-resources');
+    const index = container.children.length;
+    
+    const html = `
+        <div class="resource-input-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <select class="offering-resource-type" style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #ddd;">
+                <option value="">Resource...</option>
+                <option value="food">🌾 Food</option>
+                <option value="raw_materials">⛏️ Raw Materials</option>
+                <option value="electrical_goods">⚡ Electrical</option>
+                <option value="medical_goods">🏥 Medical</option>
+                <option value="currency">💰 Currency</option>
+            </select>
+            <input type="number" class="offering-amount" min="1" placeholder="Amount" style="width: 100px; padding: 6px; border-radius: 4px; border: 1px solid #ddd;">
+            <button type="button" onclick="this.parentElement.remove()" style="padding: 6px 12px; border: none; background: #ef4444; color: white; border-radius: 4px; cursor: pointer;">✖</button>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function addRequestingResource() {
+    const container = document.getElementById('requesting-resources');
+    const index = container.children.length;
+    
+    const html = `
+        <div class="resource-input-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <select class="requesting-resource-type" style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #ddd;">
+                <option value="">Resource...</option>
+                <option value="food">🌾 Food</option>
+                <option value="raw_materials">⛏️ Raw Materials</option>
+                <option value="electrical_goods">⚡ Electrical</option>
+                <option value="medical_goods">🏥 Medical</option>
+                <option value="currency">💰 Currency</option>
+            </select>
+            <input type="number" class="requesting-amount" min="1" placeholder="Amount" style="width: 100px; padding: 6px; border-radius: 4px; border: 1px solid #ddd;">
+            <button type="button" onclick="this.parentElement.remove()" style="padding: 6px 12px; border: none; background: #ef4444; color: white; border-radius: 4px; cursor: pointer;">✖</button>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+async function createTeamTradeOffer(event) {
+    event.preventDefault();
+    
+    const toTeam = parseInt(document.getElementById('trade-to-team').value);
+    if (!toTeam) {
+        alert('Please select a team');
+        return;
+    }
+    
+    const fromTeam = currentPlayer.group_number || teamState.team_number;
+    
+    // Collect offering resources
+    const offering = {};
+    document.querySelectorAll('.offering-resource-type').forEach((select, index) => {
+        const resource = select.value;
+        const amount = parseInt(document.querySelectorAll('.offering-amount')[index].value);
+        if (resource && amount > 0) {
+            offering[resource] = amount;
+        }
+    });
+    
+    // Collect requesting resources
+    const requesting = {};
+    document.querySelectorAll('.requesting-resource-type').forEach((select, index) => {
+        const resource = select.value;
+        const amount = parseInt(document.querySelectorAll('.requesting-amount')[index].value);
+        if (resource && amount > 0) {
+            requesting[resource] = amount;
+        }
+    });
+    
+    if (Object.keys(offering).length === 0) {
+        alert('Please add at least one resource you are offering');
+        return;
+    }
+    
+    if (Object.keys(requesting).length === 0) {
+        alert('Please add at least one resource you are requesting');
+        return;
+    }
+    
+    const message = document.getElementById('trade-message').value;
+    
+    try {
+        const offer = await tradingManager.createTradeOffer(fromTeam, toTeam, offering, requesting, message);
+        alert('✅ Trade offer sent successfully!');
+        
+        // Reset form
+        document.getElementById('team-trade-offer-form').reset();
+        initializeTradeResourceInputs();
+        
+        // Switch to offers tab
+        switchTeamTradeTab('offers');
+    } catch (error) {
+        alert('❌ Failed to create trade offer: ' + error.message);
+        console.error('[createTeamTradeOffer] Error:', error);
+    }
+}
+
+async function loadTeamTradeOffers() {
+    const teamNumber = currentPlayer.group_number || teamState.team_number;
+    
+    try {
+        await tradingManager.loadTradeOffers(teamNumber, false);
+        displayTeamTradeOffers();
+    } catch (error) {
+        console.error('[loadTeamTradeOffers] Error:', error);
+        document.getElementById('team-trade-offers-list').innerHTML = '<p style="color: #ef4444;">Failed to load trade offers</p>';
+    }
+}
+
+function displayTeamTradeOffers() {
+    const container = document.getElementById('team-trade-offers-list');
+    const offers = tradingManager.activeOffers;
+    const currentTeam = currentPlayer.group_number || teamState.team_number;
+    
+    if (offers.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No active trade offers</p>';
+        return;
+    }
+    
+    let html = '';
+    
+    offers.forEach(offer => {
+        const isFrom = offer.from_team === currentTeam;
+        const isTo = offer.to_team === currentTeam;
+        
+        // Determine which resources to show (original or counter)
+        let offering = offer.offering;
+        let requesting = offer.requesting;
+        if (offer.status === 'countered' && offer.counter_offer) {
+            offering = offer.counter_offer.offering;
+            requesting = offer.counter_offer.requesting;
+        }
+        
+        html += `
+            <div style="margin-bottom: 20px; padding: 15px; border: 2px solid ${offer.status === 'pending' ? '#667eea' : '#f59e0b'}; border-radius: 8px; background: white;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div>
+                        <strong>Team ${offer.from_team}</strong> → <strong>Team ${offer.to_team}</strong>
+                    </div>
+                    <span style="padding: 4px 8px; background: ${offer.status === 'pending' ? '#dbeafe' : '#fef3c7'}; color: ${offer.status === 'pending' ? '#1e40af' : '#92400e'}; border-radius: 4px; font-size: 12px; font-weight: 600;">
+                        ${offer.status.toUpperCase()}
+                    </span>
+                </div>
+                
+                ${offer.status === 'countered' ? '<div style="margin-bottom: 10px; padding: 8px; background: #fef3c7; border-radius: 4px; font-size: 14px; color: #92400e;">⚠️ Counter Offer Received</div>' : ''}
+                
+                <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 15px; margin-bottom: 10px;">
+                    <div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">📤 Offering:</div>
+                        ${formatResourceList(offering)}
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 24px;">↔️</span>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">📥 Requesting:</div>
+                        ${formatResourceList(requesting)}
+                    </div>
+                </div>
+                
+                ${offer.message ? `<div style="padding: 8px; background: #f3f4f6; border-radius: 4px; margin-bottom: 10px; font-style: italic;">"${offer.message}"</div>` : ''}
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    ${isTo ? `
+                        <button class="btn btn-success" onclick="acceptTeamTradeOffer('${offer.offer_id}')" style="flex: 1;">✅ Accept</button>
+                        <button class="btn btn-warning" onclick="openCounterOfferModal('${offer.offer_id}')" style="flex: 1;">🔄 Counter</button>
+                        <button class="btn btn-danger" onclick="rejectTeamTradeOffer('${offer.offer_id}')">❌ Reject</button>
+                    ` : ''}
+                    ${isFrom ? `
+                        <button class="btn btn-danger" onclick="cancelTeamTradeOffer('${offer.offer_id}')" style="flex: 1;">🗑️ Cancel Offer</button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function formatResourceList(resources) {
+    const items = Object.entries(resources).map(([resource, amount]) => {
+        const emoji = tradingManager.getResourceEmoji(resource);
+        const name = tradingManager.formatResourceName(resource);
+        return `<div>${emoji} ${amount} ${name}</div>`;
+    });
+    return items.join('') || '<div style="color: #999;">None</div>';
+}
+
+async function acceptTeamTradeOffer(offerId) {
+    if (!confirm('Accept this trade offer?')) return;
+    
+    try {
+        await tradingManager.acceptTradeOffer(offerId);
+        alert('✅ Trade completed successfully!');
+        await loadTeamTradeOffers();
+    } catch (error) {
+        alert('❌ Failed to accept offer: ' + error.message);
+        console.error('[acceptTeamTradeOffer] Error:', error);
+    }
+}
+
+async function rejectTeamTradeOffer(offerId) {
+    if (!confirm('Reject this trade offer?')) return;
+    
+    try {
+        await tradingManager.rejectTradeOffer(offerId);
+        alert('Trade offer rejected');
+        await loadTeamTradeOffers();
+    } catch (error) {
+        alert('❌ Failed to reject offer: ' + error.message);
+        console.error('[rejectTeamTradeOffer] Error:', error);
+    }
+}
+
+async function cancelTeamTradeOffer(offerId) {
+    if (!confirm('Cancel this trade offer?')) return;
+    
+    try {
+        await tradingManager.cancelTradeOffer(offerId);
+        alert('Trade offer cancelled');
+        await loadTeamTradeOffers();
+    } catch (error) {
+        alert('❌ Failed to cancel offer: ' + error.message);
+        console.error('[cancelTeamTradeOffer] Error:', error);
+    }
+}
+
+function openCounterOfferModal(offerId) {
+    // For now, use a simple prompt-based counter offer
+    // In a full implementation, this would open a dedicated modal
+    const offer = tradingManager.activeOffers.find(o => o.offer_id === offerId);
+    if (!offer) return;
+    
+    alert('Counter offer feature: Use the trade creation form to make a new offer with adjusted terms.');
+}
+
+async function updateTradingUI() {
+    // Called when bank trade completes via WebSocket
+    if (tradingManager && document.getElementById('bank-trade-modal').classList.contains('hidden') === false) {
+        await updateBankTradeDisplay();
+    }
+}
+
+async function updateTeamTradeUI() {
+    // Called when team trade events occur via WebSocket
+    if (tradingManager && document.getElementById('team-trade-modal').classList.contains('hidden') === false) {
+        await loadTeamTradeOffers();
+    }
 }
 
 // ==================== UTILITY FUNCTIONS ====================
@@ -3630,6 +4099,54 @@ function handleGameEvent(data) {
             refreshAllTeamNameDisplays();
             
             addEventLog(`Team ${eventData.team_number} renamed to "${eventData.team_name}"`, 'info');
+            break;
+        
+        // Trading events
+        case 'bank_trade_completed':
+            if (tradingManager) {
+                tradingManager.handleTradeEvent(event_type, eventData);
+            }
+            addEventLog(`Team ${eventData.team_number} traded ${eventData.amount} ${eventData.resource} with bank`, 'success');
+            
+            // Refresh resources display
+            if (eventData.team_number === (currentPlayer.group_number || teamState.team_number)) {
+                loadGameState();
+            }
+            break;
+        
+        case 'team_trade_offer_created':
+            if (tradingManager) {
+                tradingManager.handleTradeEvent(event_type, eventData);
+            }
+            addEventLog(`Trade offer created: Team ${eventData.from_team} → Team ${eventData.to_team}`, 'info');
+            break;
+        
+        case 'team_trade_offer_countered':
+            if (tradingManager) {
+                tradingManager.handleTradeEvent(event_type, eventData);
+            }
+            addEventLog(`Trade offer countered: Team ${eventData.from_team} ↔ Team ${eventData.to_team}`, 'info');
+            break;
+        
+        case 'team_trade_completed':
+            if (tradingManager) {
+                tradingManager.handleTradeEvent(event_type, eventData);
+            }
+            addEventLog(`Trade completed between Team ${eventData.from_team} and Team ${eventData.to_team}`, 'success');
+            
+            // Refresh resources if involved in trade
+            const currentTeam = currentPlayer.group_number || teamState.team_number;
+            if (currentTeam === eventData.from_team || currentTeam === eventData.to_team) {
+                loadGameState();
+            }
+            break;
+        
+        case 'team_trade_offer_rejected':
+        case 'team_trade_offer_cancelled':
+            if (tradingManager) {
+                tradingManager.handleTradeEvent(event_type, eventData);
+            }
+            addEventLog(`Trade offer ${event_type === 'team_trade_offer_rejected' ? 'rejected' : 'cancelled'}`, 'info');
             break;
     }
 }
