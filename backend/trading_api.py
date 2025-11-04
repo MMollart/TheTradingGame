@@ -33,7 +33,7 @@ class BankTradeResponse(BaseModel):
     success: bool
     message: str
     total_cost: Optional[float] = None
-    new_resources: Optional[Dict[str, int]] = None
+    new_resources: Optional[Dict[str, Any]] = None  # Changed from int to Any to allow float values
     new_prices: Optional[Dict[str, Any]] = None
 
 
