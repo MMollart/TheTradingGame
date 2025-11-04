@@ -30,6 +30,7 @@ from game_logic import GameLogic
 from game_constants import NationType
 from email_utils import send_registration_email
 from challenge_api import router as challenge_router_v2
+from trading_api import router as trading_router_v2
 
 app = FastAPI(
     title="The Trading Game",
@@ -55,6 +56,9 @@ def on_startup():
 
 # Include v2 Challenge API routes
 app.include_router(challenge_router_v2)
+
+# Include v2 Trading API routes
+app.include_router(trading_router_v2)
 
 
 @app.get("/")
