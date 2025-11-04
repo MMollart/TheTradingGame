@@ -475,8 +475,8 @@
                     <div class="card full-width" id="card-trading">
                         <h3>Trading</h3>
                         <div class="trading-controls">
-                            <button class="btn btn-primary" onclick="openTradeWindow('bank')">💰 Trade with Bank</button>
-                            <button class="btn btn-primary" onclick="openTradeWindow('nation')">🤝 Trade with Nation</button>
+                            <button class="btn btn-primary" onclick="openBankTradeModal()">💰 Trade with Bank</button>
+                            <button class="btn btn-primary" onclick="openTeamTradeModal()">🤝 Trade with Team</button>
                         </div>
                     </div>
 
@@ -492,13 +492,109 @@
         </div>
     </div>
 
-    <!-- Trade Modal -->
-    <div id="trade-modal" class="modal hidden">
-        <div class="modal-content">
-            <span class="close" onclick="closeTradeModal()">&times;</span>
-            <h2>Trade Resources</h2>
-            <div id="trade-form">
-                <!-- Trade form will be populated here -->
+    <!-- Bank Trade Modal -->
+    <div id="bank-trade-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 900px;">
+            <span class="close" onclick="closeBankTradeModal()">&times;</span>
+            <h2>💰 Trade with Bank</h2>
+            
+            <!-- Price History Chart -->
+            <div class="price-chart-container" style="margin-bottom: 20px;">
+                <h3>Price History</h3>
+                <select id="price-chart-resource" onchange="updatePriceChart()" style="margin-bottom: 10px;">
+                    <option value="food">🌾 Food</option>
+                    <option value="raw_materials">⚙️ Raw Materials</option>
+                    <option value="electrical_goods">⚡ Electrical Goods</option>
+                    <option value="medical_goods">🏥 Medical Goods</option>
+                </select>
+                <canvas id="price-history-chart" width="400" height="200"></canvas>
+            </div>
+            
+            <!-- Trade Form -->
+            <div id="bank-trade-form">
+                <div class="form-group">
+                    <label>Resource:</label>
+                    <select id="bank-trade-resource" onchange="updateBankTradePreview()">
+                        <option value="">Select Resource...</option>
+                        <option value="food">🌾 Food</option>
+                        <option value="raw_materials">⚙️ Raw Materials</option>
+                        <option value="electrical_goods">⚡ Electrical Goods</option>
+                        <option value="medical_goods">🏥 Medical Goods</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Quantity:</label>
+                    <input type="number" id="bank-trade-quantity" min="1" value="1" onchange="updateBankTradePreview()">
+                </div>
+                
+                <div class="form-group">
+                    <label>Action:</label>
+                    <div>
+                        <label><input type="radio" name="bank-trade-action" value="buy" checked onchange="updateBankTradePreview()"> Buy from Bank</label>
+                        <label style="margin-left: 20px;"><input type="radio" name="bank-trade-action" value="sell" onchange="updateBankTradePreview()"> Sell to Bank</label>
+                    </div>
+                </div>
+                
+                <!-- Trade Preview -->
+                <div id="bank-trade-preview" class="trade-preview" style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 5px; display: none;">
+                    <h4>Trade Preview</h4>
+                    <div id="bank-trade-preview-content"></div>
+                </div>
+                
+                <div class="modal-actions" style="margin-top: 20px;">
+                    <button class="btn btn-success" onclick="executeBankTrade()">✓ Execute Trade</button>
+                    <button class="btn btn-secondary" onclick="closeBankTradeModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Trade Modal -->
+    <div id="team-trade-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close" onclick="closeTeamTradeModal()">&times;</span>
+            <h2>🤝 Trade with Team</h2>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTeamTradeTab('create')">Create Offer</button>
+                <button class="tab-btn" onclick="switchTeamTradeTab('pending')">Pending Trades</button>
+            </div>
+            
+            <!-- Create Trade Offer Tab -->
+            <div id="team-trade-create" class="tab-content">
+                <div class="form-group">
+                    <label>Trade with Team:</label>
+                    <select id="team-trade-target">
+                        <option value="">Select Team...</option>
+                    </select>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                    <div>
+                        <h4>You Offer:</h4>
+                        <div id="team-trade-offer-list"></div>
+                        <button class="btn btn-sm btn-primary" onclick="addOfferResource()">+ Add Resource</button>
+                    </div>
+                    
+                    <div>
+                        <h4>You Request:</h4>
+                        <div id="team-trade-request-list"></div>
+                        <button class="btn btn-sm btn-primary" onclick="addRequestResource()">+ Add Resource</button>
+                    </div>
+                </div>
+                
+                <div class="modal-actions" style="margin-top: 20px;">
+                    <button class="btn btn-success" onclick="createTeamTradeOffer()">📤 Send Trade Offer</button>
+                    <button class="btn btn-secondary" onclick="closeTeamTradeModal()">Cancel</button>
+                </div>
+            </div>
+            
+            <!-- Pending Trades Tab -->
+            <div id="team-trade-pending" class="tab-content hidden">
+                <div id="pending-trades-list">
+                    <!-- Will be populated by JavaScript -->
+                </div>
             </div>
         </div>
     </div>
@@ -655,8 +751,12 @@
         </div>
     </div>
 
-    <script src="game-api.js?v=38"></script>
+    <!-- Chart.js for price history -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <script src="game-api.js?v=39"></script>
     <script src="challenge-manager.js?v=10"></script>
-    <script src="dashboard.js?v=58"></script>
+    <script src="trading-manager.js?v=1"></script>
+    <script src="dashboard.js?v=59"></script>
 </body>
 </html>

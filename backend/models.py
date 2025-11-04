@@ -172,3 +172,68 @@ class Challenge(Base):
     # Relationships
     game_session = relationship("GameSession")
     player = relationship("Player")
+
+
+class TradeOfferStatus(str, enum.Enum):
+    """Trade offer status between teams"""
+    PENDING = "pending"          # Initial offer, awaiting response
+    COUNTER_OFFERED = "counter_offered"  # Counter-offer made
+    ACCEPTED = "accepted"        # Trade accepted and completed
+    REJECTED = "rejected"        # Trade rejected
+    CANCELLED = "cancelled"      # Cancelled by initiator
+
+
+class TradeOffer(Base):
+    """Team-to-team trade offers"""
+    __tablename__ = "trade_offers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    game_session_id = Column(Integer, ForeignKey("game_sessions.id"), nullable=False)
+    
+    # Parties involved
+    from_team_number = Column(Integer, nullable=False)
+    to_team_number = Column(Integer, nullable=False)
+    initiated_by_player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    
+    # Trade details - what initiator offers
+    offered_resources = Column(JSON, nullable=False)  # {"food": 10, "currency": 50}
+    # Trade details - what initiator requests
+    requested_resources = Column(JSON, nullable=False)  # {"raw_materials": 20}
+    
+    # Counter offer (if any)
+    counter_offered_resources = Column(JSON, nullable=True)
+    counter_requested_resources = Column(JSON, nullable=True)
+    counter_offered_by_player_id = Column(Integer, ForeignKey("players.id"), nullable=True)
+    counter_offered_at = Column(DateTime, nullable=True)
+    
+    # Status
+    status = Column(Enum(TradeOfferStatus), default=TradeOfferStatus.PENDING, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    game_session = relationship("GameSession")
+    initiated_by = relationship("Player", foreign_keys=[initiated_by_player_id])
+    counter_offered_by = relationship("Player", foreign_keys=[counter_offered_by_player_id])
+
+
+class PriceHistory(Base):
+    """Track bank prices over time for charting"""
+    __tablename__ = "price_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    game_session_id = Column(Integer, ForeignKey("game_sessions.id"), nullable=False)
+    
+    # Price snapshot
+    resource_type = Column(String(50), nullable=False)  # food, raw_materials, etc.
+    buy_price = Column(Integer, nullable=False)  # Price bank sells at (higher)
+    sell_price = Column(Integer, nullable=False)  # Price bank buys at (lower)
+    baseline_price = Column(Integer, nullable=False)  # Original fixed price
+    
+    # Context
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    triggered_by_trade = Column(Boolean, default=False)  # Was this update caused by a trade?
+    
+    # Relationships
+    game_session = relationship("GameSession")
