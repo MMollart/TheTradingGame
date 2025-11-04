@@ -112,7 +112,7 @@ class PricingManager:
         # Get current price info
         price_info = current_prices[resource_type]
         baseline = price_info['baseline']
-        current_middle = (price_info['buy_price'] + price_info['sell_price']) // 2
+        current_middle = round((price_info['buy_price'] + price_info['sell_price']) / 2.0)
         
         # Calculate price adjustment based on trade direction and size
         # If team is buying from bank, demand increases -> price goes up
@@ -196,7 +196,7 @@ class PricingManager:
             
             price_info = updated_prices[resource_type]
             baseline = price_info['baseline']
-            current_middle = (price_info['buy_price'] + price_info['sell_price']) // 2
+            current_middle = round((price_info['buy_price'] + price_info['sell_price']) / 2.0)
             
             # Small adjustment in same direction as primary resource
             adjustment_direction = 1 if is_team_buying else -1

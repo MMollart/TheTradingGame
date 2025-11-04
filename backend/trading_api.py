@@ -159,6 +159,16 @@ async def execute_bank_trade(
                 detail=f"Insufficient {trade.resource_type}. Need {trade.quantity}, have {team_resources.get(trade.resource_type, 0)}"
             )
     
+    # Validate bank inventory for buying
+    if trade.is_buying:
+        bank_inventory = banker.player_state.get('bank_inventory', {})
+        bank_has = bank_inventory.get(trade.resource_type, 0)
+        if bank_has < trade.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Bank only has {bank_has} {trade.resource_type} available (requested {trade.quantity})"
+            )
+    
     # Execute the trade
     if trade.is_buying:
         # Team buys from bank

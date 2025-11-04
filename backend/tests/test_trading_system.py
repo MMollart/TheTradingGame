@@ -43,21 +43,27 @@ class TestPricingManager:
         ).all()
         assert len(history_records) == 1
     
-    def test_price_spread_calculation(self, db):
-        """Test that buy/sell spread is correctly applied"""
+    def test_price_spread_calculation(self, client, sample_game, db):
+        """Test that buy/sell spread is correctly applied through initialization"""
+        game_code = sample_game["game_code"]
         pricing_mgr = PricingManager(db)
         
-        base_price = 100
-        buy_price = pricing_mgr._apply_spread(base_price, is_buy=True)
-        sell_price = pricing_mgr._apply_spread(base_price, is_buy=False)
+        # Initialize prices to test spread
+        prices = pricing_mgr.initialize_bank_prices(game_code)
         
-        # Buy should be higher, sell should be lower
-        assert buy_price > base_price
-        assert sell_price < base_price
-        
-        # Spread should be approximately 10%
-        spread_percent = (buy_price - sell_price) / base_price
-        assert 0.18 <= spread_percent <= 0.22  # Allow for rounding
+        # Check spread is applied correctly for all resources
+        for resource, price_info in prices.items():
+            buy_price = price_info['buy_price']
+            sell_price = price_info['sell_price']
+            baseline = price_info['baseline']
+            
+            # Buy should be higher, sell should be lower than baseline
+            assert buy_price > baseline
+            assert sell_price < baseline
+            
+            # Spread should be approximately 10% (allowing for rounding)
+            spread_percent = (buy_price - sell_price) / baseline
+            assert 0.18 <= spread_percent <= 0.22
     
     def test_adjust_price_after_buy(self, client, sample_game, db):
         """Test price increases when team buys from bank"""

@@ -3421,13 +3421,45 @@ function updateBankTradePreview() {
     const direction = isBuying ? 'from' : 'to';
     const unitPrice = isBuying ? prices.buy_price : prices.sell_price;
     
-    content.innerHTML = `
-        <p><strong>Action:</strong> ${action.charAt(0).toUpperCase() + action.slice(1)} ${quantity} ${formatResourceName(resourceType)} ${direction} Bank</p>
-        <p><strong>Unit Price:</strong> ${unitPrice} 💰 Currency</p>
-        <p><strong>Total ${isBuying ? 'Cost' : 'Gain'}:</strong> ${cost} 💰 Currency</p>
-        <p style="margin-top: 10px;"><strong>Current Bank Prices:</strong></p>
-        <p style="font-size: 12px;">Buy from Bank: ${prices.buy_price} 💰 | Sell to Bank: ${prices.sell_price} 💰 | Baseline: ${prices.baseline} 💰</p>
-    `;
+    // Clear previous content
+    content.innerHTML = '';
+    
+    // Create elements safely without innerHTML injection
+    const actionP = document.createElement('p');
+    const actionStrong = document.createElement('strong');
+    actionStrong.textContent = 'Action: ';
+    actionP.appendChild(actionStrong);
+    actionP.appendChild(document.createTextNode(
+        `${action.charAt(0).toUpperCase() + action.slice(1)} ${quantity} ${formatResourceName(resourceType)} ${direction} Bank`
+    ));
+    
+    const priceP = document.createElement('p');
+    const priceStrong = document.createElement('strong');
+    priceStrong.textContent = 'Unit Price: ';
+    priceP.appendChild(priceStrong);
+    priceP.appendChild(document.createTextNode(`${unitPrice} 💰 Currency`));
+    
+    const totalP = document.createElement('p');
+    const totalStrong = document.createElement('strong');
+    totalStrong.textContent = `Total ${isBuying ? 'Cost' : 'Gain'}: `;
+    totalP.appendChild(totalStrong);
+    totalP.appendChild(document.createTextNode(`${cost} 💰 Currency`));
+    
+    const bankPricesHeaderP = document.createElement('p');
+    bankPricesHeaderP.style.marginTop = '10px';
+    const bankPricesStrong = document.createElement('strong');
+    bankPricesStrong.textContent = 'Current Bank Prices:';
+    bankPricesHeaderP.appendChild(bankPricesStrong);
+    
+    const bankPricesP = document.createElement('p');
+    bankPricesP.style.fontSize = '12px';
+    bankPricesP.textContent = `Buy from Bank: ${prices.buy_price} 💰 | Sell to Bank: ${prices.sell_price} 💰 | Baseline: ${prices.baseline} 💰`;
+    
+    content.appendChild(actionP);
+    content.appendChild(priceP);
+    content.appendChild(totalP);
+    content.appendChild(bankPricesHeaderP);
+    content.appendChild(bankPricesP);
     
     preview.style.display = 'block';
 }
@@ -3502,8 +3534,14 @@ function closeTeamTradeModal() {
 function switchTeamTradeTab(tab) {
     // Update tab buttons
     const buttons = document.querySelectorAll('#team-trade-modal .tab-btn');
-    buttons.forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    buttons.forEach(btn => {
+        if ((tab === 'create' && btn.textContent.includes('Create')) ||
+            (tab === 'pending' && btn.textContent.includes('Pending'))) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
     
     // Show/hide tab content
     document.getElementById('team-trade-create').classList.toggle('hidden', tab !== 'create');
