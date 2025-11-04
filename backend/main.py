@@ -1279,6 +1279,12 @@ async def give_manual_resources(
     flag_modified(game, 'game_state')
     db.commit()
     
+    # Broadcast state update to all players so dashboards refresh
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "state_updated",
+        "state": game.game_state
+    })
+    
     return {
         "message": f"Successfully gave {amount} {resource_type} to Team {team_number}",
         "team_number": team_number,
@@ -1334,6 +1340,12 @@ async def give_manual_buildings(
     # Mark as modified for SQLAlchemy
     flag_modified(game, 'game_state')
     db.commit()
+    
+    # Broadcast state update to all players so dashboards refresh
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "state_updated",
+        "state": game.game_state
+    })
     
     return {
         "message": f"Successfully gave {quantity} {building_type}(s) to Team {team_number}",
@@ -1540,6 +1552,12 @@ async def complete_challenge_with_bank_transfer(
         challenge.completed_at = datetime.utcnow()  # type: ignore
     
     db.commit()
+    
+    # Broadcast state update to all players so dashboards refresh
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "state_updated",
+        "state": game.game_state
+    })
     
     return {
         "success": True,
