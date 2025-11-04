@@ -19,7 +19,7 @@ body {
 
 /* Header */
 .dashboard-header {
-    background: linear-gradient(135deg, #7413dc 0%, #00a794 100%);
+    background: linear-gradient(135deg, #7413dc 0%, #088486 100%);
     color: white;
     padding: 15px 30px;
     display: flex;
@@ -151,8 +151,8 @@ body {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-    background-color: #23A950;
-    border-color: #23A950;
+    background-color: #25b755;
+    border-color: #25b755;
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
@@ -160,7 +160,7 @@ body {
 }
 
 .toggle-switch input:focus + .toggle-slider {
-    box-shadow: 0 0 1px #23A950;
+    box-shadow: 0 0 1px #25b755;
 }
 
 /* Role View Switcher */
@@ -174,8 +174,8 @@ body {
 }
 
 .player-view-switcher {
-    background: rgba(0, 167, 148, 0.3);
-    border-color: rgba(0, 167, 148, 0.5);
+    background: rgba(8, 132, 134, 0.3);
+    border-color: rgba(8, 132, 134, 0.5);
 }
 
 .role-selector, .player-selector {
@@ -205,8 +205,8 @@ body {
 .team-member {
     padding: 8px 12px;
     margin: 6px 0;
-    background: rgba(0, 167, 148, 0.1);
-    border-left: 3px solid #00a794;
+    background: rgba(8, 132, 134, 0.1);
+    border-left: 3px solid #088486;
     border-radius: 4px;
     font-weight: 500;
 }
@@ -266,7 +266,7 @@ body {
 }
 
 .status-indicator.connected {
-    color: #23A950;
+    color: #25b755;
 }
 
 .status-indicator.disconnected {
@@ -347,7 +347,7 @@ body {
 }
 
 .btn-success {
-    background: #23A950;
+    background: #25b755;
     color: white;
 }
 
@@ -539,14 +539,14 @@ body {
 
 .member-badge {
     display: inline-block;
-    background: rgba(0, 167, 148, 0.1);
-    color: #00a794;
+    background: rgba(8, 132, 134, 0.1);
+    color: #088486;
     padding: 6px 12px;
     border-radius: 16px;
     margin: 4px;
     font-size: 13px;
     font-weight: 500;
-    border: 1px solid rgba(0, 167, 148, 0.3);
+    border: 1px solid rgba(8, 132, 134, 0.3);
 }
 
 .nation-stat {
@@ -1054,7 +1054,7 @@ body {
 
 .pending-player-item .approve-btn {
     padding: 8px 16px;
-    background: #23A950;
+    background: #25b755;
     color: white;
     border: none;
     border-radius: 4px;
@@ -1094,12 +1094,12 @@ body {
     padding: 12px;
     background: #f8f9fa;
     border-radius: 6px;
-    border-left: 4px solid #00a794;
+    border-left: 4px solid #088486;
 }
 
 .team-member-item.is-current-player {
     background: #e6f9f6;
-    border-left-color: #00a794;
+    border-left-color: #088486;
     font-weight: 600;
 }
 
@@ -1115,7 +1115,7 @@ body {
     font-size: 12px;
     padding: 4px 8px;
     border-radius: 12px;
-    background: #23A950;
+    background: #25b755;
     color: white;
 }
 
@@ -1150,7 +1150,7 @@ body {
 
 .role-player-item:hover {
     background: #e6f9f6;
-    border-color: #00a794;
+    border-color: #088486;
 }
 
 .role-player-item .role-badge {
@@ -1162,12 +1162,12 @@ body {
 
 .role-badge.role-player {
     background: #e6f9f6;
-    color: #00a794;
+    color: #088486;
 }
 
 .role-badge.role-banker {
     background: #e8f5e9;
-    color: #23A950;
+    color: #25b755;
 }
 
 .role-badge.role-host {
@@ -1177,7 +1177,7 @@ body {
 
 /* Welcome Banner */
 .welcome-banner {
-    background: linear-gradient(135deg, #7413dc 0%, #00a794 100%);
+    background: linear-gradient(135deg, #7413dc 0%, #088486 100%);
     color: white;
     padding: 30px;
     border-radius: 16px;
@@ -1272,7 +1272,7 @@ body {
 
 .team-box.drag-over {
     background: #e6f9f6;
-    border-color: #00a794;
+    border-color: #088486;
     border-style: solid;
     transform: scale(1.02);
 }
@@ -1463,11 +1463,11 @@ body {
     padding: 15px;
     background: #e6f9f6;
     border-radius: 8px;
-    border-left: 4px solid #00a794;
+    border-left: 4px solid #088486;
 }
 
 .manual-assignment h4 {
-    color: #00a794;
+    color: #088486;
     margin-bottom: 10px;
 }
 
@@ -1744,7 +1744,7 @@ body {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #7413dc 0%, #00a794 100%);
+    background: linear-gradient(135deg, #7413dc 0%, #088486 100%);
     color: white;
 }
 
