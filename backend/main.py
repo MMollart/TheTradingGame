@@ -1500,7 +1500,9 @@ async def complete_challenge_with_bank_transfer(
     
     # Initialize bank inventory if it doesn't exist (for hosts managing bank)
     if 'bank_inventory' not in bank_manager.player_state:
-        bank_manager.player_state = GameLogic.initialize_banker()
+        banker_state = GameLogic.initialize_banker()
+        bank_manager.player_state['bank_inventory'] = banker_state['bank_inventory']
+        flag_modified(bank_manager, 'player_state')
     
     bank_inventory = bank_manager.player_state.get('bank_inventory', {})
     current_inventory = bank_inventory.get(resource_type, 0)
