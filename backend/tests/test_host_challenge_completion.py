@@ -251,6 +251,5 @@ def test_banker_takes_precedence_over_host(client, sample_game, db):
     db.refresh(host)
     assert banker.player_state['bank_inventory']['food'] == initial_banker_food - 15
     
-    # Host should not have bank_inventory modified (or it should be empty)
-    host_bank = host.player_state.get('bank_inventory', {}) if host.player_state else {}
-    assert host_bank.get('food', 0) == 0 or 'bank_inventory' not in (host.player_state or {})
+    # Host should not have bank_inventory (since banker exists)
+    assert 'bank_inventory' not in host.player_state or host.player_state.get('bank_inventory', {}).get('food', 0) == 0

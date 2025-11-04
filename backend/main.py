@@ -1516,9 +1516,7 @@ async def complete_challenge_with_bank_transfer(
             detail=f"Bank does not have enough {resource_type}. Required: {amount}, Available: {int(current_inventory)}"
         )
     
-    # Deduct from bank inventory
-    if 'bank_inventory' not in bank_manager.player_state:
-        bank_manager.player_state['bank_inventory'] = {}
+    # Deduct from bank inventory (bank_inventory is guaranteed to exist at this point)
     bank_manager.player_state['bank_inventory'][resource_type] = current_inventory - amount
     flag_modified(bank_manager, 'player_state')
     
