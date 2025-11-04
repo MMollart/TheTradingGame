@@ -28,8 +28,8 @@ class OSMOAuthConfig:
     REDIRECT_URI = os.getenv("OSM_REDIRECT_URI", "http://localhost:8000/oauth/osm/callback")
     
     BASE_URL = os.getenv("OSM_BASE_URL", "https://www.onlinescoutmanager.co.uk")
-    AUTHORIZE_URL = os.getenv("OSM_AUTHORIZE_URL", f"{BASE_URL}/oauth/authorize")
-    TOKEN_URL = os.getenv("OSM_TOKEN_URL", f"{BASE_URL}/oauth/token")
+    AUTHORIZE_URL = os.getenv("OSM_AUTHORIZE_URL", BASE_URL + "/oauth/authorize")
+    TOKEN_URL = os.getenv("OSM_TOKEN_URL", BASE_URL + "/oauth/token")
     
     DEFAULT_SCOPES = os.getenv(
         "OSM_DEFAULT_SCOPES",

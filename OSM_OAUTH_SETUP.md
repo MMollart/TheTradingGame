@@ -2,9 +2,26 @@
 
 This document explains how to set up and use the OAuth2 authentication framework for connecting to the OnlineScoutManager (OSM) API.
 
+## ⚠️ Production Readiness Notice
+
+**Current Status**: Development/Testing Ready ✅ | **Production Ready**: ⚠️ Requires Security Hardening
+
+This implementation provides a **complete, working OAuth2 framework** suitable for:
+- ✅ Development and testing
+- ✅ Single-server deployments
+- ✅ Learning and prototyping
+
+**Before production deployment, you MUST implement:**
+1. ⚠️ **Token encryption at rest** (currently plain text in database)
+2. ⚠️ **Redis-based OAuth state storage** (currently in-memory dictionary)
+3. ✅ HTTPS redirect URIs (already enforced)
+4. ✅ Proper logging (already implemented)
+
+See the [Security Considerations](#security-considerations) section for implementation details.
+
 ## Overview
 
-The Trading Game now includes a complete OAuth2 integration framework that allows users to:
+The Trading Game includes a complete OAuth2 integration framework that allows users to:
 - Connect their OnlineScoutManager accounts
 - Access OSM data (members, events, invoices, etc.) within the game
 - Automatically manage OAuth tokens (refresh, expiry, etc.)
