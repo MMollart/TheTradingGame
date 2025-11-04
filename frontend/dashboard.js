@@ -2852,7 +2852,7 @@ async function requestChallenge(buildingType) {
         status: 'requested'
     };
     
-    // Save challenge to database
+    // Save challenge to database (with bank inventory check)
     let dbId = null;
     try {
         const dbChallenge = await gameAPI.createChallenge(currentGameCode, {
@@ -2869,7 +2869,32 @@ async function requestChallenge(buildingType) {
         dbId = dbChallenge.id;
     } catch (error) {
         console.error('[requestChallenge] Failed to save challenge to database:', error);
-        // Continue anyway - we'll rely on WebSocket events
+        
+        // Check if it's a bank inventory error
+        if (error.message && error.message.includes('Bank does not have enough')) {
+            // Soft error - show user-friendly message
+            const resourceMatch = error.message.match(/Bank does not have enough (\w+)/);
+            const resourceType = resourceMatch ? resourceMatch[1] : 'resources';
+            const resourceName = formatResourceName(resourceType).replace(/^[^\s]+\s/, '');
+            
+            alert(`🏦 Challenge Request Declined\n\nThe bank doesn't have enough ${resourceName} in stock to grant this challenge reward.\n\nPlease try requesting a challenge for a different building type, or ask the banker to restock inventory.`);
+            
+            // Remove from active challenges since it failed
+            delete allActiveChallenges[challengeKey];
+            
+            // Reset button
+            const requestBtn = document.getElementById(`${buildingType}-request-btn`);
+            if (requestBtn) {
+                requestBtn.disabled = false;
+                requestBtn.textContent = '🎯 Request Challenge';
+            }
+            
+            addEventLog(`❌ Challenge declined: Bank has insufficient ${resourceName}`, 'warning');
+            return; // Stop here, don't send WebSocket event
+        }
+        
+        // For other errors, continue anyway - we'll rely on WebSocket events
+        console.warn('[requestChallenge] Non-inventory error, continuing with WebSocket...');
     }
     
     // Send challenge request via WebSocket (include db_id from HTTP response)
@@ -3513,6 +3538,20 @@ function handleGameEvent(data) {
             // Use challenge manager to handle completion
             if (challengeManager) {
                 challengeManager.handleChallengeCompleted(eventData);
+            }
+            
+            // Refresh banker view if this is the banker/host
+            if (currentPlayer.role === 'banker' || currentPlayer.role === 'host') {
+                (async () => {
+                    // Refresh player data to get updated bank inventory
+                    const players = await gameAPI.getPlayers(currentGameCode);
+                    const bankerPlayer = players.find(p => p.role === 'banker');
+                    if (bankerPlayer && bankerPlayer.player_state) {
+                        playerState = bankerPlayer.player_state;
+                        loadHostBankerView();
+                        console.log('[challenge_completed] Refreshed banker view, new inventory:', playerState.bank_inventory);
+                    }
+                })();
             }
             
             // Update UI for team members
@@ -4631,8 +4670,8 @@ async function completeChallengeAndGrantResources(playerId, buildingType, teamNu
             return;
         }
         
-        // Grant resources via backend API
-        const response = await fetch(`${gameAPI.baseUrl}/games/${currentGameCode}/manual-resources`, {
+        // Grant resources from bank via new endpoint
+        const response = await fetch(`${gameAPI.baseUrl}/games/${currentGameCode}/challenges/${challengeDbId}/complete`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -4647,8 +4686,12 @@ async function completeChallengeAndGrantResources(playerId, buildingType, teamNu
         
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.detail || 'Failed to grant resources');
+            alert(`❌ Cannot complete challenge!\n\n${error.detail || 'Failed to grant resources'}`);
+            return;
         }
+        
+        const result = await response.json();
+        console.log('[completeChallengeAndGrantResources] Bank transfer result:', result);
         
         // Complete challenge via challenge manager
         if (challengeManager && challengeDbId) {

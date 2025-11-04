@@ -1336,6 +1336,101 @@ async def give_manual_buildings(
     }
 
 
+@app.post("/games/{game_code}/challenges/{challenge_id}/complete")
+async def complete_challenge_with_bank_transfer(
+    game_code: str,
+    challenge_id: int,
+    request_body: dict,
+    db: Session = Depends(get_db)
+):
+    """Complete a challenge and transfer resources from bank to team"""
+    from models import Challenge, ChallengeStatus
+    from datetime import datetime
+    
+    team_number = request_body.get('team_number')
+    resource_type = request_body.get('resource_type')
+    amount = request_body.get('amount')
+    
+    print(f"[complete_challenge] game_code={game_code}, challenge_id={challenge_id}")
+    print(f"[complete_challenge] team_number={team_number}, resource_type={resource_type}, amount={amount}")
+    
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Get banker
+    banker = db.query(Player).filter(
+        Player.game_session_id == game.id,
+        Player.role == "banker"
+    ).first()
+    
+    if not banker:
+        raise HTTPException(status_code=404, detail="Banker not found")
+    
+    print(f"[complete_challenge] Banker found: {banker.id}, player_state type: {type(banker.player_state)}")
+    
+    # Check bank inventory
+    if not banker.player_state:
+        banker.player_state = {}
+    
+    bank_inventory = banker.player_state.get('bank_inventory', {})
+    current_inventory = bank_inventory.get(resource_type, 0)
+    
+    print(f"[complete_challenge] BEFORE - Bank inventory: {bank_inventory}")
+    print(f"[complete_challenge] Current {resource_type}: {current_inventory}, Requested: {amount}")
+    
+    if current_inventory < amount:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Bank does not have enough {resource_type}. Required: {amount}, Available: {int(current_inventory)}"
+        )
+    
+    # Deduct from bank inventory
+    if 'bank_inventory' not in banker.player_state:
+        banker.player_state['bank_inventory'] = {}
+    banker.player_state['bank_inventory'][resource_type] = current_inventory - amount
+    flag_modified(banker, 'player_state')
+    
+    print(f"[complete_challenge] AFTER - Bank inventory: {banker.player_state['bank_inventory']}")
+    print(f"[complete_challenge] New {resource_type}: {banker.player_state['bank_inventory'][resource_type]}")
+    
+    # Add to team resources
+    team_key = str(team_number)
+    if not game.game_state:
+        game.game_state = {}
+    if 'teams' not in game.game_state:
+        game.game_state['teams'] = {}
+    if team_key not in game.game_state['teams']:
+        game.game_state['teams'][team_key] = {'resources': {}, 'buildings': {}}
+    
+    team_state = game.game_state['teams'][team_key]
+    if 'resources' not in team_state:
+        team_state['resources'] = {}
+    
+    current_team_amount = team_state['resources'].get(resource_type, 0)
+    team_state['resources'][resource_type] = current_team_amount + amount
+    flag_modified(game, 'game_state')
+    
+    # Mark challenge as completed
+    challenge = db.query(Challenge).filter(
+        Challenge.id == challenge_id,
+        Challenge.game_session_id == game.id
+    ).first()
+    
+    if challenge:
+        challenge.status = ChallengeStatus.COMPLETED  # type: ignore
+        challenge.completed_at = datetime.utcnow()  # type: ignore
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Transferred {amount} {resource_type} from bank to Team {team_number}",
+        "bank_remaining": int(banker.player_state['bank_inventory'][resource_type]),
+        "team_total": int(team_state['resources'][resource_type])
+    }
+
+
 # ==================== CHALLENGE ENDPOINTS ====================
 
 @app.post("/games/{game_code}/challenges")
@@ -1348,7 +1443,7 @@ def create_challenge(
     has_school: bool,
     db: Session = Depends(get_db)
 ):
-    """Create a new challenge request"""
+    """Create a new challenge request with bank inventory check"""
     from models import Challenge, ChallengeStatus
     
     game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
@@ -1364,6 +1459,44 @@ def create_challenge(
     
     if existing:
         raise HTTPException(status_code=400, detail="Player already has an active challenge")
+    
+    # Get team's building count to calculate required resources
+    team_key = str(team_number)
+    team_data = game.game_state.get('teams', {}).get(team_key, {})
+    building_count = team_data.get('buildings', {}).get(building_type, 0)
+    
+    # Map building types to resources and calculate required amount
+    production_grants = {
+        'farm': {'resource': 'food', 'amount': 5},
+        'mine': {'resource': 'raw_materials', 'amount': 5},
+        'electrical_factory': {'resource': 'electrical_goods', 'amount': 5},
+        'medical_factory': {'resource': 'medical_goods', 'amount': 5}
+    }
+    
+    grant_info = production_grants.get(building_type)
+    if not grant_info:
+        raise HTTPException(status_code=400, detail="Invalid building type")
+    
+    required_resource = grant_info['resource']
+    base_amount = grant_info['amount']
+    # Use normal difficulty (1.0x) for calculation - actual difficulty applied at completion
+    required_amount = base_amount * building_count * 1.0
+    
+    # Check bank inventory
+    banker = db.query(Player).filter(
+        Player.game_session_id == game.id,
+        Player.role == "banker"
+    ).first()
+    
+    if banker and banker.player_state:
+        bank_inventory = banker.player_state.get('bank_inventory', {})
+        current_inventory = bank_inventory.get(required_resource, 0)
+        
+        if current_inventory < required_amount:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Bank does not have enough {required_resource}. Required: {int(required_amount)}, Available: {int(current_inventory)}"
+            )
     
     challenge = Challenge(
         game_session_id=game.id,

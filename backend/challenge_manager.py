@@ -67,6 +67,43 @@ class ChallengeManager:
         if existing:
             raise ValueError(f"Challenge already exists for player {player_id} building {building_type}")
         
+        # Check bank inventory for required resources
+        team_key = str(team_number)
+        team_data = game.game_state.get('teams', {}).get(team_key, {}) if game.game_state else {}
+        building_count = team_data.get('buildings', {}).get(building_type, 0)
+        
+        # Map building types to resources
+        production_grants = {
+            'farm': {'resource': 'food', 'amount': 5},
+            'mine': {'resource': 'raw_materials', 'amount': 5},
+            'electrical_factory': {'resource': 'electrical_goods', 'amount': 5},
+            'medical_factory': {'resource': 'medical_goods', 'amount': 5}
+        }
+        
+        grant_info = production_grants.get(building_type)
+        if not grant_info:
+            raise ValueError(f"Invalid building type: {building_type}")
+        
+        required_resource = grant_info['resource']
+        base_amount = grant_info['amount']
+        required_amount = base_amount * building_count * 1.0  # Normal difficulty
+        
+        # Get banker and check inventory
+        banker = self.db.query(Player).filter(
+            Player.game_session_id == game.id,
+            Player.role == "banker"
+        ).first()
+        
+        if banker and banker.player_state:
+            bank_inventory = banker.player_state.get('bank_inventory', {})
+            current_inventory = bank_inventory.get(required_resource, 0)
+            
+            if current_inventory < required_amount:
+                raise ValueError(
+                    f"Bank does not have enough {required_resource}. "
+                    f"Required: {int(required_amount)}, Available: {int(current_inventory)}"
+                )
+        
         challenge = Challenge(
             game_session_id=game.id,
             player_id=player_id,
