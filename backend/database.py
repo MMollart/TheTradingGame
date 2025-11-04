@@ -22,10 +22,11 @@ from sqlalchemy.orm import sessionmaker
 IS_AZURE = os.getenv("WEBSITE_SITE_NAME") is not None
 
 if IS_AZURE:
-    # Use PostgreSQL connection string from Azure
+    # Use PostgreSQL connection string from Azure if available, otherwise fall back to SQLite
     DATABASE_URL = os.getenv("DATABASE_URL")
     if not DATABASE_URL:
-        raise ValueError("DATABASE_URL environment variable not set for Azure deployment")
+        print("WARNING: DATABASE_URL not set, using SQLite on Azure (not recommended for production)")
+        DATABASE_URL = "sqlite:///./trading_game.db"
 else:
     # Local SQLite
     DATABASE_URL = "sqlite:///./trading_game.db"
