@@ -19,7 +19,7 @@ body {
 
 /* Header */
 .dashboard-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #7413dc 0%, #088486 100%);
     color: white;
     padding: 15px 30px;
     display: flex;
@@ -151,8 +151,8 @@ body {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-    background-color: #4caf50;
-    border-color: #4caf50;
+    background-color: #25b755;
+    border-color: #25b755;
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
@@ -160,22 +160,22 @@ body {
 }
 
 .toggle-switch input:focus + .toggle-slider {
-    box-shadow: 0 0 1px #4caf50;
+    box-shadow: 0 0 1px #25b755;
 }
 
 /* Role View Switcher */
 .role-view-switcher, .player-view-switcher {
     display: flex;
     align-items: center;
-    background: rgba(255, 152, 0, 0.3);
+    background: rgba(255, 230, 39, 0.3);
     padding: 8px 16px;
     border-radius: 25px;
-    border: 2px solid rgba(255, 152, 0, 0.5);
+    border: 2px solid rgba(255, 230, 39, 0.5);
 }
 
 .player-view-switcher {
-    background: rgba(33, 150, 243, 0.3);
-    border-color: rgba(33, 150, 243, 0.5);
+    background: rgba(8, 132, 134, 0.3);
+    border-color: rgba(8, 132, 134, 0.5);
 }
 
 .role-selector, .player-selector {
@@ -193,20 +193,20 @@ body {
 
 .role-selector:hover, .player-selector:hover {
     background: white;
-    border-color: rgba(255, 152, 0, 0.8);
+    border-color: rgba(255, 230, 39, 0.8);
 }
 
 .role-selector:focus, .player-selector:focus {
-    border-color: #ff9800;
-    box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.3);
+    border-color: #FFE627;
+    box-shadow: 0 0 0 2px rgba(255, 230, 39, 0.3);
 }
 
 /* Team member display on player dashboard */
 .team-member {
     padding: 8px 12px;
     margin: 6px 0;
-    background: rgba(33, 150, 243, 0.1);
-    border-left: 3px solid #2196F3;
+    background: rgba(8, 132, 134, 0.1);
+    border-left: 3px solid #088486;
     border-radius: 4px;
     font-weight: 500;
 }
@@ -234,14 +234,14 @@ body {
 }
 
 .tab-btn:hover {
-    color: #667eea;
-    background: rgba(102, 126, 234, 0.05);
+    color: #7413dc;
+    background: rgba(116, 19, 220, 0.05);
 }
 
 .tab-btn.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
-    background: rgba(102, 126, 234, 0.1);
+    color: #7413dc;
+    border-bottom-color: #7413dc;
+    background: rgba(116, 19, 220, 0.1);
 }
 
 .host-tab-content {
@@ -266,11 +266,11 @@ body {
 }
 
 .status-indicator.connected {
-    color: #4caf50;
+    color: #25b755;
 }
 
 .status-indicator.disconnected {
-    color: #f44336;
+    color: #ed3f23;
 }
 
 @keyframes pulse {
@@ -347,17 +347,17 @@ body {
 }
 
 .btn-success {
-    background: #4caf50;
+    background: #25b755;
     color: white;
 }
 
 .btn-warning {
-    background: #ff9800;
-    color: white;
+    background: #FFE627;
+    color: #333;
 }
 
 .btn-danger {
-    background: #f44336;
+    background: #ed3f23;
     color: white;
 }
 
@@ -424,7 +424,7 @@ body {
 }
 
 .remove-player-btn {
-    background: #f44336;
+    background: #ed3f23;
     color: white;
     border: none;
     border-radius: 50%;
@@ -442,7 +442,7 @@ body {
 }
 
 .remove-player-btn:hover {
-    background: #d32f2f;
+    background: #c32610;
     transform: scale(1.1);
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
@@ -494,12 +494,12 @@ body {
     background: #f8f9fa;
     padding: 15px;
     border-radius: 8px;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid #7413dc;
 }
 
 .nation-card h4 {
     margin-bottom: 10px;
-    color: #667eea;
+    color: #7413dc;
 }
 
 .nation-header {
@@ -513,13 +513,13 @@ body {
 
 .nation-header h3 {
     margin: 0;
-    color: #667eea;
+    color: #7413dc;
     font-size: 18px;
 }
 
 .nation-type {
-    background: rgba(102, 126, 234, 0.2);
-    color: #667eea;
+    background: rgba(116, 19, 220, 0.2);
+    color: #7413dc;
     padding: 4px 12px;
     border-radius: 12px;
     font-size: 12px;
@@ -539,14 +539,14 @@ body {
 
 .member-badge {
     display: inline-block;
-    background: rgba(33, 150, 243, 0.1);
-    color: #2196F3;
+    background: rgba(8, 132, 134, 0.1);
+    color: #088486;
     padding: 6px 12px;
     border-radius: 16px;
     margin: 4px;
     font-size: 13px;
     font-weight: 500;
-    border: 1px solid rgba(33, 150, 243, 0.3);
+    border: 1px solid rgba(8, 132, 134, 0.3);
 }
 
 .nation-stat {
@@ -579,7 +579,7 @@ body {
     background: white;
     padding: 8px 12px;
     border-radius: 6px;
-    border-left: 3px solid #667eea;
+    border-left: 3px solid #7413dc;
     font-size: 13px;
     color: #555;
 }
@@ -597,7 +597,7 @@ body {
     padding: 10px;
     margin-bottom: 8px;
     background: white;
-    border-left: 3px solid #667eea;
+    border-left: 3px solid #7413dc;
     border-radius: 4px;
 }
 
@@ -627,7 +627,7 @@ body {
 }
 
 .resource-amount {
-    background: #667eea;
+    background: #7413dc;
     color: white;
     padding: 4px 12px;
     border-radius: 12px;
@@ -661,7 +661,7 @@ body {
 
 .price-item button {
     padding: 8px 16px;
-    background: #667eea;
+    background: #7413dc;
     color: white;
     border: none;
     border-radius: 6px;
@@ -683,7 +683,7 @@ body {
 
 .event-section h4 {
     margin-bottom: 10px;
-    color: #667eea;
+    color: #7413dc;
 }
 
 .event-section select,
@@ -713,7 +713,7 @@ body {
 
 .production-item h4 {
     margin-bottom: 10px;
-    color: #667eea;
+    color: #7413dc;
 }
 
 .production-item p {
@@ -758,7 +758,7 @@ body {
 
 .build-item h4 {
     margin-bottom: 10px;
-    color: #667eea;
+    color: #7413dc;
 }
 
 .build-item .building-description {
@@ -877,7 +877,7 @@ body {
     font-size: 24px;
     font-weight: 600;
     margin: 20px 0;
-    color: #667eea;
+    color: #7413dc;
 }
 
 .challenge-buttons {
@@ -904,7 +904,7 @@ body {
     background: #f8f9fa;
     padding: 15px;
     border-radius: 8px;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid #7413dc;
     transition: all 0.3s ease;
 }
 
@@ -913,7 +913,7 @@ body {
 }
 
 .challenge-display {
-    color: #667eea;
+    color: #7413dc;
     font-weight: 500;
 }
 
@@ -928,13 +928,13 @@ body {
     background: #f8f9fa;
     padding: 20px;
     border-radius: 12px;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid #7413dc;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .team-resource-card h4 {
     margin: 0 0 15px 0;
-    color: #667eea;
+    color: #7413dc;
     font-size: 18px;
     display: flex;
     align-items: center;
@@ -976,7 +976,7 @@ body {
 
 .team-resource-value {
     font-weight: 600;
-    color: #667eea;
+    color: #7413dc;
 }
 
 /* Active Challenges List */
@@ -990,13 +990,13 @@ body {
     background: #f8f9fa;
     padding: 20px;
     border-radius: 12px;
-    border-left: 4px solid #ff9800;
+    border-left: 4px solid #FFE627;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
 }
 
 .active-challenge-item.expiring {
-    border-left-color: #f44336;
+    border-left-color: #ed3f23;
     background: #ffebee;
 }
 
@@ -1030,14 +1030,14 @@ body {
 .timer-display {
     font-size: 32px;
     font-weight: 700;
-    color: #ff9800;
+    color: #FFE627;
     font-family: 'Courier New', monospace;
     line-height: 1;
     margin-bottom: 5px;
 }
 
 .timer-display.expiring {
-    color: #f44336;
+    color: #ed3f23;
     animation: pulse 1s infinite;
 }
 
@@ -1067,7 +1067,7 @@ body {
 
 .challenge-description {
     font-weight: 600;
-    color: #667eea;
+    color: #7413dc;
 }
 
 .challenge-actions {
@@ -1094,9 +1094,9 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    background: #fff3e0;
+    background: #fffbea;
     border-radius: 6px;
-    border: 2px solid #ff9800;
+    border: 2px solid #FFE627;
 }
 
 .pending-player-item .player-info {
@@ -1111,7 +1111,7 @@ body {
 
 .pending-player-item .approve-btn {
     padding: 8px 16px;
-    background: #4caf50;
+    background: #25b755;
     color: white;
     border: none;
     border-radius: 4px;
@@ -1120,12 +1120,12 @@ body {
 }
 
 .pending-player-item .approve-btn:hover {
-    background: #45a049;
+    background: #1e8e44;
 }
 
 .pending-player-item .reject-btn {
     padding: 8px 16px;
-    background: #f44336;
+    background: #ed3f23;
     color: white;
     border: none;
     border-radius: 4px;
@@ -1134,7 +1134,7 @@ body {
 }
 
 .pending-player-item .reject-btn:hover {
-    background: #da190b;
+    background: #c32610;
 }
 
 /* Team Members List (for players) */
@@ -1151,12 +1151,12 @@ body {
     padding: 12px;
     background: #f8f9fa;
     border-radius: 6px;
-    border-left: 4px solid #2196f3;
+    border-left: 4px solid #088486;
 }
 
 .team-member-item.is-current-player {
-    background: #e3f2fd;
-    border-left-color: #1976d2;
+    background: #e6f9f6;
+    border-left-color: #088486;
     font-weight: 600;
 }
 
@@ -1172,7 +1172,7 @@ body {
     font-size: 12px;
     padding: 4px 8px;
     border-radius: 12px;
-    background: #4caf50;
+    background: #25b755;
     color: white;
 }
 
@@ -1206,8 +1206,8 @@ body {
 }
 
 .role-player-item:hover {
-    background: #e3f2fd;
-    border-color: #2196f3;
+    background: #e6f9f6;
+    border-color: #088486;
 }
 
 .role-player-item .role-badge {
@@ -1218,29 +1218,29 @@ body {
 }
 
 .role-badge.role-player {
-    background: #e3f2fd;
-    color: #1976d2;
+    background: #e6f9f6;
+    color: #088486;
 }
 
 .role-badge.role-banker {
     background: #e8f5e9;
-    color: #388e3c;
+    color: #25b755;
 }
 
 .role-badge.role-host {
-    background: #fff3e0;
-    color: #f57c00;
+    background: #f3e5f5;
+    color: #7413dc;
 }
 
 /* Welcome Banner */
 .welcome-banner {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #7413dc 0%, #088486 100%);
     color: white;
     padding: 30px;
     border-radius: 16px;
     margin-bottom: 30px;
     text-align: center;
-    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 8px 24px rgba(116, 19, 220, 0.4);
     animation: slideDown 0.5s ease-out;
 }
 
@@ -1276,7 +1276,7 @@ body {
     font-weight: 900;
     letter-spacing: 8px;
     background: white;
-    color: #667eea;
+    color: #7413dc;
     padding: 20px 40px;
     border-radius: 12px;
     margin: 20px auto;
@@ -1328,8 +1328,8 @@ body {
 }
 
 .team-box.drag-over {
-    background: #e3f2fd;
-    border-color: #2196f3;
+    background: #e6f9f6;
+    border-color: #088486;
     border-style: solid;
     transform: scale(1.02);
 }
@@ -1353,7 +1353,7 @@ body {
 }
 
 .team-box-header .team-name:hover {
-    color: #667eea;
+    color: #7413dc;
 }
 
 /* Player team name editing */
@@ -1362,7 +1362,7 @@ body {
 }
 
 .team-box-header .btn-icon-edit {
-    background: #667eea;
+    background: #7413dc;
     border: none;
     cursor: pointer;
     padding: 6px 8px;
@@ -1377,9 +1377,9 @@ body {
 }
 
 .team-box-header .btn-icon-edit:hover {
-    background: #5568d3;
+    background: #5e10b0;
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 2px 8px rgba(116, 19, 220, 0.3);
 }
 
 .team-box-header .btn-icon-edit svg {
@@ -1404,7 +1404,7 @@ body {
 
 .team-player-item .remove-btn {
     padding: 4px 8px;
-    background: #f44336;
+    background: #ed3f23;
     color: white;
     border: none;
     border-radius: 4px;
@@ -1413,7 +1413,7 @@ body {
 }
 
 .team-player-item .remove-btn:hover {
-    background: #d32f2f;
+    background: #c32610;
 }
 
 /* Draggable players */
@@ -1453,13 +1453,13 @@ body {
 
 .unassigned-section {
     padding: 15px;
-    background: #fff3cd;
+    background: #fffbea;
     border-radius: 8px;
-    border-left: 4px solid #ffc107;
+    border-left: 4px solid #FFE627;
 }
 
 .unassigned-section h4 {
-    color: #856404;
+    color: #8b7a00;
     margin-bottom: 15px;
 }
 
@@ -1476,13 +1476,13 @@ body {
     padding: 12px;
     background: white;
     border-radius: 6px;
-    border: 2px solid #ffc107;
+    border: 2px solid #FFE627;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .unassigned-player-item:hover {
-    background: #fff8e1;
+    background: #fffef5;
     transform: translateX(5px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
@@ -1504,7 +1504,7 @@ body {
 
 .unassigned-player-item .assign-btn {
     padding: 6px 12px;
-    background: #667eea;
+    background: #7413dc;
     color: white;
     border: none;
     border-radius: 4px;
@@ -1513,18 +1513,18 @@ body {
 }
 
 .unassigned-player-item .assign-btn:hover {
-    background: #5568d3;
+    background: #5e10b0;
 }
 
 .manual-assignment {
     padding: 15px;
-    background: #e3f2fd;
+    background: #e6f9f6;
     border-radius: 8px;
-    border-left: 4px solid #2196f3;
+    border-left: 4px solid #088486;
 }
 
 .manual-assignment h4 {
-    color: #1565c0;
+    color: #088486;
     margin-bottom: 10px;
 }
 
@@ -1537,14 +1537,14 @@ body {
 }
 
 .card h3:hover {
-    background-color: rgba(102, 126, 234, 0.05);
+    background-color: rgba(116, 19, 220, 0.05);
 }
 
 .card-toggle {
     cursor: pointer;
     user-select: none;
     font-size: 0.8em;
-    color: #667eea;
+    color: #7413dc;
     margin-left: auto;
     transition: transform 0.2s;
     pointer-events: none; /* Prevent double-click issues */
@@ -1604,7 +1604,7 @@ body {
 
 .modal-header h2 {
     margin: 0;
-    color: #1976d2;
+    color: #003982;
 }
 
 .modal-close {
@@ -1623,7 +1623,7 @@ body {
 }
 
 .modal-close:hover {
-    color: #d32f2f;
+    color: #ed3f23;
 }
 
 .modal-body {
@@ -1658,7 +1658,7 @@ body {
 
 .setting-warning {
     font-size: 14px;
-    color: #d32f2f;
+    color: #ed3f23;
     padding: 10px;
     background: #ffebee;
     border-radius: 6px;
@@ -1687,7 +1687,7 @@ body {
 
 .setting-control input[type="number"]:focus {
     outline: none;
-    border-color: #1976d2;
+    border-color: #003982;
 }
 
 .setting-control input[type="range"] {
@@ -1708,13 +1708,13 @@ body {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: #667eea;
+    background: #7413dc;
     cursor: pointer;
     transition: all 0.3s;
 }
 
 .setting-control input[type="range"]::-webkit-slider-thumb:hover {
-    background: #5568d3;
+    background: #5e10b0;
     transform: scale(1.2);
 }
 
@@ -1722,19 +1722,19 @@ body {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: #667eea;
+    background: #7413dc;
     cursor: pointer;
     border: none;
     transition: all 0.3s;
 }
 
 .setting-control input[type="range"]::-moz-range-thumb:hover {
-    background: #5568d3;
+    background: #5e10b0;
     transform: scale(1.2);
 }
 
 #duration-display-modal {
-    color: #667eea;
+    color: #7413dc;
     font-weight: bold;
 }
 
@@ -1784,7 +1784,7 @@ body {
 
 .form-select:focus, .form-input:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #7413dc;
 }
 
 .form-select {
@@ -1801,13 +1801,13 @@ body {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #7413dc 0%, #088486 100%);
     color: white;
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px rgba(116, 19, 220, 0.4);
 }
 
 .btn-primary:active {
