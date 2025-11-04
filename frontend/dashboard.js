@@ -2825,6 +2825,9 @@ async function buildBuilding(buildingType) {
         
         // Update local state
         teamState.resources = result.remaining_resources;
+        if (!teamState.buildings) {
+            teamState.buildings = {};
+        }
         teamState.buildings[buildingType] = result.new_count;
         
         // Update UI
@@ -3776,6 +3779,9 @@ function handleGameEvent(data) {
             // Update local state if this is our team
             if (eventData.team_number === currentPlayer.groupNumber) {
                 teamState.resources = eventData.resources;
+                if (!teamState.buildings) {
+                    teamState.buildings = {};
+                }
                 teamState.buildings[eventData.building_type] = eventData.new_count;
                 updatePlayerDashboard();
             }
