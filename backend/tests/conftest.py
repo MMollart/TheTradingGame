@@ -121,7 +121,8 @@ def sample_players(client, sample_game):
                 f"/games/{game_code}/players/{player_data['id']}/approve"
             )
             if approve_response.status_code == 200:
-                player_data = approve_response.json()
+                approve_data = approve_response.json()
+                player_data = approve_data.get("player", player_data)
         
         players.append(player_data)
     

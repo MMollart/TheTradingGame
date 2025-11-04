@@ -10,7 +10,8 @@ class TestTeamAssignment:
     def test_assign_player_to_team(self, client, sample_game, sample_players):
         """Test assigning a player to a team"""
         game_code = sample_game["game_code"]
-        player_id = sample_players[0]["id"]
+        # Use non-host player (sample_players[0] is host)
+        player_id = sample_players[1]["id"]
         
         response = client.put(
             f"/games/{game_code}/players/{player_id}/assign-group",
@@ -26,7 +27,8 @@ class TestTeamAssignment:
         """Test assigning multiple players to different teams"""
         game_code = sample_game["game_code"]
         
-        for i, player in enumerate(sample_players[:3], start=1):
+        # Skip host (sample_players[0]) and assign players 1-3 to teams
+        for i, player in enumerate(sample_players[1:4], start=1):
             response = client.put(
                 f"/games/{game_code}/players/{player['id']}/assign-group",
                 params={"group_number": i}
@@ -35,9 +37,10 @@ class TestTeamAssignment:
             assert response.json()["player"]["group_number"] == i
     
     def test_reassign_player_to_different_team(self, client, sample_game, sample_players):
-        """Test moving a player from one team to another"""
+        """Test reassigning a player to a different team"""
         game_code = sample_game["game_code"]
-        player_id = sample_players[0]["id"]
+        # Use non-host player
+        player_id = sample_players[1]["id"]
         
         # First assignment
         client.put(
@@ -57,7 +60,8 @@ class TestTeamAssignment:
     def test_assign_to_invalid_team_number(self, client, sample_game, sample_players):
         """Test assigning to invalid team number"""
         game_code = sample_game["game_code"]
-        player_id = sample_players[0]["id"]
+        # Use non-host player
+        player_id = sample_players[1]["id"]
         
         response = client.put(
             f"/games/{game_code}/players/{player_id}/assign-group",
@@ -120,7 +124,8 @@ class TestAutoAssignment:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] == True
-        assert data["assigned_count"] == len(sample_players)
+        # Should assign all non-host players (sample_players[0] is host)
+        assert data["assigned_count"] == len(sample_players) - 1
     
     def test_auto_assign_distributes_evenly(self, client, sample_game, sample_players):
         """Test that auto-assign distributes players evenly"""
@@ -199,17 +204,18 @@ class TestTeamQueries:
         """Test getting only unassigned players"""
         game_code = sample_game["game_code"]
         
-        # Assign some players
+        # Assign a non-host player (sample_players[0] is host)
         client.put(
-            f"/games/{game_code}/players/{sample_players[0]['id']}/assign-group",
+            f"/games/{game_code}/players/{sample_players[1]['id']}/assign-group",
             params={"group_number": 1}
         )
         
         # Get unassigned
         response = client.get(f"/games/{game_code}/unassigned-players")
-        unassigned = response.json()
+        data = response.json()
         
         assert response.status_code == 200
-        assert len(unassigned) == len(sample_players) - 1
+        # Should have len(sample_players) - 2: -1 for host, -1 for assigned player
+        assert data["unassigned_count"] == len(sample_players) - 2
         # Verify the assigned player is not in the list
-        assert sample_players[0]["id"] not in [p["id"] for p in unassigned]
+        assert sample_players[1]["id"] not in [p["id"] for p in data["players"]]

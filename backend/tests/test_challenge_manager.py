@@ -61,12 +61,64 @@ def challenge_manager(db):
     return ChallengeManager(db)
 
 
+@pytest.fixture
+def banker(db, game_session):
+    """Create a banker player with initial inventory"""
+    banker = Player(
+        game_session_id=game_session.id,
+        player_name="Banker",
+        role=PlayerRole.BANKER,
+        player_state={'bank_inventory': {'food': 1000, 'raw_materials': 1000, 'electrical_goods': 1000, 'medical_goods': 1000}}
+    )
+    db.add(banker)
+    db.commit()
+    db.refresh(banker)
+    return banker
+
+
+@pytest.fixture
+def game_with_buildings(game_session, db):
+    """Setup game state with team buildings"""
+    game_session.game_state = {
+        'teams': {
+            '1': {
+                'buildings': {'farm': 1, 'mine': 1}
+            },
+            '2': {
+                'buildings': {'farm': 1, 'mine': 1}
+            }
+        }
+    }
+    db.commit()
+    return game_session
+
+
 class TestChallengeCreation:
     """Tests for challenge request creation"""
     
-    def test_create_challenge_request(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_create_challenge_request(self, challenge_manager, game_session, player, db):
         """Test creating a new challenge request"""
-        challenge = challenge_manager.create_challenge_request(
+        # Create banker with initial inventory
+        banker = Player(
+            game_session_id=game_session.id,
+            player_name="Banker",
+            role=PlayerRole.BANKER,
+            player_state={'bank_inventory': {'food': 1000, 'raw_materials': 1000}}
+        )
+        db.add(banker)
+        
+        # Initialize game state with team buildings
+        game_session.game_state = {
+            'teams': {
+                '1': {
+                    'buildings': {'farm': 1}
+                }
+            }
+        }
+        db.commit()
+        
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -82,9 +134,29 @@ class TestChallengeCreation:
         assert challenge.requested_at is not None
         assert challenge.assigned_at is None
     
-    def test_prevent_duplicate_request(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_prevent_duplicate_request(self, challenge_manager, game_session, player, db):
         """Test that duplicate requests are prevented"""
-        challenge_manager.create_challenge_request(
+        # Create banker with initial inventory
+        banker = Player(
+            game_session_id=game_session.id,
+            player_name="Banker",
+            role=PlayerRole.BANKER,
+            player_state={'bank_inventory': {'food': 1000, 'raw_materials': 1000}}
+        )
+        db.add(banker)
+        
+        # Initialize game state with team buildings
+        game_session.game_state = {
+            'teams': {
+                '1': {
+                    'buildings': {'farm': 1}
+                }
+            }
+        }
+        db.commit()
+        
+        await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -94,7 +166,7 @@ class TestChallengeCreation:
         )
         
         with pytest.raises(ValueError, match="Challenge already exists"):
-            challenge_manager.create_challenge_request(
+            await challenge_manager.create_challenge_request(
                 game_code="TEST1",
                 player_id=player.id,
                 building_type="farm",
@@ -103,10 +175,11 @@ class TestChallengeCreation:
                 has_school=True
             )
     
-    def test_create_for_nonexistent_game(self, challenge_manager, player):
+    @pytest.mark.asyncio
+    async def test_create_for_nonexistent_game(self, challenge_manager, player):
         """Test that creating challenge for nonexistent game raises error"""
         with pytest.raises(ValueError, match="Game INVALID not found"):
-            challenge_manager.create_challenge_request(
+            await challenge_manager.create_challenge_request(
                 game_code="INVALID",
                 player_id=player.id,
                 building_type="farm",
@@ -119,9 +192,10 @@ class TestChallengeCreation:
 class TestChallengeAssignment:
     """Tests for challenge assignment"""
     
-    def test_assign_challenge(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_assign_challenge(self, challenge_manager, game_session, player, banker, game_with_buildings):
         """Test assigning a challenge"""
-        challenge = challenge_manager.create_challenge_request(
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -130,7 +204,7 @@ class TestChallengeAssignment:
             has_school=True
         )
         
-        assigned = challenge_manager.assign_challenge(
+        assigned = await challenge_manager.assign_challenge(
             challenge_id=challenge.id,
             challenge_type="push_ups",
             challenge_description="20 Push-ups",
@@ -143,19 +217,21 @@ class TestChallengeAssignment:
         assert assigned.target_number == 20
         assert assigned.assigned_at is not None
     
-    def test_assign_nonexistent_challenge(self, challenge_manager):
+    @pytest.mark.asyncio
+    async def test_assign_nonexistent_challenge(self, challenge_manager):
         """Test assigning a nonexistent challenge"""
         with pytest.raises(ValueError, match="Challenge 999 not found"):
-            challenge_manager.assign_challenge(
+            await challenge_manager.assign_challenge(
                 challenge_id=999,
                 challenge_type="push_ups",
                 challenge_description="20 Push-ups",
                 target_number=20
             )
     
-    def test_assign_already_assigned_challenge(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_assign_already_assigned_challenge(self, challenge_manager, game_session, player, banker, game_with_buildings):
         """Test that assigning an already assigned challenge raises error"""
-        challenge = challenge_manager.create_challenge_request(
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -164,7 +240,7 @@ class TestChallengeAssignment:
             has_school=True
         )
         
-        challenge_manager.assign_challenge(
+        await challenge_manager.assign_challenge(
             challenge_id=challenge.id,
             challenge_type="push_ups",
             challenge_description="20 Push-ups",
@@ -172,7 +248,7 @@ class TestChallengeAssignment:
         )
         
         with pytest.raises(ValueError, match="is not in REQUESTED state"):
-            challenge_manager.assign_challenge(
+            await challenge_manager.assign_challenge(
                 challenge_id=challenge.id,
                 challenge_type="sit_ups",
                 challenge_description="30 Sit-ups",
@@ -183,9 +259,10 @@ class TestChallengeAssignment:
 class TestChallengeCompletion:
     """Tests for challenge completion and cancellation"""
     
-    def test_complete_challenge(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_complete_challenge(self, challenge_manager, game_session, player, banker, game_with_buildings):
         """Test completing a challenge"""
-        challenge = challenge_manager.create_challenge_request(
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -194,21 +271,22 @@ class TestChallengeCompletion:
             has_school=True
         )
         
-        challenge_manager.assign_challenge(
+        await challenge_manager.assign_challenge(
             challenge_id=challenge.id,
             challenge_type="push_ups",
             challenge_description="20 Push-ups",
             target_number=20
         )
         
-        completed = challenge_manager.complete_challenge(challenge.id)
+        completed = await challenge_manager.complete_challenge(challenge.id)
         
         assert completed.status == ChallengeStatus.COMPLETED
         assert completed.completed_at is not None
     
-    def test_cancel_requested_challenge(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_cancel_requested_challenge(self, challenge_manager, game_session, player, banker, game_with_buildings):
         """Test cancelling a requested challenge"""
-        challenge = challenge_manager.create_challenge_request(
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -217,13 +295,14 @@ class TestChallengeCompletion:
             has_school=True
         )
         
-        cancelled = challenge_manager.cancel_challenge(challenge.id)
+        cancelled = await challenge_manager.cancel_challenge(challenge.id)
         
         assert cancelled.status == ChallengeStatus.CANCELLED
     
-    def test_cancel_assigned_challenge(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_cancel_assigned_challenge(self, challenge_manager, game_session, player, banker, game_with_buildings):
         """Test cancelling an assigned challenge"""
-        challenge = challenge_manager.create_challenge_request(
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -232,14 +311,14 @@ class TestChallengeCompletion:
             has_school=True
         )
         
-        challenge_manager.assign_challenge(
+        await challenge_manager.assign_challenge(
             challenge_id=challenge.id,
             challenge_type="push_ups",
             challenge_description="20 Push-ups",
             target_number=20
         )
         
-        cancelled = challenge_manager.cancel_challenge(challenge.id)
+        cancelled = await challenge_manager.cancel_challenge(challenge.id)
         
         assert cancelled.status == ChallengeStatus.CANCELLED
 
@@ -247,9 +326,10 @@ class TestChallengeCompletion:
 class TestPauseAwareTiming:
     """Tests for pause-aware challenge timing"""
     
-    def test_adjust_for_pause(self, challenge_manager, game_session, player, db):
+    @pytest.mark.asyncio
+    async def test_adjust_for_pause(self, challenge_manager, game_session, player, db, banker, game_with_buildings):
         """Test adjusting challenge times for pause"""
-        challenge = challenge_manager.create_challenge_request(
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -258,7 +338,7 @@ class TestPauseAwareTiming:
             has_school=True
         )
         
-        assigned = challenge_manager.assign_challenge(
+        assigned = await challenge_manager.assign_challenge(
             challenge_id=challenge.id,
             challenge_type="push_ups",
             challenge_description="20 Push-ups",
@@ -279,7 +359,8 @@ class TestPauseAwareTiming:
         expected_time = original_time + timedelta(milliseconds=pause_duration_ms)
         assert assigned.assigned_at == expected_time
     
-    def test_adjust_multiple_challenges(self, challenge_manager, game_session, db):
+    @pytest.mark.asyncio
+    async def test_adjust_multiple_challenges(self, challenge_manager, game_session, db, banker, game_with_buildings):
         """Test adjusting multiple challenges for pause"""
         # Create two players
         player1 = Player(game_session_id=game_session.id, player_name="Player 1", role=PlayerRole.PLAYER, group_number=1)
@@ -290,7 +371,7 @@ class TestPauseAwareTiming:
         
         # Create and assign two challenges
         for player in [player1, player2]:
-            challenge = challenge_manager.create_challenge_request(
+            challenge = await challenge_manager.create_challenge_request(
                 game_code="TEST1",
                 player_id=player.id,
                 building_type="farm",
@@ -298,7 +379,7 @@ class TestPauseAwareTiming:
                 team_number=player.group_number,
                 has_school=True
             )
-            challenge_manager.assign_challenge(
+            await challenge_manager.assign_challenge(
                 challenge_id=challenge.id,
                 challenge_type="push_ups",
                 challenge_description="20 Push-ups",
@@ -309,10 +390,11 @@ class TestPauseAwareTiming:
         
         assert result["adjusted_count"] == 2
     
-    def test_adjust_only_assigned_challenges(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_adjust_only_assigned_challenges(self, challenge_manager, game_session, player, banker, game_with_buildings):
         """Test that only assigned challenges are adjusted"""
         # Create requested challenge (not adjusted)
-        challenge_manager.create_challenge_request(
+        await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -329,9 +411,10 @@ class TestPauseAwareTiming:
 class TestChallengeExpiry:
     """Tests for challenge expiry"""
     
-    def test_check_and_expire_challenges(self, challenge_manager, game_session, player, db):
+    @pytest.mark.asyncio
+    async def test_check_and_expire_challenges(self, challenge_manager, game_session, player, db, banker, game_with_buildings):
         """Test expiring challenges past their deadline"""
-        challenge = challenge_manager.create_challenge_request(
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -340,7 +423,7 @@ class TestChallengeExpiry:
             has_school=True
         )
         
-        assigned = challenge_manager.assign_challenge(
+        assigned = await challenge_manager.assign_challenge(
             challenge_id=challenge.id,
             challenge_type="push_ups",
             challenge_description="20 Push-ups",
@@ -357,9 +440,10 @@ class TestChallengeExpiry:
         assert len(expired) == 1
         assert expired[0].status == ChallengeStatus.EXPIRED
     
-    def test_dont_expire_valid_challenges(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_dont_expire_valid_challenges(self, challenge_manager, game_session, player, banker, game_with_buildings):
         """Test that valid challenges are not expired"""
-        challenge = challenge_manager.create_challenge_request(
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -368,7 +452,7 @@ class TestChallengeExpiry:
             has_school=True
         )
         
-        challenge_manager.assign_challenge(
+        await challenge_manager.assign_challenge(
             challenge_id=challenge.id,
             challenge_type="push_ups",
             challenge_description="20 Push-ups",
@@ -383,10 +467,11 @@ class TestChallengeExpiry:
 class TestChallengeQueries:
     """Tests for challenge query methods"""
     
-    def test_get_active_challenges(self, challenge_manager, game_session, player, db):
+    @pytest.mark.asyncio
+    async def test_get_active_challenges(self, challenge_manager, game_session, player, db, banker, game_with_buildings):
         """Test getting all active challenges"""
         # Create requested challenge
-        challenge_manager.create_challenge_request(
+        await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -400,7 +485,7 @@ class TestChallengeQueries:
         db.add(player2)
         db.commit()
         
-        challenge2 = challenge_manager.create_challenge_request(
+        challenge2 = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player2.id,
             building_type="mine",
@@ -408,7 +493,7 @@ class TestChallengeQueries:
             team_number=1,
             has_school=True
         )
-        challenge_manager.assign_challenge(
+        await challenge_manager.assign_challenge(
             challenge_id=challenge2.id,
             challenge_type="sit_ups",
             challenge_description="30 Sit-ups",
@@ -421,9 +506,10 @@ class TestChallengeQueries:
         assert any(c.status == ChallengeStatus.REQUESTED for c in active)
         assert any(c.status == ChallengeStatus.ASSIGNED for c in active)
     
-    def test_get_time_remaining(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_get_time_remaining(self, challenge_manager, game_session, player, banker, game_with_buildings):
         """Test calculating time remaining for a challenge"""
-        challenge = challenge_manager.create_challenge_request(
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -432,7 +518,7 @@ class TestChallengeQueries:
             has_school=True
         )
         
-        assigned = challenge_manager.assign_challenge(
+        assigned = await challenge_manager.assign_challenge(
             challenge_id=challenge.id,
             challenge_type="push_ups",
             challenge_description="20 Push-ups",
@@ -445,9 +531,10 @@ class TestChallengeQueries:
         assert time_remaining > 0
         assert time_remaining <= 600  # 10 minutes in seconds
     
-    def test_serialize_challenge(self, challenge_manager, game_session, player):
+    @pytest.mark.asyncio
+    async def test_serialize_challenge(self, challenge_manager, game_session, player, banker, game_with_buildings):
         """Test serializing a challenge to dict"""
-        challenge = challenge_manager.create_challenge_request(
+        challenge = await challenge_manager.create_challenge_request(
             game_code="TEST1",
             player_id=player.id,
             building_type="farm",
@@ -456,7 +543,7 @@ class TestChallengeQueries:
             has_school=True
         )
         
-        assigned = challenge_manager.assign_challenge(
+        assigned = await challenge_manager.assign_challenge(
             challenge_id=challenge.id,
             challenge_type="push_ups",
             challenge_description="20 Push-ups",

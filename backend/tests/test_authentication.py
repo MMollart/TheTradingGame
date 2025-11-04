@@ -131,7 +131,8 @@ class TestGuestApproval:
         
         assert response.status_code == 200
         data = response.json()
-        assert data["is_approved"] == True
+        assert data["success"] == True
+        assert data["player"]["is_approved"] == True
     
     def test_reject_guest_player(self, client, sample_game):
         """Test removing unapproved guest"""
@@ -237,7 +238,8 @@ class TestAuthorization:
     def test_player_role_can_have_team(self, client, sample_game, sample_players):
         """Test that regular players can be assigned to teams"""
         game_code = sample_game["game_code"]
-        player_id = sample_players[0]["id"]
+        # Use a player, not the host (sample_players[0] is the host)
+        player_id = sample_players[1]["id"]  # Player1
         
         # Assign to team
         response = client.put(
@@ -249,4 +251,4 @@ class TestAuthorization:
         data = response.json()
         assert data["success"] == True
         assert data["player"]["group_number"] == 1
-        assert data["role"] == "Player"
+        assert data["player"]["role"] == "player"

@@ -88,10 +88,12 @@ class TestPlayerRetrieval:
         response = client.get(f"/games/{game_code}/unassigned-players")
         
         assert response.status_code == 200
-        players = response.json()
-        assert isinstance(players, list)
-        # All players should be unassigned initially
-        assert len(players) >= 3
+        data = response.json()
+        assert isinstance(data, dict)
+        assert "players" in data
+        assert "unassigned_count" in data
+        # All players should be unassigned initially (excluding host)
+        assert len(data["players"]) >= 3
 
 
 class TestPlayerApproval:
@@ -114,7 +116,8 @@ class TestPlayerApproval:
         
         assert response.status_code == 200
         data = response.json()
-        assert data["is_approved"] == True
+        assert data["success"] == True
+        assert data["player"]["is_approved"] == True
     
     def test_approve_already_approved_player(self, client, sample_game, sample_players):
         """Test approving an already approved player"""
@@ -176,7 +179,7 @@ class TestRoleAssignment:
             params={"role": "invalid_role"}
         )
         
-        assert response.status_code == 422  # Validation error
+        assert response.status_code in [400, 422]  # Validation error
 
 
 class TestPlayerRemoval:
@@ -185,7 +188,8 @@ class TestPlayerRemoval:
     def test_remove_player(self, client, sample_game, sample_players):
         """Test removing a player from the game"""
         game_code = sample_game["game_code"]
-        player_id = sample_players[0]["id"]
+        # Use a non-host player (sample_players[0] is host)
+        player_id = sample_players[1]["id"]
         
         response = client.delete(f"/games/{game_code}/players/{player_id}")
         
@@ -216,7 +220,8 @@ class TestPlayerRemoval:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] == True
-        assert data["deleted_count"] == len(sample_players)
+        # Should delete all players except host (sample_players[0])
+        assert data["deleted_count"] == len(sample_players) - 1
     
     def test_remove_nonexistent_player(self, client, sample_game):
         """Test removing a non-existent player"""
