@@ -38,7 +38,7 @@ jobs:
         with:
           name: python-app
           path: |
-            .
+            backend/
             !antenv/
 
       # 🚫 Opting Out of Oryx Build
