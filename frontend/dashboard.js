@@ -3370,7 +3370,7 @@ async function executeBankTrade(tradeType) {
 async function openTeamTradeModal() {
     // Initialize trading manager if not done
     if (!tradingManager) {
-        tradingManager = new TradingManager(currentGameCode, gameAPI, gameAPI);
+        tradingManager = new TradingManager(currentGameCode, gameAPI, gameWS);
         await tradingManager.initialize();
     }
     
