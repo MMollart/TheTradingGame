@@ -28,7 +28,7 @@ class TradingManager {
     
     async loadBankPrices() {
         try {
-            const response = await fetch(`/api/v2/trading/${this.gameCode}/bank/prices`);
+            const response = await fetch(`${this.gameAPI.baseUrl}/api/v2/trading/${this.gameCode}/bank/prices`);
             const data = await response.json();
             this.currentPrices = data.prices;
             return this.currentPrices;
@@ -41,8 +41,8 @@ class TradingManager {
     async loadPriceHistory(resourceType = null) {
         try {
             const url = resourceType 
-                ? `/api/v2/trading/${this.gameCode}/bank/price-history?resource_type=${resourceType}&limit=50`
-                : `/api/v2/trading/${this.gameCode}/bank/price-history?limit=50`;
+                ? `${this.gameAPI.baseUrl}/api/v2/trading/${this.gameCode}/bank/price-history?resource_type=${resourceType}&limit=50`
+                : `${this.gameAPI.baseUrl}/api/v2/trading/${this.gameCode}/bank/price-history?limit=50`;
             
             const response = await fetch(url);
             const data = await response.json();
@@ -55,7 +55,7 @@ class TradingManager {
     
     async executeBankTrade(resourceType, quantity, isBuying) {
         try {
-            const response = await fetch(`/api/v2/trading/${this.gameCode}/bank/trade`, {
+            const response = await fetch(`${this.gameAPI.baseUrl}/api/v2/trading/${this.gameCode}/bank/trade`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -181,7 +181,7 @@ class TradingManager {
     async loadTeamTrades() {
         try {
             const response = await fetch(
-                `/api/v2/trading/${this.gameCode}/team/${this.teamNumber}/offers?include_completed=false`
+                `${this.gameAPI.baseUrl}/api/v2/trading/${this.gameCode}/team/${this.teamNumber}/offers?include_completed=false`
             );
             const data = await response.json();
             this.teamTradeOffers = data.offers;
@@ -194,14 +194,19 @@ class TradingManager {
     
     async createTradeOffer(toTeamNumber, offeredResources, requestedResources) {
         try {
-            const response = await fetch(`/api/v2/trading/${this.gameCode}/team/offer`, {
+            // Get current team number from player data (in case player was moved between teams)
+            const players = await this.gameAPI.getPlayers(this.gameCode);
+            const currentPlayer = players.find(p => p.id === this.playerId);
+            const currentTeamNumber = currentPlayer ? currentPlayer.group_number : this.teamNumber;
+            
+            const response = await fetch(`${this.gameAPI.baseUrl}/api/v2/trading/${this.gameCode}/team/offer`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     game_code: this.gameCode,
-                    from_team_number: this.teamNumber,
+                    from_team_number: currentTeamNumber,
                     to_team_number: toTeamNumber,
                     player_id: this.playerId,
                     offered_resources: offeredResources,
@@ -227,7 +232,7 @@ class TradingManager {
     async createCounterOffer(tradeId, counterOfferedResources, counterRequestedResources) {
         try {
             const response = await fetch(
-                `/api/v2/trading/${this.gameCode}/team/offer/${tradeId}/counter`,
+                `${this.gameAPI.baseUrl}/api/v2/trading/${this.gameCode}/team/offer/${tradeId}/counter`,
                 {
                     method: 'POST',
                     headers: {
@@ -259,7 +264,7 @@ class TradingManager {
     async acceptTrade(tradeId, acceptCounter = false) {
         try {
             const response = await fetch(
-                `/api/v2/trading/${this.gameCode}/team/offer/${tradeId}/accept`,
+                `${this.gameAPI.baseUrl}/api/v2/trading/${this.gameCode}/team/offer/${tradeId}/accept`,
                 {
                     method: 'POST',
                     headers: {
@@ -290,7 +295,7 @@ class TradingManager {
     async rejectTrade(tradeId) {
         try {
             const response = await fetch(
-                `/api/v2/trading/${this.gameCode}/team/offer/${tradeId}/reject`,
+                `${this.gameAPI.baseUrl}/api/v2/trading/${this.gameCode}/team/offer/${tradeId}/reject`,
                 {
                     method: 'POST',
                     headers: {
@@ -320,7 +325,7 @@ class TradingManager {
     async cancelTrade(tradeId) {
         try {
             const response = await fetch(
-                `/api/v2/trading/${this.gameCode}/team/offer/${tradeId}/cancel`,
+                `${this.gameAPI.baseUrl}/api/v2/trading/${this.gameCode}/team/offer/${tradeId}/cancel`,
                 {
                     method: 'POST',
                     headers: {

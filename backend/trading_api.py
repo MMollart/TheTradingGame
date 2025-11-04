@@ -67,6 +67,21 @@ async def initialize_bank_prices(game_code: str, db: Session = Depends(get_db)):
     try:
         prices = pricing_mgr.initialize_bank_prices(game_code)
         
+        # Store prices in game_state
+        game = db.query(GameSession).filter(
+            GameSession.game_code == game_code.upper()
+        ).first()
+        
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+        
+        if not game.game_state:
+            game.game_state = {}
+        
+        game.game_state['bank_prices'] = prices
+        flag_modified(game, 'game_state')
+        db.commit()
+        
         # Broadcast price initialization
         await manager.broadcast_to_game(game_code.upper(), {
             "type": "event",
@@ -113,19 +128,22 @@ async def execute_bank_trade(
     if player.group_number != trade.team_number:
         raise HTTPException(status_code=403, detail="Player does not belong to this team")
     
-    # Get current prices (from banker's player_state or initialize if needed)
-    banker = db.query(Player).filter(
-        Player.game_session_id == game.id,
-        Player.role == "banker"
-    ).first()
-    
-    if not banker or not banker.player_state:
-        raise HTTPException(status_code=400, detail="Bank not initialized")
-    
-    current_prices = banker.player_state.get('bank_prices', {})
+    # Get current prices from game_state (or fall back to banker's player_state for legacy games)
+    current_prices = None
+    if game.game_state and 'bank_prices' in game.game_state:
+        current_prices = game.game_state['bank_prices']
+    else:
+        # Legacy: try banker's player_state
+        banker = db.query(Player).filter(
+            Player.game_session_id == game.id,
+            Player.role == "banker"
+        ).first()
+        
+        if banker and banker.player_state:
+            current_prices = banker.player_state.get('bank_prices', {})
     
     if not current_prices:
-        raise HTTPException(status_code=400, detail="Bank prices not initialized")
+        raise HTTPException(status_code=400, detail="Bank prices not initialized. Please initialize prices first.")
     
     # Calculate trade cost
     pricing_mgr = PricingManager(db)
@@ -159,42 +177,19 @@ async def execute_bank_trade(
                 detail=f"Insufficient {trade.resource_type}. Need {trade.quantity}, have {team_resources.get(trade.resource_type, 0)}"
             )
     
-    # Validate bank inventory for buying
-    if trade.is_buying:
-        bank_inventory = banker.player_state.get('bank_inventory', {})
-        bank_has = bank_inventory.get(trade.resource_type, 0)
-        if bank_has < trade.quantity:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Bank only has {bank_has} {trade.resource_type} available (requested {trade.quantity})"
-            )
-    
-    # Execute the trade
+    # Execute the trade (bank has infinite inventory in banker-less mode)
     if trade.is_buying:
         # Team buys from bank
         team_resources['currency'] = team_resources.get('currency', 0) - currency_cost
         team_resources[trade.resource_type] = team_resources.get(trade.resource_type, 0) + trade.quantity
-        
-        # Update bank inventory
-        bank_inventory = banker.player_state.get('bank_inventory', {})
-        bank_inventory[trade.resource_type] = bank_inventory.get(trade.resource_type, 0) - trade.quantity
-        banker.player_state['bank_inventory'] = bank_inventory
-        banker.player_state['currency_reserve'] = banker.player_state.get('currency_reserve', 0) + currency_cost
     else:
         # Team sells to bank
         team_resources[trade.resource_type] = team_resources.get(trade.resource_type, 0) - trade.quantity
         team_resources['currency'] = team_resources.get('currency', 0) + currency_cost
-        
-        # Update bank inventory
-        bank_inventory = banker.player_state.get('bank_inventory', {})
-        bank_inventory[trade.resource_type] = bank_inventory.get(trade.resource_type, 0) + trade.quantity
-        banker.player_state['bank_inventory'] = bank_inventory
-        banker.player_state['currency_reserve'] = banker.player_state.get('currency_reserve', 0) - currency_cost
     
-    # Update team resources
+    # Update team resources in game state
     game.game_state['teams'][str(trade.team_number)]['resources'] = team_resources
     flag_modified(game, 'game_state')
-    flag_modified(banker, 'player_state')
     
     # Adjust prices based on this trade (considering all resources)
     updated_prices = pricing_mgr.adjust_all_prices_after_trade(
@@ -205,9 +200,9 @@ async def execute_bank_trade(
         current_prices
     )
     
-    # Update banker's price state
-    banker.player_state['bank_prices'] = updated_prices
-    flag_modified(banker, 'player_state')
+    # Store updated prices in game_state
+    game.game_state['bank_prices'] = updated_prices
+    flag_modified(game, 'game_state')
     
     db.commit()
     
@@ -244,16 +239,20 @@ async def get_bank_prices(game_code: str, db: Session = Depends(get_db)):
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     
-    # Get banker
-    banker = db.query(Player).filter(
-        Player.game_session_id == game.id,
-        Player.role == "banker"
-    ).first()
-    
-    if not banker or not banker.player_state:
-        raise HTTPException(status_code=400, detail="Bank not initialized")
-    
-    current_prices = banker.player_state.get('bank_prices', {})
+    # Try to get prices from game_state first (preferred location)
+    if game.game_state and 'bank_prices' in game.game_state:
+        current_prices = game.game_state['bank_prices']
+    else:
+        # Fall back to banker's player_state (legacy location)
+        banker = db.query(Player).filter(
+            Player.game_session_id == game.id,
+            Player.role == "banker"
+        ).first()
+        
+        if banker and banker.player_state and 'bank_prices' in banker.player_state:
+            current_prices = banker.player_state['bank_prices']
+        else:
+            raise HTTPException(status_code=400, detail="Bank prices not initialized. Please initialize prices first.")
     
     return {
         "prices": current_prices
@@ -298,8 +297,22 @@ async def create_team_trade_offer(
             trade_request.requested_resources
         )
         
-        # Broadcast trade offer to both teams
-        await manager.broadcast_to_game(game_code.upper(), {
+        # Send notification only to the receiving team
+        await manager.send_to_team(game_code.upper(), trade_offer.to_team_number, {
+            "type": "notification",
+            "event_type": "trade_offer_received",
+            "data": {
+                "trade_id": trade_offer.id,
+                "from_team": trade_offer.from_team_number,
+                "to_team": trade_offer.to_team_number,
+                "offered": trade_offer.offered_resources,
+                "requested": trade_offer.requested_resources,
+                "message": f"Team {trade_offer.from_team_number} has sent you a trade offer!"
+            }
+        }, db_session=db)
+        
+        # Send confirmation to the offering team
+        await manager.send_to_team(game_code.upper(), trade_offer.from_team_number, {
             "type": "event",
             "event_type": "trade_offer_created",
             "data": {
@@ -309,7 +322,7 @@ async def create_team_trade_offer(
                 "offered": trade_offer.offered_resources,
                 "requested": trade_offer.requested_resources
             }
-        })
+        }, db_session=db)
         
         return {
             "success": True,
@@ -346,18 +359,37 @@ async def create_counter_offer(
             counter_request.counter_requested_resources
         )
         
-        # Broadcast counter-offer
-        await manager.broadcast_to_game(game_code.upper(), {
+        # Determine which team made the counter offer (recipient of original offer)
+        player = db.query(Player).filter(Player.id == counter_request.player_id).first()
+        countering_team = player.group_number
+        receiving_team = trade_offer.from_team_number if countering_team == trade_offer.to_team_number else trade_offer.to_team_number
+        
+        # Send notification to the team that will receive the counter-offer
+        await manager.send_to_team(game_code.upper(), receiving_team, {
+            "type": "notification",
+            "event_type": "trade_counter_received",
+            "data": {
+                "trade_id": trade_offer.id,
+                "from_team": countering_team,
+                "to_team": receiving_team,
+                "counter_offered": trade_offer.counter_offered_resources,
+                "counter_requested": trade_offer.counter_requested_resources,
+                "message": f"Team {countering_team} has sent you a counter-offer!"
+            }
+        }, db_session=db)
+        
+        # Send confirmation to the countering team
+        await manager.send_to_team(game_code.upper(), countering_team, {
             "type": "event",
             "event_type": "trade_counter_offered",
             "data": {
                 "trade_id": trade_offer.id,
-                "from_team": trade_offer.from_team_number,
-                "to_team": trade_offer.to_team_number,
+                "from_team": countering_team,
+                "to_team": receiving_team,
                 "counter_offered": trade_offer.counter_offered_resources,
                 "counter_requested": trade_offer.counter_requested_resources
             }
-        })
+        }, db_session=db)
         
         return {
             "success": True,
@@ -387,28 +419,43 @@ async def accept_trade_offer(
         trade_offer, game = trade_mgr.accept_trade_offer(
             trade_id,
             action_request.player_id,
-            action_request.accept_counter
+            action_request.accept_counter or False
         )
         
         # Get updated team states
         from_team_state = game.game_state['teams'][str(trade_offer.from_team_number)]
         to_team_state = game.game_state['teams'][str(trade_offer.to_team_number)]
         
-        # Broadcast trade acceptance
-        await manager.broadcast_to_game(game_code.upper(), {
-            "type": "event",
+        # Send notification to both teams involved in the trade
+        trade_data = {
+            "trade_id": trade_offer.id,
+            "from_team": trade_offer.from_team_number,
+            "to_team": trade_offer.to_team_number,
+            "was_counter_offer": action_request.accept_counter or False,
+            "team_states": {
+                str(trade_offer.from_team_number): from_team_state,
+                str(trade_offer.to_team_number): to_team_state
+            }
+        }
+        
+        # Notify both teams with different messages
+        await manager.send_to_team(game_code.upper(), trade_offer.from_team_number, {
+            "type": "notification",
             "event_type": "trade_accepted",
             "data": {
-                "trade_id": trade_offer.id,
-                "from_team": trade_offer.from_team_number,
-                "to_team": trade_offer.to_team_number,
-                "was_counter_offer": action_request.accept_counter,
-                "team_states": {
-                    str(trade_offer.from_team_number): from_team_state,
-                    str(trade_offer.to_team_number): to_team_state
-                }
+                **trade_data,
+                "message": f"Your trade with Team {trade_offer.to_team_number} has been accepted!"
             }
-        })
+        }, db_session=db)
+        
+        await manager.send_to_team(game_code.upper(), trade_offer.to_team_number, {
+            "type": "notification",
+            "event_type": "trade_accepted",
+            "data": {
+                **trade_data,
+                "message": f"Your trade with Team {trade_offer.from_team_number} has been accepted!"
+            }
+        }, db_session=db)
         
         return {
             "success": True,
@@ -438,8 +485,26 @@ async def reject_trade_offer(
             action_request.player_id
         )
         
-        # Broadcast rejection
-        await manager.broadcast_to_game(game_code.upper(), {
+        # Determine which team rejected and which team needs to be notified
+        player = db.query(Player).filter(Player.id == action_request.player_id).first()
+        rejecting_team = player.group_number
+        other_team = trade_offer.from_team_number if rejecting_team == trade_offer.to_team_number else trade_offer.to_team_number
+        
+        # Send notification to the team whose offer was rejected
+        await manager.send_to_team(game_code.upper(), other_team, {
+            "type": "notification",
+            "event_type": "trade_rejected",
+            "data": {
+                "trade_id": trade_offer.id,
+                "from_team": trade_offer.from_team_number,
+                "to_team": trade_offer.to_team_number,
+                "rejecting_team": rejecting_team,
+                "message": f"Team {rejecting_team} has rejected your trade offer."
+            }
+        }, db_session=db)
+        
+        # Send confirmation to the rejecting team
+        await manager.send_to_team(game_code.upper(), rejecting_team, {
             "type": "event",
             "event_type": "trade_rejected",
             "data": {
@@ -447,7 +512,7 @@ async def reject_trade_offer(
                 "from_team": trade_offer.from_team_number,
                 "to_team": trade_offer.to_team_number
             }
-        })
+        }, db_session=db)
         
         return {
             "success": True,
@@ -473,8 +538,26 @@ async def cancel_trade_offer(
             action_request.player_id
         )
         
-        # Broadcast cancellation
-        await manager.broadcast_to_game(game_code.upper(), {
+        # Determine which team cancelled and which team needs to be notified
+        player = db.query(Player).filter(Player.id == action_request.player_id).first()
+        cancelling_team = player.group_number
+        other_team = trade_offer.from_team_number if cancelling_team == trade_offer.to_team_number else trade_offer.to_team_number
+        
+        # Send notification to the other team
+        await manager.send_to_team(game_code.upper(), other_team, {
+            "type": "notification",
+            "event_type": "trade_cancelled",
+            "data": {
+                "trade_id": trade_offer.id,
+                "from_team": trade_offer.from_team_number,
+                "to_team": trade_offer.to_team_number,
+                "cancelling_team": cancelling_team,
+                "message": f"Team {cancelling_team} has cancelled the trade offer."
+            }
+        }, db_session=db)
+        
+        # Send confirmation to the cancelling team
+        await manager.send_to_team(game_code.upper(), cancelling_team, {
             "type": "event",
             "event_type": "trade_cancelled",
             "data": {
@@ -482,7 +565,7 @@ async def cancel_trade_offer(
                 "from_team": trade_offer.from_team_number,
                 "to_team": trade_offer.to_team_number
             }
-        })
+        }, db_session=db)
         
         return {
             "success": True,

@@ -92,8 +92,9 @@ TheTradingGame/
 │   ├── dashboard.js             # Main game logic
 │   ├── challenge-manager.js     # Frontend challenge state management
 │   └── websocket-client.js      # WebSocket event handling
-├── requirements.txt             # Production dependencies
-├── requirements-test.txt        # Test dependencies
+├── backend/
+│   ├── requirements.txt         # Production dependencies
+│   └── requirements-test.txt    # Test dependencies
 ├── .env.example                 # Environment template
 ├── restart-servers.sh           # Dev server management
 ├── stop-servers.sh              # Stop all servers
@@ -140,7 +141,7 @@ TheTradingGame/
 
 3. **Install dependencies**
    ```bash
-   pip install -r requirements.txt
+   pip install -r backend/requirements.txt
    ```
 
 4. **Configure environment**
@@ -358,7 +359,7 @@ git clone <repository>
 cd TheTradingGame
 
 # Install Python dependencies
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 pip install -r backend/requirements-test.txt  # For testing
 
 # Configure environment
@@ -485,8 +486,8 @@ DATABASE_URL=mysql://user:password@localhost/trading_game
 # Example Dockerfile
 FROM python:3.11-slim
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+COPY backend/requirements.txt ./backend/
+RUN pip install -r backend/requirements.txt
 COPY backend/ ./backend/
 CMD ["python", "backend/main.py"]
 ```

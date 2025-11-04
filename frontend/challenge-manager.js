@@ -51,22 +51,31 @@ class ChallengeManager {
         try {
             const challenges = await this.gameAPI.getChallenges(this.gameCode);
             console.log('[ChallengeManager] loadFromServer - Raw challenges from API:', challenges);
+            console.log('[ChallengeManager] loadFromServer - Number of challenges:', challenges.length);
             
             // Fetch player names to enrich challenge data
             const players = await this.gameAPI.getPlayers(this.gameCode);
-            const playerMap = new Map(players.map(p => [p.id, p.player_name]));
+            console.log('[ChallengeManager] loadFromServer - Players from API:', players);
+            console.log('[ChallengeManager] loadFromServer - First player structure:', players[0]);
+            const playerMap = new Map(players.map(p => [p.id, p.name || p.player_name]));
             
             // Clear and rebuild challenge map
             this.challenges.clear();
             
             for (const challenge of challenges) {
                 console.log('[ChallengeManager] loadFromServer - Processing challenge:', challenge);
+                console.log('[ChallengeManager] loadFromServer - Challenge ID:', challenge.id);
                 console.log('[ChallengeManager] loadFromServer - Challenge status:', challenge.status);
+                console.log('[ChallengeManager] loadFromServer - Challenge player_id:', challenge.player_id);
+                console.log('[ChallengeManager] loadFromServer - Challenge team_number:', challenge.team_number);
+                console.log('[ChallengeManager] loadFromServer - Challenge building_type:', challenge.building_type);
                 console.log('[ChallengeManager] loadFromServer - Challenge assigned_at:', challenge.assigned_at);
+                console.log('[ChallengeManager] loadFromServer - Challenge start_time:', challenge.start_time);
                 
                 // Only load active challenges
                 if (challenge.status === 'requested' || challenge.status === 'assigned') {
                     const key = this._getChallengeKey(challenge);
+                    console.log('[ChallengeManager] loadFromServer - Challenge key:', key);
                     const normalizedChallenge = this._normalizeChallenge(challenge);
                     console.log('[ChallengeManager] loadFromServer - Normalized challenge:', normalizedChallenge);
                     console.log('[ChallengeManager] loadFromServer - Normalized status:', normalizedChallenge.status);
@@ -248,15 +257,25 @@ class ChallengeManager {
      * Get challenges for display (filtered by user role)
      */
     getChallengesForUser() {
+        console.log('[ChallengeManager] getChallengesForUser - currentPlayer:', this.currentPlayer);
         const isHostOrBanker = this.currentPlayer.role === 'host' || this.currentPlayer.role === 'banker';
         const challenges = Array.from(this.challenges.values());
+        console.log('[ChallengeManager] getChallengesForUser - all challenges:', challenges);
+        console.log('[ChallengeManager] getChallengesForUser - isHostOrBanker:', isHostOrBanker);
         
         if (isHostOrBanker) {
             // Host/banker sees all challenges
+            console.log('[ChallengeManager] getChallengesForUser - returning all challenges (host/banker)');
             return challenges;
         } else {
             // Team members see only their team's challenges
-            return challenges.filter(c => c.team_number === this.currentPlayer.groupNumber);
+            console.log('[ChallengeManager] getChallengesForUser - filtering by team:', this.currentPlayer.groupNumber);
+            const filtered = challenges.filter(c => {
+                console.log('[ChallengeManager] getChallengesForUser - checking challenge team:', c.team_number, 'vs player team:', this.currentPlayer.groupNumber);
+                return c.team_number === this.currentPlayer.groupNumber;
+            });
+            console.log('[ChallengeManager] getChallengesForUser - filtered challenges:', filtered);
+            return filtered;
         }
     }
     
@@ -264,7 +283,20 @@ class ChallengeManager {
      * Get only assigned challenges (for Active Challenges tab)
      */
     getAssignedChallenges() {
-        return this.getChallengesForUser().filter(c => c.status === 'assigned' && c.start_time);
+        const userChallenges = this.getChallengesForUser();
+        console.log('[ChallengeManager] getAssignedChallenges - user challenges:', userChallenges);
+        console.log('[ChallengeManager] getAssignedChallenges - current player role:', this.currentPlayer.role);
+        console.log('[ChallengeManager] getAssignedChallenges - current player groupNumber:', this.currentPlayer.groupNumber);
+        
+        const assigned = userChallenges.filter(c => {
+            console.log('[ChallengeManager] Checking challenge:', c);
+            console.log('[ChallengeManager] - status:', c.status, 'expected: assigned');
+            console.log('[ChallengeManager] - start_time:', c.start_time);
+            return c.status === 'assigned' && c.start_time;
+        });
+        
+        console.log('[ChallengeManager] getAssignedChallenges - filtered assigned challenges:', assigned);
+        return assigned;
     }
     
     /**

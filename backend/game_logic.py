@@ -51,12 +51,22 @@ class GameLogic:
         }
     
     @staticmethod
-    def initialize_banker() -> Dict[str, Any]:
-        """Initialize banker's state (Central Bank)"""
+    def initialize_banker(num_teams: int = 1) -> Dict[str, Any]:
+        """
+        Initialize banker's state (Central Bank)
+        
+        Args:
+            num_teams: Number of teams in the game (defaults to 1 for backward compatibility)
+        
+        Bank inventory is allocated as 150 resources per team.
+        """
+        resources_per_team = 150
+        bank_inventory_amount = resources_per_team * num_teams
+        
         return {
             "role": "banker",
             "bank_inventory": {
-                resource.value: 1000  # Large starting inventory
+                resource.value: bank_inventory_amount
                 for resource in ResourceType
                 if resource != ResourceType.CURRENCY
             },

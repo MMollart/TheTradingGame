@@ -172,6 +172,24 @@ class ChallengeManager:
             challenge_data=self.serialize_challenge(challenge, include_time_remaining=True)
         )
         
+        # Send notification to the team
+        player = challenge.player
+        if player and player.group_number:
+            challenge_type_name = challenge_type.replace('_', ' ').title()
+            notification_message = f"Challenge assigned: {challenge_description} for {challenge.building_type.replace('_', ' ').title()}"
+            
+            await ws_manager.send_to_team(
+                game_code=game.game_code,
+                team_number=player.group_number,
+                message={
+                    "type": "notification",
+                    "message": notification_message,
+                    "notification_type": "challenge_assigned",
+                    "challenge_data": self.serialize_challenge(challenge, include_time_remaining=True)
+                },
+                db_session=self.db
+            )
+        
         return challenge
     
     async def complete_challenge(self, challenge_id: int) -> Challenge:
@@ -206,6 +224,24 @@ class ChallengeManager:
             game_code=game.game_code,
             challenge_data=self.serialize_challenge(challenge)
         )
+        
+        # Send notification to the team
+        player = challenge.player
+        if player and player.group_number:
+            building_name = challenge.building_type.replace('_', ' ').title()
+            notification_message = f"Challenge completed! {building_name} production is now unlocked"
+            
+            await ws_manager.send_to_team(
+                game_code=game.game_code,
+                team_number=player.group_number,
+                message={
+                    "type": "notification",
+                    "message": notification_message,
+                    "notification_type": "challenge_completed",
+                    "challenge_data": self.serialize_challenge(challenge)
+                },
+                db_session=self.db
+            )
         
         return challenge
     

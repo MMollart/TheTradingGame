@@ -390,24 +390,10 @@
                 <h2 id="player-title">Player Dashboard</h2>
                 
                 <div class="dashboard-grid">
-                    <!-- Resources -->
-                    <div class="card" id="card-resources">
-                        <h3>Resources</h3>
-                        <div id="nation-resources" class="resource-list">
-                            <!-- Resources will be listed here -->
-                        </div>
-                    </div>
-
-                    <!-- Buildings -->
-                    <div class="card" id="card-buildings">
-                        <h3>Buildings</h3>
-                        <div id="nation-buildings" class="building-list">
-                            <!-- Buildings will be listed here -->
-                        </div>
-                    </div>
-
-                    <!-- Team Members -->
-                    <div class="card full-width">
+                    <!-- Top Row: Team Members | Resources | Buildings -->
+                    
+                    <!-- Team Members (Top Left) -->
+                    <div class="card">
                         <h3>Your Team</h3>
                         <div id="team-info" style="margin-bottom: 12px; font-size: 16px; color: #666;">
                             <!-- Team assignment info will appear here -->
@@ -430,7 +416,63 @@
                         </div>
                     </div>
 
-                    <!-- Production -->
+                    <!-- Resources (Top Middle) -->
+                    <div class="card" id="card-resources">
+                        <h3>Resources</h3>
+                        <div id="nation-resources" class="resource-list">
+                            <!-- Resources will be listed here -->
+                        </div>
+                    </div>
+
+                    <!-- Buildings (Top Right) -->
+                    <div class="card" id="card-buildings">
+                        <h3>Buildings</h3>
+                        <div id="nation-buildings" class="building-list">
+                            <!-- Buildings will be listed here -->
+                        </div>
+                    </div>
+
+                    <!-- Middle Row: Notifications | Trading | Blank -->
+                    
+                    <!-- Notifications (Middle Left) -->
+                    <div class="card" id="card-notifications">
+                        <h3>Notifications</h3>
+                        <div id="trade-notification-panel" class="notification-panel">
+                            <div class="notification-header">
+                                <button class="btn-clear-notifications" onclick="clearAllNotifications()">Clear All</button>
+                            </div>
+                            <div id="trade-notification-list" class="notification-list">
+                                <!-- Notifications will be added here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Trading (Middle Middle) -->
+                    <div class="card" id="card-trading">
+                        <h3>Trading</h3>
+                        <div class="trading-controls">
+                            <button class="btn btn-primary" onclick="openBankTradeModal()">💰 Trade with Bank</button>
+                            <button class="btn btn-primary" onclick="openTeamTradeModal()" style="position: relative;">
+                                🤝 Trade with Team
+                                <span id="trade-notification-badge" class="notification-badge" style="display: none;">0</span>
+                            </button>
+                        </div>
+                        <div id="trade-card-container">
+                            <!-- Incoming trade offers will be listed here -->
+                        </div>
+                    </div>
+
+                    <!-- Active Challenges (Middle Right) -->
+                    <div class="card" id="card-active-challenges">
+                        <h3>⏱️ Active Challenges</h3>
+                        <div id="player-active-challenges-list" class="active-challenges-list">
+                            <p class="no-challenges" style="text-align: center; color: #999; padding: 20px;">No active challenges</p>
+                        </div>
+                    </div>
+
+                    <!-- Full-Width Rows -->
+                    
+                    <!-- Production (Full Width) -->
                     <div class="card full-width" id="card-production">
                         <h3>Production</h3>
                         <div id="production-controls" class="production-grid">
@@ -471,16 +513,7 @@
                         </div>
                     </div>
 
-                    <!-- Trading -->
-                    <div class="card full-width" id="card-trading">
-                        <h3>Trading</h3>
-                        <div class="trading-controls">
-                            <button class="btn btn-primary" onclick="openBankTradeModal()">💰 Trade with Bank</button>
-                            <button class="btn btn-primary" onclick="openTeamTradeModal()">🤝 Trade with Team</button>
-                        </div>
-                    </div>
-
-                    <!-- Build Buildings -->
+                    <!-- Build New Buildings (Full Width) -->
                     <div class="card full-width" id="card-build-buildings">
                         <h3>Build New Buildings</h3>
                         <div id="build-controls" class="build-grid">

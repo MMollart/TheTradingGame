@@ -103,6 +103,56 @@ class ConnectionManager:
                         pass
                     break
     
+    async def send_to_team(self, game_code: str, team_number: int, message: dict, db_session=None):
+        """
+        Send a message to all players in a specific team AND to the host.
+        
+        The host receives all team-specific notifications for monitoring purposes.
+        """
+        if game_code not in self.active_connections:
+            return
+        
+        # Need to import models here to avoid circular dependency
+        from models import Player, GameSession
+        from database import SessionLocal
+        
+        # Use provided session or create a new one
+        db = db_session if db_session else SessionLocal()
+        close_db = db_session is None
+        
+        try:
+            # Get all players in this team for this game
+            team_player_ids = db.query(Player.id).join(
+                GameSession, Player.game_session_id == GameSession.id
+            ).filter(
+                GameSession.game_code == game_code.upper(),
+                Player.group_number == team_number
+            ).all()
+            team_player_ids = [p[0] for p in team_player_ids]
+            
+            # Also get the host player ID for this game
+            host_player_id = db.query(Player.id).join(
+                GameSession, Player.game_session_id == GameSession.id
+            ).filter(
+                GameSession.game_code == game_code.upper(),
+                Player.role == 'host'
+            ).first()
+            host_player_id = host_player_id[0] if host_player_id else None
+            
+            # Send message to each player in the team AND to the host
+            for connection in self.active_connections[game_code]:
+                if connection in self.connection_info:
+                    _, conn_player_id, _ = self.connection_info[connection]
+                    # Send if player is in team OR is the host
+                    if conn_player_id in team_player_ids or conn_player_id == host_player_id:
+                        try:
+                            await connection.send_json(message)
+                        except Exception:
+                            pass
+        finally:
+            if close_db:
+                db.close()
+    
     # ==================== Challenge-Specific Broadcasts ====================
     
     async def broadcast_challenge_requested(self, game_code: str, challenge_data: dict):

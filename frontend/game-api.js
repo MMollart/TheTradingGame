@@ -3,9 +3,10 @@
  */
 
 class GameWebSocket {
-    constructor(gameCode, playerId) {
+    constructor(gameCode, playerId, baseUrl = 'ws://localhost:8000') {
         this.gameCode = gameCode;
         this.playerId = playerId;
+        this.baseUrl = baseUrl;
         this.ws = null;
         this.listeners = {};
         this.reconnectAttempts = 0;
@@ -13,7 +14,7 @@ class GameWebSocket {
     }
 
     connect() {
-        const wsUrl = `ws://localhost:8000/ws/${this.gameCode}/${this.playerId}`;
+        const wsUrl = `${this.baseUrl}/ws/${this.gameCode}/${this.playerId}`;
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {

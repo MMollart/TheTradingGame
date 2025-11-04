@@ -202,7 +202,7 @@ This guide provides instructions for testing the new trading system functionalit
 
 ### Backend Not Starting
 - Check if port 8000 is available
-- Verify all dependencies are installed: `pip install -r requirements.txt`
+- Verify all dependencies are installed: `pip install -r backend/requirements.txt`
 - Check for any import errors in console
 
 ### Frontend Not Loading

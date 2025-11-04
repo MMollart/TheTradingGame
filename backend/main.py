@@ -1084,14 +1084,18 @@ async def start_game(
     flag_modified(game, 'game_state')
     
     # Initialize banker state (if needed for banker role)
+    # Bank gets 150 of each resource per team
+    num_teams = len(team_numbers)
     for player in game.players:
         if player.role.value == "banker":
-            player.player_state = GameLogic.initialize_banker()
-            # Initialize dynamic pricing
-            pricing_mgr = PricingManager(db)
-            prices = pricing_mgr.initialize_bank_prices(game_code)
-            player.player_state['bank_prices'] = prices
+            player.player_state = GameLogic.initialize_banker(num_teams=num_teams)
             flag_modified(player, 'player_state')
+    
+    # Initialize dynamic pricing in game_state (works without banker role)
+    pricing_mgr = PricingManager(db)
+    prices = pricing_mgr.initialize_bank_prices(game_code)
+    game.game_state['bank_prices'] = prices
+    flag_modified(game, 'game_state')
     
     game.status = GameStatus.IN_PROGRESS
     game.started_at = datetime.utcnow()

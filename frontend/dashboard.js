@@ -14,6 +14,7 @@ let gameState = {};
 let currentGameStatus = 'waiting'; // Track game status (waiting, in_progress, paused, completed)
 let challengeManager = null; // New challenge management system
 let tradingManager = null; // Trading management system
+let tradeNotifications = []; // Store trade notifications
 
 // Countdown timer variables
 let countdownInterval = null;
@@ -147,7 +148,9 @@ function updateTeamStateFromGameState(source) {
 function connectWebSocket() {
     const statusIndicator = document.getElementById('connection-status');
     
-    gameWS = new GameWebSocket(currentGameCode, currentPlayer.id);
+    // Convert HTTP base URL to WebSocket URL (http://localhost:8000 -> ws://localhost:8000)
+    const wsBaseUrl = gameAPI.baseUrl.replace(/^http/, 'ws');
+    gameWS = new GameWebSocket(currentGameCode, currentPlayer.id, wsBaseUrl);
     
     gameWS.on('connected', () => {
         statusIndicator.classList.add('connected');
@@ -200,6 +203,16 @@ function connectWebSocket() {
     });
     
     gameWS.on('game_event', (data) => {
+        handleGameEvent(data);
+    });
+    
+    // Handle 'event' type messages (includes trade events)
+    gameWS.on('event', (data) => {
+        handleGameEvent(data);
+    });
+    
+    // Handle 'notification' type messages (team-specific notifications)
+    gameWS.on('notification', (data) => {
         handleGameEvent(data);
     });
     
@@ -349,6 +362,13 @@ function connectWebSocket() {
         // Update challenge manager status
         if (challengeManager) {
             challengeManager.setGameStatus(data.status, data.status === 'paused' ? Date.now() : null);
+        }
+        
+        // Start/stop active challenges updates based on game status
+        if (data.status === 'in_progress') {
+            startActiveChallengesUpdate();
+        } else if (data.status === 'paused' || data.status === 'completed') {
+            stopActiveChallengesUpdate();
         }
         
         // Update control buttons visibility
@@ -574,6 +594,8 @@ function updatePlayerCardsVisibility() {
     const buildingsCard = document.getElementById('card-buildings');
     const productionCard = document.getElementById('card-production');
     const tradingCard = document.getElementById('card-trading');
+    const notificationsCard = document.getElementById('card-notifications');
+    const activeChallengesCard = document.getElementById('card-active-challenges');
     const buildBuildingsCard = document.getElementById('card-build-buildings');
     
     // Check if game has started (in_progress or paused)
@@ -596,6 +618,8 @@ function updatePlayerCardsVisibility() {
         console.log('[updatePlayerCardsVisibility] Player not assigned to team - hiding gameplay cards');
         if (productionCard) productionCard.style.display = 'none';
         if (tradingCard) tradingCard.style.display = 'none';
+        if (notificationsCard) notificationsCard.style.display = 'none';
+        if (activeChallengesCard) activeChallengesCard.style.display = 'none';
         if (buildBuildingsCard) buildBuildingsCard.style.display = 'none';
         return;
     }
@@ -608,6 +632,14 @@ function updatePlayerCardsVisibility() {
     if (tradingCard) {
         tradingCard.style.display = gameStarted ? 'block' : 'none';
         console.log('[updatePlayerCardsVisibility] Trading card display:', tradingCard.style.display);
+    }
+    if (notificationsCard) {
+        notificationsCard.style.display = gameStarted ? 'block' : 'none';
+        console.log('[updatePlayerCardsVisibility] Notifications card display:', notificationsCard.style.display);
+    }
+    if (activeChallengesCard) {
+        activeChallengesCard.style.display = gameStarted ? 'block' : 'none';
+        console.log('[updatePlayerCardsVisibility] Active challenges card display:', activeChallengesCard.style.display);
     }
     if (buildBuildingsCard) {
         buildBuildingsCard.style.display = gameStarted ? 'block' : 'none';
@@ -2369,6 +2401,9 @@ async function startGame() {
         // Initialize challenge manager
         await initializeChallengeManager();
         
+        // Start active challenges update interval
+        startActiveChallengesUpdate();
+        
         addEventLog('Game started!', 'success');
         
         // Update UI immediately
@@ -2409,8 +2444,8 @@ async function initializeChallengeManager() {
         challengeManager.setGameStatus(currentGameStatus);
         
         // Initialize trading manager for players
-        if (currentPlayer.role === 'player' && playerState.group_number) {
-            tradingManager = new TradingManager(currentGameCode, currentPlayer.id, playerState.group_number, gameAPI, gameWS);
+        if (currentPlayer.role === 'player' && currentPlayer.groupNumber) {
+            tradingManager = new TradingManager(currentGameCode, currentPlayer.id, currentPlayer.groupNumber, gameAPI, gameWS);
             await tradingManager.initialize();
             console.log('[initializeChallengeManager] Trading manager initialized');
         }
@@ -2418,8 +2453,9 @@ async function initializeChallengeManager() {
         // Register update callback
         challengeManager.onChallengesUpdated(() => {
             console.log('[ChallengeManager] Challenges updated, refreshing UI');
-            updateActiveChallengesList();
-            updateChallengeRequestsList();
+            updateActiveChallengesList(); // For host's active challenges tab
+            updateChallengeRequestsList(); // For host's challenge requests tab
+            updateActiveChallenges(); // For player dashboard active challenges card
         });
         
         console.log('[initializeChallengeManager] Challenge manager initialized successfully');
@@ -2730,6 +2766,9 @@ function updatePlayerDashboard() {
     
     // Update build buildings section
     updateBuildBuildingsSection();
+    
+    // Update active challenges card
+    updateActiveChallenges();
 }
 
 // Building costs definition (from backend game_constants.py)
@@ -3385,28 +3424,60 @@ function closeChallengeModal() {
 // ==================== BANK TRADING ====================
 
 async function openBankTradeModal() {
+    console.log('[openBankTradeModal] Called. tradingManager:', tradingManager);
+    
     if (!tradingManager) {
-        alert('Trading not available. Please wait for game to start.');
+        if (currentPlayer.role !== 'player') {
+            alert('Trading is only available for players.');
+        } else if (!currentPlayer.groupNumber) {
+            alert('Trading not available. Please wait to be assigned to a team.');
+        } else {
+            alert('Trading not available. Please wait for game to start.');
+        }
         return;
     }
     
-    document.getElementById('bank-trade-modal').classList.remove('hidden');
-    
-    // Load current prices
-    await tradingManager.loadBankPrices();
-    
-    // Render price chart for food by default
-    await updatePriceChart();
-    
-    // Reset form
-    document.getElementById('bank-trade-resource').value = '';
-    document.getElementById('bank-trade-quantity').value = 1;
-    document.querySelector('input[name="bank-trade-action"][value="buy"]').checked = true;
-    document.getElementById('bank-trade-preview').style.display = 'none';
+    try {
+        console.log('[openBankTradeModal] Opening modal...');
+        const modal = document.getElementById('bank-trade-modal');
+        console.log('[openBankTradeModal] Modal element:', modal);
+        console.log('[openBankTradeModal] Modal classList before:', modal ? modal.classList.toString() : 'ELEMENT NOT FOUND');
+        
+        if (!modal) {
+            throw new Error('Modal element bank-trade-modal not found in DOM');
+        }
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('show');
+        console.log('[openBankTradeModal] Modal classList after:', modal.classList.toString());
+        console.log('[openBankTradeModal] Modal display style:', window.getComputedStyle(modal).display);
+        
+        // Load current prices
+        console.log('[openBankTradeModal] Loading bank prices...');
+        await tradingManager.loadBankPrices();
+        
+        // Render price chart for food by default
+        console.log('[openBankTradeModal] Updating price chart...');
+        await updatePriceChart();
+        
+        // Reset form
+        document.getElementById('bank-trade-resource').value = '';
+        document.getElementById('bank-trade-quantity').value = 1;
+        document.querySelector('input[name="bank-trade-action"][value="buy"]').checked = true;
+        document.getElementById('bank-trade-preview').style.display = 'none';
+        
+        console.log('[openBankTradeModal] Modal opened successfully');
+    } catch (error) {
+        console.error('[openBankTradeModal] Error opening modal:', error);
+        alert(`Failed to open trading modal: ${error.message}`);
+        closeBankTradeModal();
+    }
 }
 
 function closeBankTradeModal() {
-    document.getElementById('bank-trade-modal').classList.add('hidden');
+    const modal = document.getElementById('bank-trade-modal');
+    modal.classList.remove('show');
+    modal.classList.add('hidden');
 }
 
 async function updatePriceChart() {
@@ -3422,6 +3493,12 @@ function updateBankTradePreview() {
     const resourceType = document.getElementById('bank-trade-resource').value;
     const quantity = parseInt(document.getElementById('bank-trade-quantity').value) || 0;
     const isBuying = document.querySelector('input[name="bank-trade-action"]:checked').value === 'buy';
+    
+    // Sync the price chart dropdown with the selected resource
+    if (resourceType) {
+        document.getElementById('price-chart-resource').value = resourceType;
+        updatePriceChart();
+    }
     
     if (!resourceType || quantity <= 0 || !tradingManager) {
         document.getElementById('bank-trade-preview').style.display = 'none';
@@ -3506,7 +3583,7 @@ async function executeBankTrade() {
         
         // Update local team state
         teamState.resources = result.team_resources;
-        refreshTeamResources();
+        updateDashboard();
         
         // Show success message
         const action = isBuying ? 'bought' : 'sold';
@@ -3526,11 +3603,26 @@ async function executeBankTrade() {
 
 async function openTeamTradeModal() {
     if (!tradingManager) {
-        alert('Trading not available. Please wait for game to start.');
+        if (currentPlayer.role !== 'player') {
+            alert('Trading is only available for players.');
+        } else if (!currentPlayer.groupNumber) {
+            alert('Trading not available. Please wait to be assigned to a team.');
+        } else {
+            alert('Trading not available. Please wait for game to start.');
+        }
         return;
     }
     
-    document.getElementById('team-trade-modal').classList.remove('hidden');
+    const modal = document.getElementById('team-trade-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('show');
+    
+    // Mark all notifications as read when opening the modal
+    markAllNotificationsAsRead();
+    
+    // Update notification displays
+    updateTradeNotificationsList();
+    updateTradeNotificationBadge();
     
     // Populate team selector
     await populateTeamSelector();
@@ -3550,7 +3642,9 @@ async function openTeamTradeModal() {
 }
 
 function closeTeamTradeModal() {
-    document.getElementById('team-trade-modal').classList.add('hidden');
+    const modal = document.getElementById('team-trade-modal');
+    modal.classList.remove('show');
+    modal.classList.add('hidden');
 }
 
 function switchTeamTradeTab(tab) {
@@ -3708,8 +3802,8 @@ async function refreshPendingTrades() {
     }
     
     container.innerHTML = trades.map(trade => {
-        const isInitiator = trade.from_team === playerState.group_number;
-        const isReceiver = trade.to_team === playerState.group_number;
+        const isInitiator = trade.from_team === currentPlayer.groupNumber;
+        const isReceiver = trade.to_team === currentPlayer.groupNumber;
         const hasCounterOffer = trade.counter_offered_resources !== null;
         
         let html = `
@@ -3868,6 +3962,257 @@ function addEventLog(message, type = 'info') {
     // Keep only last 50 events
     while (logDiv.children.length > 50) {
         logDiv.removeChild(logDiv.lastChild);
+    }
+}
+
+function showTradeNotification(message, type = 'info') {
+    // Add notification to the list
+    const notification = {
+        id: Date.now(),
+        message: message,
+        type: type,
+        timestamp: new Date(),
+        read: false
+    };
+    
+    tradeNotifications.unshift(notification);
+    
+    // Keep only last 20 notifications
+    if (tradeNotifications.length > 20) {
+        tradeNotifications = tradeNotifications.slice(0, 20);
+    }
+    
+    // Update the notification display
+    updateTradeNotificationsList();
+    updateTradeNotificationBadge();
+    
+    // Also show a brief toast for immediate feedback
+    showBriefToast(message, type);
+}
+
+function showBriefToast(message, type = 'info') {
+    // Create brief toast notification
+    const toast = document.createElement('div');
+    toast.className = 'trade-notification';
+    toast.classList.add(`notification-${type}`);
+    
+    // Set notification content
+    toast.innerHTML = `
+        <div class="notification-content">
+            <strong>Trading Update</strong>
+            <p>${message}</p>
+        </div>
+        <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+    `;
+    
+    // Add to document
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+}
+
+function updateTradeNotificationsList() {
+    const container = document.getElementById('trade-notifications-list');
+    if (!container) return;
+    
+    if (tradeNotifications.length === 0) {
+        container.innerHTML = '<p class="no-notifications">No new notifications</p>';
+        return;
+    }
+    
+    container.innerHTML = tradeNotifications.map(notif => {
+        const timeStr = notif.timestamp.toLocaleTimeString();
+        const readClass = notif.read ? 'read' : 'unread';
+        
+        return `
+            <div class="notification-item ${readClass}" data-id="${notif.id}">
+                <div class="notification-item-content">
+                    <p class="notification-item-message">${notif.message}</p>
+                    <div class="notification-item-time">${timeStr}</div>
+                </div>
+                <button class="notification-item-dismiss" onclick="dismissNotification(${notif.id})">×</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateTradeNotificationBadge() {
+    const badge = document.getElementById('trade-notification-badge');
+    if (!badge) return;
+    
+    const unreadCount = tradeNotifications.filter(n => !n.read).length;
+    
+    if (unreadCount > 0) {
+        badge.textContent = unreadCount;
+        badge.style.display = 'block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function dismissNotification(notificationId) {
+    tradeNotifications = tradeNotifications.filter(n => n.id !== notificationId);
+    updateTradeNotificationsList();
+    updateTradeNotificationBadge();
+}
+
+function markAllNotificationsAsRead() {
+    tradeNotifications.forEach(n => n.read = true);
+    updateTradeNotificationsList();
+    updateTradeNotificationBadge();
+}
+
+function clearAllNotifications() {
+    if (tradeNotifications.length === 0) return;
+    
+    if (confirm('Clear all trade notifications?')) {
+        tradeNotifications = [];
+        updateTradeNotificationsList();
+        updateTradeNotificationBadge();
+    }
+}
+
+// ==================== ACTIVE CHALLENGES DISPLAY ====================
+
+function updateActiveChallenges() {
+    console.log('[updateActiveChallenges] Called');
+    console.log('[updateActiveChallenges] challengeManager exists:', !!challengeManager);
+    
+    if (!challengeManager) {
+        console.log('[updateActiveChallenges] No challenge manager, exiting');
+        return;
+    }
+    
+    const activeChallengesList = document.getElementById('player-active-challenges-list');
+    console.log('[updateActiveChallenges] player-active-challenges-list element found:', !!activeChallengesList);
+    
+    if (!activeChallengesList) return;
+    
+    // Get assigned challenges for the current player's team
+    const assignedChallenges = challengeManager.getAssignedChallenges();
+    console.log('[updateActiveChallenges] Assigned challenges count:', assignedChallenges.length);
+    console.log('[updateActiveChallenges] Assigned challenges:', assignedChallenges);
+    console.log('[updateActiveChallenges] Current player:', currentPlayer);
+    
+    // Log each challenge in detail
+    assignedChallenges.forEach((ch, idx) => {
+        console.log(`[updateActiveChallenges] Challenge ${idx}:`, ch);
+        console.log(`[updateActiveChallenges] Challenge ${idx} - team_number:`, ch.team_number, 'player groupNumber:', currentPlayer.groupNumber);
+        console.log(`[updateActiveChallenges] Challenge ${idx} - player_id:`, ch.player_id, 'current player id:', currentPlayer.id);
+    });
+    
+    if (assignedChallenges.length === 0) {
+        console.log('[updateActiveChallenges] No challenges - showing empty state');
+        activeChallengesList.innerHTML = '<p class="no-challenges">No active challenges</p>';
+        return;
+    }
+    
+    console.log('[updateActiveChallenges] Processing challenges for display...');
+    
+    // Sort challenges by time remaining (ascending - most urgent first)
+    const sortedChallenges = assignedChallenges.sort((a, b) => {
+        const timeA = challengeManager.getTimeRemaining(a);
+        const timeB = challengeManager.getTimeRemaining(b);
+        
+        if (timeA === null) return 1;
+        if (timeB === null) return -1;
+        return timeA - timeB;
+    });
+    
+    // Build HTML for challenge list
+    activeChallengesList.innerHTML = sortedChallenges.map(challenge => {
+        const timeRemaining = challengeManager.getTimeRemaining(challenge);
+        const isTeamWide = !challenge.player_id || challenge.player_id === null;
+        const isCurrentPlayer = challenge.player_id === currentPlayer.id;
+        
+        // Format time remaining
+        let timerText = 'N/A';
+        let timerClass = '';
+        
+        if (timeRemaining !== null) {
+            const seconds = Math.floor(timeRemaining / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            
+            if (seconds <= 30) {
+                timerClass = 'urgent';
+            }
+            
+            timerText = `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Format building name
+        const buildingName = challenge.building_type 
+            ? challenge.building_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+            : 'Unknown';
+        
+        // Determine player display
+        let playerDisplay;
+        if (isTeamWide) {
+            playerDisplay = 'Team Challenge';
+        } else if (isCurrentPlayer) {
+            playerDisplay = 'Your Challenge';
+        } else {
+            playerDisplay = challenge.player_name || `Player ${challenge.player_id}`;
+        }
+        
+        const challengeTypeClass = isTeamWide ? 'team-wide' : 'individual';
+        
+        return `
+            <div class="challenge-item ${challengeTypeClass}">
+                <div class="challenge-header">
+                    <div class="challenge-player">${playerDisplay}</div>
+                    <div class="challenge-timer ${timerClass}">${timerText}</div>
+                </div>
+                <div class="challenge-building">🏭 ${buildingName}</div>
+                ${challenge.challenge_description ? `<div class="challenge-description">${challenge.challenge_description}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+    
+    console.log('[updateActiveChallenges] Generated HTML length:', activeChallengesList.innerHTML.length);
+    console.log('[updateActiveChallenges] First 200 chars of HTML:', activeChallengesList.innerHTML.substring(0, 200));
+}
+
+// Start updating active challenges every second
+let activeChallengesInterval = null;
+let challengeRefreshCounter = 0;
+
+function startActiveChallengesUpdate() {
+    if (activeChallengesInterval) {
+        clearInterval(activeChallengesInterval);
+    }
+    
+    // Initial update
+    updateActiveChallenges();
+    
+    // Update every second
+    activeChallengesInterval = setInterval(() => {
+        updateActiveChallenges();
+        
+        // Refresh from server every 10 seconds to catch any missed updates
+        challengeRefreshCounter++;
+        if (challengeRefreshCounter >= 10) {
+            challengeRefreshCounter = 0;
+            if (challengeManager) {
+                console.log('[startActiveChallengesUpdate] Refreshing challenges from server...');
+                challengeManager.loadFromServer();
+            }
+        }
+    }, 1000);
+}
+
+function stopActiveChallengesUpdate() {
+    if (activeChallengesInterval) {
+        clearInterval(activeChallengesInterval);
+        activeChallengesInterval = null;
     }
 }
 
@@ -4093,6 +4438,35 @@ function handleGameEvent(data) {
     
     console.log(`[WebSocket Event] Received event_type: ${event_type}`, eventData);
     
+    // Handle notification-type messages (challenge assignments/completions sent to teams)
+    if (data.type === 'notification' && data.notification_type) {
+        const notificationType = data.notification_type;
+        const message = data.message;
+        
+        // Show notification in the notifications panel
+        if (message) {
+            showTradeNotification(message, notificationType);
+        }
+        
+        // ALWAYS send notification to host's game event log (even if private/team-specific)
+        if (currentPlayer.role === 'host' && message) {
+            // Determine team context from challenge_data if available
+            let teamContext = '';
+            if (data.challenge_data && data.challenge_data.team_number) {
+                teamContext = ` [Team ${data.challenge_data.team_number}]`;
+            }
+            
+            // Add to event log with appropriate styling
+            const logType = notificationType === 'challenge_completed' ? 'success' : 'info';
+            addEventLog(`${teamContext} ${message}`, logType);
+        }
+        
+        // If there's an event_type to process, continue with normal event handling
+        if (!event_type) {
+            return;
+        }
+    }
+    
     switch (event_type) {
         case 'food_tax':
             addEventLog('Food tax has been applied!', 'warning');
@@ -4134,9 +4508,10 @@ function handleGameEvent(data) {
                 receiveChallengeAssignment(eventData.building_type, eventData.challenge_description);
             }
             
-            // Update UI for team members
-            if (eventData.player_id !== currentPlayer.id) {
+            // Update UI for ALL team members (including the one who received it)
+            if (eventData.team_number === currentPlayer.groupNumber) {
                 updateAllBuildingButtons();
+                updateActiveChallenges(); // Update active challenges display
             }
             break;
         case 'challenge_completed':
@@ -4159,11 +4534,16 @@ function handleGameEvent(data) {
                 })();
             }
             
-            // Update UI for team members
-            if (eventData.team_number === currentPlayer.groupNumber && eventData.player_id !== currentPlayer.id) {
+            // Update UI for ALL team members (including the one who completed it)
+            if (eventData.team_number === currentPlayer.groupNumber) {
                 updateAllBuildingButtons();
-                const buildingName = formatBuildingName(eventData.building_type);
-                addEventLog(`${eventData.player_name} completed production at ${buildingName}`, 'info');
+                updateActiveChallenges(); // Update active challenges display
+                
+                // Log for other team members (not the one who completed it)
+                if (eventData.player_id !== currentPlayer.id) {
+                    const buildingName = formatBuildingName(eventData.building_type);
+                    addEventLog(`${eventData.player_name} completed production at ${buildingName}`, 'info');
+                }
             }
             break;
         case 'challenge_dismissed':
@@ -4181,6 +4561,7 @@ function handleGameEvent(data) {
             
             // Update building buttons for all players (lock is cleared for entire team)
             updateAllBuildingButtons();
+            updateActiveChallenges(); // Update active challenges display
             
             // Show message to the player whose request was dismissed
             if (eventData.player_id === currentPlayer.id) {
@@ -4277,26 +4658,44 @@ function handleGameEvent(data) {
             break;
         
         case 'trade_offer_created':
-            // Notify receiving team
-            if (eventData.to_team === currentPlayer.groupNumber) {
-                addEventLog(`📥 New trade offer from Team ${eventData.from_team}!`, 'info');
-                
-                // Refresh trades if modal is open
-                if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
-                    refreshPendingTrades();
-                }
+            // Notify receiving team only - this is sent only to the offering team now
+            addEventLog(`📤 Trade offer sent to Team ${eventData.to_team}`, 'info');
+            
+            // Refresh trades if modal is open
+            if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
+                refreshPendingTrades();
+            }
+            break;
+        
+        case 'trade_offer_received':
+            // New notification type - only sent to receiving team
+            showTradeNotification(eventData.message || `📥 New trade offer from Team ${eventData.from_team}!`);
+            addEventLog(eventData.message || `📥 New trade offer from Team ${eventData.from_team}!`, 'info');
+            
+            // Refresh trades if modal is open
+            if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
+                refreshPendingTrades();
             }
             break;
         
         case 'trade_counter_offered':
-            // Notify original offerer
-            if (eventData.from_team === currentPlayer.groupNumber) {
-                addEventLog(`↩️ Counter-offer received from Team ${eventData.to_team}`, 'info');
-                
-                // Refresh trades if modal is open
-                if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
-                    refreshPendingTrades();
-                }
+            // Confirmation for the team that sent the counter - only they see this
+            addEventLog(`↩️ Counter-offer sent to Team ${eventData.to_team}`, 'info');
+            
+            // Refresh trades if modal is open
+            if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
+                refreshPendingTrades();
+            }
+            break;
+        
+        case 'trade_counter_received':
+            // New notification type - only sent to receiving team
+            showTradeNotification(eventData.message || `↩️ Counter-offer received from Team ${eventData.from_team}!`);
+            addEventLog(eventData.message || `↩️ Counter-offer received from Team ${eventData.from_team}`, 'info');
+            
+            // Refresh trades if modal is open
+            if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
+                refreshPendingTrades();
             }
             break;
         
@@ -4310,14 +4709,13 @@ function handleGameEvent(data) {
                 }
             }
             
-            // Notify involved teams
-            if (eventData.from_team === currentPlayer.groupNumber || eventData.to_team === currentPlayer.groupNumber) {
-                addEventLog('✓ Trade completed successfully!', 'success');
-                
-                // Refresh trades if modal is open
-                if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
-                    refreshPendingTrades();
-                }
+            // Show notification with custom message
+            showTradeNotification(eventData.message || '✓ Trade completed successfully!');
+            addEventLog(eventData.message || '✓ Trade completed successfully!', 'success');
+            
+            // Refresh trades if modal is open
+            if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
+                refreshPendingTrades();
             }
             
             // Refresh nations overview for host/banker
@@ -4327,16 +4725,24 @@ function handleGameEvent(data) {
             break;
         
         case 'trade_rejected':
+            // Show notification with custom message
+            showTradeNotification(eventData.message || 'Trade rejected', 'warning');
+            addEventLog(eventData.message || 'Trade rejected', 'warning');
+            
+            // Refresh trades if modal is open
+            if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
+                refreshPendingTrades();
+            }
+            break;
+        
         case 'trade_cancelled':
-            // Notify involved teams
-            if (eventData.from_team === currentPlayer.groupNumber || eventData.to_team === currentPlayer.groupNumber) {
-                const action = event_type === 'trade_rejected' ? 'rejected' : 'cancelled';
-                addEventLog(`Trade ${action}`, 'warning');
-                
-                // Refresh trades if modal is open
-                if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
-                    refreshPendingTrades();
-                }
+            // Show notification with custom message
+            showTradeNotification(eventData.message || 'Trade cancelled', 'warning');
+            addEventLog(eventData.message || 'Trade cancelled', 'warning');
+            
+            // Refresh trades if modal is open
+            if (tradingManager && !document.getElementById('team-trade-modal').classList.contains('hidden')) {
+                refreshPendingTrades();
             }
             break;
     }
@@ -4770,7 +5176,8 @@ function switchRoleView(role) {
                 // Reconnect WebSocket with original player ID
                 if (gameWS) {
                     gameWS.disconnect();
-                    gameWS = new GameWebSocket(currentGameCode, currentPlayer.id);
+                    const wsBaseUrl = gameAPI.baseUrl.replace(/^http/, 'ws');
+                    gameWS = new GameWebSocket(currentGameCode, currentPlayer.id, wsBaseUrl);
                     
                     gameWS.on('connected', () => {
                         console.log(`[switchRoleView] WebSocket reconnected as original player ${currentPlayer.name}`);

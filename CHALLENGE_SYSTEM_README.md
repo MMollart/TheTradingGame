@@ -73,7 +73,7 @@ This prevents desync issues between multiple hosts/bankers.
 1. **Install dependencies:**
 ```bash
 cd backend
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
 2. **Run tests:**
