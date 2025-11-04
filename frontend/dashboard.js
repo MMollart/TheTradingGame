@@ -148,6 +148,28 @@ function connectWebSocket() {
     
     gameWS.on('game_state', (data) => {
         gameState = data.state;
+        
+        // Extract player's group number from the players array if available
+        if (data.players && Array.isArray(data.players)) {
+            const playerData = data.players.find(p => p.id === currentPlayer.id);
+            if (playerData && playerData.group_number) {
+                currentPlayer.groupNumber = playerData.group_number;
+                console.log('[WebSocket game_state] Set currentPlayer.groupNumber to:', currentPlayer.groupNumber);
+            }
+        }
+        
+        // Update teamState for players (same logic as state_updated)
+        if (currentPlayer.role === 'player' && currentPlayer.groupNumber) {
+            const teamNumber = String(currentPlayer.groupNumber);
+            if (gameState.teams && gameState.teams[teamNumber]) {
+                teamState = {
+                    resources: gameState.teams[teamNumber].resources || {},
+                    buildings: gameState.teams[teamNumber].buildings || {}
+                };
+                console.log('[WebSocket game_state] Updated teamState for team', teamNumber, teamState);
+            }
+        }
+        
         updateDashboard();
     });
     
