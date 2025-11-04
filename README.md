@@ -561,7 +561,7 @@ rm backend/trading_game.db  # WARNING: Deletes all data
 
 ## 📄 License
 
-[Add your license - MIT, GPL, Apache 2.0, etc.]
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## 👤 Contact & Support
 
