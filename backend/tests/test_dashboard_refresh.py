@@ -25,12 +25,16 @@ class TestDashboardRefreshBroadcasts:
         since we have dependency compatibility issues.
         """
         # Read the main.py file and verify the broadcast is present
-        with open('/home/runner/work/TheTradingGame/TheTradingGame/backend/main.py', 'r') as f:
+        import os
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        main_py = os.path.join(backend_dir, 'main.py')
+        
+        with open(main_py, 'r') as f:
             content = f.read()
         
         # Find the manual-resources endpoint
         manual_resources_start = content.find('async def give_manual_resources(')
-        manual_resources_end = content.find('@app.post("/games/{game_code}/manual-buildings")')
+        manual_resources_end = content.find('async def give_manual_buildings(')
         manual_resources_code = content[manual_resources_start:manual_resources_end]
         
         # Verify it broadcasts state_updated
@@ -45,12 +49,16 @@ class TestDashboardRefreshBroadcasts:
         """
         Test that giving manual buildings broadcasts a state_updated event.
         """
-        with open('/home/runner/work/TheTradingGame/TheTradingGame/backend/main.py', 'r') as f:
+        import os
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        main_py = os.path.join(backend_dir, 'main.py')
+        
+        with open(main_py, 'r') as f:
             content = f.read()
         
         # Find the manual-buildings endpoint
         manual_buildings_start = content.find('async def give_manual_buildings(')
-        manual_buildings_end = content.find('@app.post("/games/{game_code}/build-building")')
+        manual_buildings_end = content.find('async def build_building(')
         manual_buildings_code = content[manual_buildings_start:manual_buildings_end]
         
         # Verify it broadcasts state_updated
@@ -65,13 +73,17 @@ class TestDashboardRefreshBroadcasts:
         """
         Test that completing a challenge broadcasts a state_updated event.
         """
-        with open('/home/runner/work/TheTradingGame/TheTradingGame/backend/main.py', 'r') as f:
+        import os
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        main_py = os.path.join(backend_dir, 'main.py')
+        
+        with open(main_py, 'r') as f:
             content = f.read()
         
         # Find the complete_challenge endpoint
         complete_challenge_start = content.find('async def complete_challenge_with_bank_transfer(')
-        # Find the next endpoint after it
-        complete_challenge_end = content.find('@app.post("/games/{game_code}/challenges")', 
+        # Find the next function after it
+        complete_challenge_end = content.find('def create_challenge(', 
                                                complete_challenge_start)
         complete_challenge_code = content[complete_challenge_start:complete_challenge_end]
         
@@ -87,7 +99,11 @@ class TestDashboardRefreshBroadcasts:
         """
         Test that all broadcasts use game_code.upper() as per coding conventions.
         """
-        with open('/home/runner/work/TheTradingGame/TheTradingGame/backend/main.py', 'r') as f:
+        import os
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        main_py = os.path.join(backend_dir, 'main.py')
+        
+        with open(main_py, 'r') as f:
             content = f.read()
         
         # Find all our new broadcasts
@@ -95,17 +111,17 @@ class TestDashboardRefreshBroadcasts:
         
         # Manual resources
         manual_resources_start = content.find('async def give_manual_resources(')
-        manual_resources_end = content.find('@app.post("/games/{game_code}/manual-buildings")')
+        manual_resources_end = content.find('async def give_manual_buildings(')
         broadcasts.append(content[manual_resources_start:manual_resources_end])
         
         # Manual buildings
         manual_buildings_start = content.find('async def give_manual_buildings(')
-        manual_buildings_end = content.find('@app.post("/games/{game_code}/build-building")')
+        manual_buildings_end = content.find('async def build_building(')
         broadcasts.append(content[manual_buildings_start:manual_buildings_end])
         
         # Challenge completion
         complete_challenge_start = content.find('async def complete_challenge_with_bank_transfer(')
-        complete_challenge_end = content.find('@app.post("/games/{game_code}/challenges")', 
+        complete_challenge_end = content.find('def create_challenge(', 
                                                complete_challenge_start)
         broadcasts.append(content[complete_challenge_start:complete_challenge_end])
         
@@ -118,12 +134,16 @@ class TestDashboardRefreshBroadcasts:
         """
         Test that broadcasts happen after db.commit() to ensure data is persisted.
         """
-        with open('/home/runner/work/TheTradingGame/TheTradingGame/backend/main.py', 'r') as f:
+        import os
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        main_py = os.path.join(backend_dir, 'main.py')
+        
+        with open(main_py, 'r') as f:
             content = f.read()
         
         # Check manual resources
         manual_resources_start = content.find('async def give_manual_resources(')
-        manual_resources_end = content.find('@app.post("/games/{game_code}/manual-buildings")')
+        manual_resources_end = content.find('async def give_manual_buildings(')
         manual_resources_code = content[manual_resources_start:manual_resources_end]
         
         commit_pos = manual_resources_code.find('db.commit()')
@@ -133,7 +153,7 @@ class TestDashboardRefreshBroadcasts:
         
         # Check manual buildings
         manual_buildings_start = content.find('async def give_manual_buildings(')
-        manual_buildings_end = content.find('@app.post("/games/{game_code}/build-building")')
+        manual_buildings_end = content.find('async def build_building(')
         manual_buildings_code = content[manual_buildings_start:manual_buildings_end]
         
         commit_pos = manual_buildings_code.find('db.commit()')
@@ -143,7 +163,7 @@ class TestDashboardRefreshBroadcasts:
         
         # Check challenge completion
         complete_challenge_start = content.find('async def complete_challenge_with_bank_transfer(')
-        complete_challenge_end = content.find('@app.post("/games/{game_code}/challenges")', 
+        complete_challenge_end = content.find('def create_challenge(', 
                                                complete_challenge_start)
         complete_challenge_code = content[complete_challenge_start:complete_challenge_end]
         
