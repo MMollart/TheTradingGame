@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Building Rental Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            margin: 0;
+        }
+        .modal-content {
+            max-width: 800px;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin: 20px auto;
+        }
+        .close {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #999;
+        }
+        h2 { margin: 0 0 20px 0; color: #333; }
+        .tab-btn {
+            border: none;
+            background: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            font-size: 14px;
+        }
+        .tab-btn.active {
+            border-bottom: 3px solid #667eea;
+            color: #667eea;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        select, input, textarea {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 16px;
+            background: #667eea;
+            color: white;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+        .offer-card {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+        }
+        .offer-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            background: #dbeafe;
+            color: #1e40af;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .offer-details {
+            margin: 10px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn-small {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-success { background: #10b981; color: white; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 40px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>🏢 Building Rentals</h2>
+        
+        <div class="tabs">
+            <button class="tab-btn active">Request Rental</button>
+            <button class="tab-btn">Rental Offers</button>
+            <button class="tab-btn">Active Rentals</button>
+        </div>
+
+        <div class="rental-tab-content">
+            <form>
+                <div class="form-group">
+                    <label>Rent From Team:</label>
+                    <select>
+                        <option>Select Team...</option>
+                        <option>Team 1</option>
+                        <option>Team 2</option>
+                        <option>Team 3</option>
+                        <option>Team 4</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Building Type:</label>
+                    <select>
+                        <option>Select Building...</option>
+                        <option>🌾 Farm</option>
+                        <option>⛏️ Mine</option>
+                        <option>⚡ Electrical Factory</option>
+                        <option>🏥 Medical Factory</option>
+                    </select>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Rental Price (per cycle):</label>
+                        <input type="number" placeholder="0.00" value="50.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Duration (cycles):</label>
+                        <input type="number" value="3">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Message (Optional):</label>
+                    <textarea rows="2" placeholder="Add a message...">Need farm for 3 production cycles</textarea>
+                </div>
+
+                <button type="submit" class="btn">📨 Send Rental Request</button>
+            </form>
+
+            <div style="margin-top: 40px;">
+                <h3 style="color: #333; margin-bottom: 15px;">Example: Rental Offers</h3>
+                
+                <div class="offer-card">
+                    <div class="offer-header">
+                        <div><strong>Team 1</strong> → <strong>Team 2</strong></div>
+                        <span class="status-badge">PENDING</span>
+                    </div>
+                    
+                    <div class="offer-details">
+                        <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">
+                            🌾 Farm
+                        </div>
+                        <div>💰 Rental Price: <strong>50.00</strong> currency per cycle</div>
+                        <div>⏱️ Duration: <strong>3</strong> production cycles</div>
+                        <div>📊 Total Cost: <strong>150.00</strong> currency</div>
+                    </div>
+                    
+                    <div style="padding: 8px; background: #f3f4f6; border-radius: 4px; margin: 10px 0; font-style: italic;">
+                        "Need farm for 3 production cycles"
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn-small btn-success">✅ Accept</button>
+                        <button class="btn-small btn-warning">🔄 Counter</button>
+                        <button class="btn-small btn-danger">❌ Reject</button>
+                    </div>
+                </div>
+
+                <h3 style="color: #333; margin: 30px 0 15px 0;">Example: Active Rental</h3>
+                
+                <div class="offer-card" style="border-color: #10b981;">
+                    <div class="offer-header">
+                        <div><strong>Team 1</strong> ← <strong>Team 2</strong></div>
+                        <span class="status-badge" style="background: #d1fae5; color: #065f46;">ACTIVE</span>
+                    </div>
+                    
+                    <div class="offer-details">
+                        <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">
+                            🌾 Farm
+                        </div>
+                        <div>💰 Price: <strong>50.00</strong> currency per cycle</div>
+                        <div>📊 Cycles Used: <strong>1</strong> / <strong>3</strong></div>
+                        <div>⏱️ Remaining: <strong>2</strong> cycles</div>
+                    </div>
+                    
+                    <div style="margin-top: 10px; padding: 10px; background: #f0fdf4; border-radius: 4px; border-left: 4px solid #10b981;">
+                        <strong>Note:</strong> This building is available for production. When you complete production, one cycle will be used.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
