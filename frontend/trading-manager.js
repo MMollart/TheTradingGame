@@ -432,7 +432,6 @@ class TradingManager {
         };
         return emojis[resource] || '📦';
     }
-}
 
     // ==================== Building Rental Methods ====================
 

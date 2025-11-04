@@ -2,16 +2,15 @@
 Trading API endpoints for The Trading Game
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Any
-from datetime import datetime
 
 from database import get_db
 from models import GameSession, GameStatus
-from trading_system import TradingManager, DynamicPricingSystem
+from trading_system import TradingManager
 from websocket_manager import manager
 
 
