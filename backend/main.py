@@ -1486,22 +1486,35 @@ async def complete_challenge_with_bank_transfer(
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     
-    # Get banker
-    banker = db.query(Player).filter(
+    # Get banker or host (host can manage bank if no banker exists)
+    bank_manager = db.query(Player).filter(
         Player.game_session_id == game.id,
         Player.role == "banker"
     ).first()
     
-    if not banker:
-        raise HTTPException(status_code=404, detail="Banker not found")
+    if not bank_manager:
+        # If no banker, use host as bank manager
+        bank_manager = db.query(Player).filter(
+            Player.game_session_id == game.id,
+            Player.role == "host"
+        ).first()
     
-    print(f"[complete_challenge] Banker found: {banker.id}, player_state type: {type(banker.player_state)}")
+    if not bank_manager:
+        raise HTTPException(status_code=404, detail="No banker or host found to manage bank inventory")
+    
+    print(f"[complete_challenge] Bank manager ({bank_manager.role}) found: {bank_manager.id}, player_state type: {type(bank_manager.player_state)}")
     
     # Check bank inventory
-    if not banker.player_state:
-        banker.player_state = {}
+    if not bank_manager.player_state:
+        bank_manager.player_state = {}
     
-    bank_inventory = banker.player_state.get('bank_inventory', {})
+    # Initialize bank inventory if it doesn't exist (for hosts managing bank)
+    if 'bank_inventory' not in bank_manager.player_state:
+        banker_state = GameLogic.initialize_banker()
+        bank_manager.player_state['bank_inventory'] = banker_state['bank_inventory']
+        flag_modified(bank_manager, 'player_state')
+    
+    bank_inventory = bank_manager.player_state.get('bank_inventory', {})
     current_inventory = bank_inventory.get(resource_type, 0)
     
     print(f"[complete_challenge] BEFORE - Bank inventory: {bank_inventory}")
@@ -1513,14 +1526,12 @@ async def complete_challenge_with_bank_transfer(
             detail=f"Bank does not have enough {resource_type}. Required: {amount}, Available: {int(current_inventory)}"
         )
     
-    # Deduct from bank inventory
-    if 'bank_inventory' not in banker.player_state:
-        banker.player_state['bank_inventory'] = {}
-    banker.player_state['bank_inventory'][resource_type] = current_inventory - amount
-    flag_modified(banker, 'player_state')
+    # Deduct from bank inventory (bank_inventory is guaranteed to exist at this point)
+    bank_manager.player_state['bank_inventory'][resource_type] = current_inventory - amount
+    flag_modified(bank_manager, 'player_state')
     
-    print(f"[complete_challenge] AFTER - Bank inventory: {banker.player_state['bank_inventory']}")
-    print(f"[complete_challenge] New {resource_type}: {banker.player_state['bank_inventory'][resource_type]}")
+    print(f"[complete_challenge] AFTER - Bank inventory: {bank_manager.player_state['bank_inventory']}")
+    print(f"[complete_challenge] New {resource_type}: {bank_manager.player_state['bank_inventory'][resource_type]}")
     
     # Add to team resources
     team_key = str(team_number)
@@ -1554,7 +1565,7 @@ async def complete_challenge_with_bank_transfer(
     return {
         "success": True,
         "message": f"Transferred {amount} {resource_type} from bank to Team {team_number}",
-        "bank_remaining": int(banker.player_state['bank_inventory'][resource_type]),
+        "bank_remaining": int(bank_manager.player_state['bank_inventory'][resource_type]),
         "team_total": int(team_state['resources'][resource_type])
     }
 
@@ -1610,14 +1621,20 @@ def create_challenge(
     # Use normal difficulty (1.0x) for calculation - actual difficulty applied at completion
     required_amount = base_amount * building_count * 1.0
     
-    # Check bank inventory
-    banker = db.query(Player).filter(
+    # Check bank inventory (check banker first, then host)
+    bank_manager = db.query(Player).filter(
         Player.game_session_id == game.id,
         Player.role == "banker"
     ).first()
     
-    if banker and banker.player_state:
-        bank_inventory = banker.player_state.get('bank_inventory', {})
+    if not bank_manager:
+        bank_manager = db.query(Player).filter(
+            Player.game_session_id == game.id,
+            Player.role == "host"
+        ).first()
+    
+    if bank_manager and bank_manager.player_state:
+        bank_inventory = bank_manager.player_state.get('bank_inventory', {})
         current_inventory = bank_inventory.get(required_resource, 0)
         
         if current_inventory < required_amount:
