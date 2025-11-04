@@ -122,7 +122,7 @@ class GameLogic:
         
         # Check optional building limits
         if building in [BuildingType.HOSPITAL, BuildingType.RESTAURANT, BuildingType.INFRASTRUCTURE]:
-            current_count = nation_state.get("optional_buildings", {}).get(building_type, 0)
+            current_count = nation_state.get("buildings", {}).get(building_type, 0)
             max_count = {
                 BuildingType.HOSPITAL: MAX_HOSPITALS,
                 BuildingType.RESTAURANT: MAX_RESTAURANTS,
@@ -136,13 +136,10 @@ class GameLogic:
         new_state = nation_state.copy()
         new_state["resources"] = GameLogic.deduct_resources(nation_state["resources"], cost)
         
-        # Add building
-        if building in [BuildingType.SCHOOL, BuildingType.HOSPITAL, BuildingType.RESTAURANT, BuildingType.INFRASTRUCTURE]:
-            if "optional_buildings" not in new_state:
-                new_state["optional_buildings"] = {}
-            new_state["optional_buildings"][building_type] = new_state["optional_buildings"].get(building_type, 0) + 1
-        else:
-            new_state["buildings"][building_type] = new_state["buildings"].get(building_type, 0) + 1
+        # Add building to buildings dict (all buildings stored in same place)
+        if "buildings" not in new_state:
+            new_state["buildings"] = {}
+        new_state["buildings"][building_type] = new_state["buildings"].get(building_type, 0) + 1
         
         return True, None, new_state
     

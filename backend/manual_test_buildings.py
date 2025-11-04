@@ -52,13 +52,12 @@ def test_build_building():
             'currency': 150,
             'raw_materials': 50
         },
-        'buildings': {},
-        'optional_buildings': {}
+        'buildings': {}
     }
     
     success, error, new_state = GameLogic.build_building(nation_state2, 'school')
     assert success, f"Failed to build school: {error}"
-    assert new_state['optional_buildings']['school'] == 1, "School count should be 1"
+    assert new_state['buildings']['school'] == 1, "School count should be 1"
     print("✓ Successfully built school")
     
     # Test 3: Insufficient resources
@@ -86,8 +85,7 @@ def test_build_building():
             'electrical_goods': 100,
             'medical_goods': 100
         },
-        'buildings': {},
-        'optional_buildings': {
+        'buildings': {
             'hospital': 5
         }
     }
