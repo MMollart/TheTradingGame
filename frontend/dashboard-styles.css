@@ -270,7 +270,7 @@ body {
 }
 
 .status-indicator.disconnected {
-    color: #E22E12;
+    color: #ed3f23;
 }
 
 @keyframes pulse {
@@ -357,7 +357,7 @@ body {
 }
 
 .btn-danger {
-    background: #E22E12;
+    background: #ed3f23;
     color: white;
 }
 
@@ -424,7 +424,7 @@ body {
 }
 
 .remove-player-btn {
-    background: #E22E12;
+    background: #ed3f23;
     color: white;
     border: none;
     border-radius: 50%;
@@ -939,7 +939,7 @@ body {
 }
 
 .active-challenge-item.expiring {
-    border-left-color: #E22E12;
+    border-left-color: #ed3f23;
     background: #ffebee;
 }
 
@@ -980,7 +980,7 @@ body {
 }
 
 .timer-display.expiring {
-    color: #E22E12;
+    color: #ed3f23;
     animation: pulse 1s infinite;
 }
 
@@ -1068,7 +1068,7 @@ body {
 
 .pending-player-item .reject-btn {
     padding: 8px 16px;
-    background: #E22E12;
+    background: #ed3f23;
     color: white;
     border: none;
     border-radius: 4px;
@@ -1347,7 +1347,7 @@ body {
 
 .team-player-item .remove-btn {
     padding: 4px 8px;
-    background: #E22E12;
+    background: #ed3f23;
     color: white;
     border: none;
     border-radius: 4px;
@@ -1566,7 +1566,7 @@ body {
 }
 
 .modal-close:hover {
-    color: #E22E12;
+    color: #ed3f23;
 }
 
 .modal-body {
@@ -1601,7 +1601,7 @@ body {
 
 .setting-warning {
     font-size: 14px;
-    color: #E22E12;
+    color: #ed3f23;
     padding: 10px;
     background: #ffebee;
     border-radius: 6px;
