@@ -13,7 +13,7 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #7413dc 0%, #00a794 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -31,7 +31,7 @@
         }
         
         h1 {
-            color: #667eea;
+            color: #7413dc;
             text-align: center;
             margin-bottom: 10px;
             font-size: 2.5em;
@@ -63,8 +63,8 @@
         }
         
         .tab.active {
-            color: #667eea;
-            border-bottom: 3px solid #667eea;
+            color: #7413dc;
+            border-bottom: 3px solid #7413dc;
             margin-bottom: -2px;
         }
         
@@ -98,13 +98,13 @@
         
         input:focus, select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #7413dc;
         }
         
         button {
             width: 100%;
             padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #7413dc 0%, #00a794 100%);
             color: white;
             border: none;
             border-radius: 8px;
@@ -126,7 +126,7 @@
         .game-code {
             font-size: 3em;
             text-align: center;
-            color: #667eea;
+            color: #7413dc;
             font-weight: bold;
             letter-spacing: 8px;
             margin: 30px 0;
@@ -136,11 +136,11 @@
         }
         
         .info {
-            background: #e3f2fd;
+            background: #e6f9f6;
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
-            color: #1565c0;
+            color: #00a794;
         }
         
         .success {
@@ -148,7 +148,7 @@
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
-            color: #2e7d32;
+            color: #23A950;
         }
         
         .error {
@@ -156,7 +156,7 @@
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
-            color: #c62828;
+            color: #E22E12;
         }
         
         .hidden {
@@ -293,7 +293,7 @@
                     <input type="text" id="player-name" placeholder="Enter your name" required>
                 </div>
                 
-                <div class="info" style="margin-top: 20px; background: #e3f2fd; color: #1565c0;">
+                <div class="info" style="margin-top: 20px; background: #e6f9f6; color: #00a794;">
                     <strong>Note:</strong> All players join initially without a role. The host will assign roles (player/banker) from the dashboard. Authenticated users join immediately, while guest users need host approval.
                 </div>
                 
@@ -333,7 +333,7 @@
         <div id="waiting-approval-screen" class="hidden">
             <div style="text-align: center; padding: 20px;">
                 <div style="font-size: 64px; margin-bottom: 20px;">⏳</div>
-                <h2 style="color: #667eea; margin-bottom: 10px;">Waiting for Approval</h2>
+                <h2 style="color: #7413dc; margin-bottom: 10px;">Waiting for Approval</h2>
                 <p style="color: #666; margin-bottom: 30px;">
                     Your join request has been sent to the host.<br>
                     Please wait while they approve your access.
@@ -344,7 +344,7 @@
                 </div>
                 
                 <div style="padding: 20px; background: #f8f9fa; border-radius: 12px; margin-bottom: 20px;">
-                    <div class="spinner" style="margin: 0 auto 15px; width: 50px; height: 50px; border: 5px solid #eee; border-top: 5px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                    <div class="spinner" style="margin: 0 auto 15px; width: 50px; height: 50px; border: 5px solid #eee; border-top: 5px solid #7413dc; border-radius: 50%; animation: spin 1s linear infinite;"></div>
                     <p style="color: #999; font-style: italic;">Waiting for host approval...</p>
                 </div>
                 
@@ -707,7 +707,7 @@
                     waitingDiv.innerHTML = `
                         <div style="text-align: center; padding: 20px;">
                             <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
-                            <h2 style="color: #4caf50; margin-bottom: 10px;">Approved!</h2>
+                            <h2 style="color: #23A950; margin-bottom: 10px;">Approved!</h2>
                             <p style="color: #666;">You've been approved. Loading dashboard...</p>
                         </div>
                     `;
