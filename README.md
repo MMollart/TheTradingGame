@@ -17,6 +17,7 @@ The Trading Game is an interactive multiplayer experience where teams compete to
 - **Trading System**: Teams trade resources with each other and the World Bank
 - **Pause-Aware Timing**: Challenge timers freeze during game pauses, extending deadlines fairly
 - **Challenge Locking**: School buildings enable simultaneous challenges for team members
+- **External Integrations**: OAuth2 framework for OnlineScoutManager API integration
 
 ### 🎮 Game Management
 
@@ -525,6 +526,7 @@ CMD ["python", "backend/main.py"]
 
 - **[README.md](README.md)**: This file - complete project overview
 - **[QUICKSTART.md](QUICKSTART.md)**: Quick reference for server management
+- **[OSM_OAUTH_SETUP.md](OSM_OAUTH_SETUP.md)**: OnlineScoutManager OAuth2 integration guide
 - **[CHALLENGE_SYSTEM_README.md](CHALLENGE_SYSTEM_README.md)**: Detailed challenge system architecture
 - **[FEATURE-GAME-DURATION.md](FEATURE-GAME-DURATION.md)**: Game duration feature documentation
 - **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)**: WebSocket event documentation
