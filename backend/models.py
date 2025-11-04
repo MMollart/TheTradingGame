@@ -237,3 +237,33 @@ class PriceHistory(Base):
     
     # Relationships
     game_session = relationship("GameSession")
+
+
+class OAuthProvider(str, enum.Enum):
+    """OAuth provider types"""
+    OSM = "osm"  # OnlineScoutManager
+
+
+class OAuthToken(Base):
+    """Store OAuth tokens for external integrations"""
+    __tablename__ = "oauth_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    provider = Column(Enum(OAuthProvider), nullable=False)
+    
+    # OAuth tokens
+    access_token = Column(Text, nullable=False)  # Encrypted in production
+    refresh_token = Column(Text, nullable=True)
+    token_type = Column(String(50), default="Bearer")
+    expires_at = Column(DateTime, nullable=True)  # When access_token expires
+    
+    # OAuth metadata
+    scope = Column(String(500), nullable=True)  # Space-separated scopes
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", backref="oauth_tokens")
