@@ -3688,6 +3688,321 @@ async function updateTeamTradeUI() {
     }
 }
 
+// ==================== BUILDING RENTAL FUNCTIONS ====================
+
+async function openBuildingRentalModal() {
+    // Initialize trading manager if not done
+    if (!tradingManager) {
+        tradingManager = new TradingManager(currentGameCode, gameAPI, gameWS);
+        await tradingManager.initialize();
+    }
+    
+    // Show modal
+    document.getElementById('building-rental-modal').classList.remove('hidden');
+    
+    // Populate team dropdown
+    populateRentalTeamDropdown();
+    
+    // Load rental offers and active rentals
+    await loadRentalOffers();
+    await loadActiveRentals();
+}
+
+function closeBuildingRentalModal() {
+    document.getElementById('building-rental-modal').classList.add('hidden');
+}
+
+function switchRentalTab(tab) {
+    // Update tab buttons
+    document.getElementById('rental-tab-request').classList.toggle('active', tab === 'request');
+    document.getElementById('rental-tab-offers').classList.toggle('active', tab === 'offers');
+    document.getElementById('rental-tab-active').classList.toggle('active', tab === 'active');
+    
+    // Update tab styling
+    document.getElementById('rental-tab-request').style.borderBottom = tab === 'request' ? '3px solid #667eea' : '3px solid transparent';
+    document.getElementById('rental-tab-offers').style.borderBottom = tab === 'offers' ? '3px solid #667eea' : '3px solid transparent';
+    document.getElementById('rental-tab-active').style.borderBottom = tab === 'active' ? '3px solid #667eea' : '3px solid transparent';
+    
+    // Show/hide tab content
+    document.getElementById('rental-request-tab').classList.toggle('hidden', tab !== 'request');
+    document.getElementById('rental-offers-tab').classList.toggle('hidden', tab !== 'offers');
+    document.getElementById('rental-active-tab').classList.toggle('hidden', tab !== 'active');
+    
+    if (tab === 'offers') {
+        loadRentalOffers();
+    } else if (tab === 'active') {
+        loadActiveRentals();
+    }
+}
+
+function populateRentalTeamDropdown() {
+    const dropdown = document.getElementById('rental-owner-team');
+    const currentTeam = currentPlayer.group_number || teamState.team_number;
+    
+    dropdown.innerHTML = '<option value="">Select Team...</option>';
+    
+    // Add all teams except current team
+    const numTeams = Object.keys(gameState.teams || {}).length;
+    for (let i = 1; i <= numTeams; i++) {
+        if (i !== currentTeam) {
+            dropdown.innerHTML += `<option value="${i}">Team ${i}</option>`;
+        }
+    }
+}
+
+async function createBuildingRentalRequest(event) {
+    event.preventDefault();
+    
+    const ownerTeam = parseInt(document.getElementById('rental-owner-team').value);
+    const buildingType = document.getElementById('rental-building-type').value;
+    const rentalPrice = parseFloat(document.getElementById('rental-price').value);
+    const duration = parseInt(document.getElementById('rental-duration').value);
+    const message = document.getElementById('rental-message').value;
+    
+    if (!ownerTeam || !buildingType || !rentalPrice) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    const renterTeam = currentPlayer.group_number || teamState.team_number;
+    
+    try {
+        const offer = await tradingManager.createRentalOffer(
+            renterTeam,
+            ownerTeam,
+            buildingType,
+            rentalPrice,
+            duration,
+            message || null
+        );
+        
+        alert('✅ Building rental request sent successfully!');
+        
+        // Reset form
+        document.getElementById('building-rental-request-form').reset();
+        
+        // Switch to offers tab
+        switchRentalTab('offers');
+    } catch (error) {
+        alert('❌ Failed to create rental request: ' + error.message);
+        console.error('[createBuildingRentalRequest] Error:', error);
+    }
+}
+
+async function loadRentalOffers() {
+    const teamNumber = currentPlayer.group_number || teamState.team_number;
+    
+    try {
+        await tradingManager.loadRentalOffers(teamNumber, false);
+        displayRentalOffers();
+    } catch (error) {
+        console.error('[loadRentalOffers] Error:', error);
+        document.getElementById('rental-offers-list').innerHTML = '<p style="color: #ef4444;">Failed to load rental offers</p>';
+    }
+}
+
+async function loadActiveRentals() {
+    const teamNumber = currentPlayer.group_number || teamState.team_number;
+    
+    try {
+        await tradingManager.loadActiveRentals(teamNumber);
+        displayActiveRentals();
+    } catch (error) {
+        console.error('[loadActiveRentals] Error:', error);
+        document.getElementById('rental-active-list').innerHTML = '<p style="color: #ef4444;">Failed to load active rentals</p>';
+    }
+}
+
+function displayRentalOffers() {
+    const container = document.getElementById('rental-offers-list');
+    const offers = tradingManager.rentalOffers;
+    const currentTeam = currentPlayer.group_number || teamState.team_number;
+    
+    if (offers.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No rental offers</p>';
+        return;
+    }
+    
+    let html = '';
+    
+    offers.forEach(offer => {
+        const isRequester = offer.from_team === currentTeam;
+        const isOwner = offer.to_team === currentTeam;
+        
+        // Determine price to show
+        let rentalPrice = offer.rental_price;
+        let duration = offer.duration_cycles;
+        if (offer.status === 'countered' && offer.counter_offer) {
+            rentalPrice = offer.counter_offer.rental_price;
+            duration = offer.counter_offer.duration_cycles || offer.duration_cycles;
+        }
+        
+        const buildingEmoji = tradingManager.getBuildingEmoji(offer.building_type);
+        const buildingName = tradingManager.formatBuildingName(offer.building_type);
+        
+        html += `
+            <div style="margin-bottom: 20px; padding: 15px; border: 2px solid ${offer.status === 'pending' ? '#667eea' : '#f59e0b'}; border-radius: 8px; background: white;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div>
+                        <strong>Team ${offer.from_team}</strong> → <strong>Team ${offer.to_team}</strong>
+                    </div>
+                    <span style="padding: 4px 8px; background: ${offer.status === 'pending' ? '#dbeafe' : '#fef3c7'}; color: ${offer.status === 'pending' ? '#1e40af' : '#92400e'}; border-radius: 4px; font-size: 12px; font-weight: 600;">
+                        ${offer.status.toUpperCase()}
+                    </span>
+                </div>
+                
+                ${offer.status === 'countered' ? '<div style="margin-bottom: 10px; padding: 8px; background: #fef3c7; border-radius: 4px; font-size: 14px; color: #92400e;">⚠️ Counter Offer Received</div>' : ''}
+                
+                <div style="margin-bottom: 10px;">
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">
+                        ${buildingEmoji} ${buildingName}
+                    </div>
+                    <div>💰 Rental Price: <strong>${rentalPrice.toFixed(2)}</strong> currency per cycle</div>
+                    <div>⏱️ Duration: <strong>${duration}</strong> production cycles</div>
+                    <div>📊 Total Cost: <strong>${(rentalPrice * duration).toFixed(2)}</strong> currency</div>
+                </div>
+                
+                ${offer.message ? `<div style="padding: 8px; background: #f3f4f6; border-radius: 4px; margin-bottom: 10px; font-style: italic;">"${offer.message}"</div>` : ''}
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    ${isOwner ? `
+                        <button class="btn btn-success" onclick="acceptRentalOffer('${offer.offer_id}')" style="flex: 1;">✅ Accept</button>
+                        <button class="btn btn-warning" onclick="openRentalCounterModal('${offer.offer_id}')" style="flex: 1;">🔄 Counter</button>
+                        <button class="btn btn-danger" onclick="rejectRentalOffer('${offer.offer_id}')">❌ Reject</button>
+                    ` : ''}
+                    ${isRequester ? `
+                        <button class="btn btn-danger" onclick="cancelRentalOffer('${offer.offer_id}')" style="flex: 1;">🗑️ Cancel Request</button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function displayActiveRentals() {
+    const container = document.getElementById('rental-active-list');
+    const rentals = tradingManager.activeRentals;
+    
+    if (rentals.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No active rentals</p>';
+        return;
+    }
+    
+    let html = '';
+    
+    rentals.forEach(rental => {
+        const buildingEmoji = tradingManager.getBuildingEmoji(rental.building_type);
+        const buildingName = tradingManager.formatBuildingName(rental.building_type);
+        const cyclesRemaining = rental.duration_cycles - rental.cycles_used;
+        
+        html += `
+            <div style="margin-bottom: 20px; padding: 15px; border: 2px solid #10b981; border-radius: 8px; background: white;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div>
+                        <strong>Team ${rental.from_team}</strong> ← <strong>Team ${rental.to_team}</strong>
+                    </div>
+                    <span style="padding: 4px 8px; background: #d1fae5; color: #065f46; border-radius: 4px; font-size: 12px; font-weight: 600;">
+                        ACTIVE
+                    </span>
+                </div>
+                
+                <div style="margin-bottom: 10px;">
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">
+                        ${buildingEmoji} ${buildingName}
+                    </div>
+                    <div>💰 Price: <strong>${rental.rental_price.toFixed(2)}</strong> currency per cycle</div>
+                    <div>📊 Cycles Used: <strong>${rental.cycles_used}</strong> / <strong>${rental.duration_cycles}</strong></div>
+                    <div>⏱️ Remaining: <strong>${cyclesRemaining}</strong> cycles</div>
+                </div>
+                
+                <div style="margin-top: 10px; padding: 10px; background: #f0fdf4; border-radius: 4px; border-left: 4px solid #10b981;">
+                    <strong>Note:</strong> This building is available for production. When you complete production, one cycle will be used.
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+async function acceptRentalOffer(offerId) {
+    if (!confirm('Accept this rental offer? Payment will be made immediately.')) return;
+    
+    try {
+        await tradingManager.acceptRentalOffer(offerId);
+        alert('✅ Rental activated successfully!');
+        await loadRentalOffers();
+        await loadActiveRentals();
+    } catch (error) {
+        alert('❌ Failed to accept rental offer: ' + error.message);
+        console.error('[acceptRentalOffer] Error:', error);
+    }
+}
+
+async function rejectRentalOffer(offerId) {
+    if (!confirm('Reject this rental offer?')) return;
+    
+    try {
+        await tradingManager.rejectRentalOffer(offerId);
+        alert('Rental offer rejected');
+        await loadRentalOffers();
+    } catch (error) {
+        alert('❌ Failed to reject rental offer: ' + error.message);
+        console.error('[rejectRentalOffer] Error:', error);
+    }
+}
+
+async function cancelRentalOffer(offerId) {
+    if (!confirm('Cancel this rental request?')) return;
+    
+    try {
+        await tradingManager.cancelRentalOffer(offerId);
+        alert('Rental request cancelled');
+        await loadRentalOffers();
+    } catch (error) {
+        alert('❌ Failed to cancel rental request: ' + error.message);
+        console.error('[cancelRentalOffer] Error:', error);
+    }
+}
+
+function openRentalCounterModal(offerId) {
+    // For now, use a simple prompt-based counter offer
+    const offer = tradingManager.rentalOffers.find(o => o.offer_id === offerId);
+    if (!offer) return;
+    
+    const newPrice = prompt(`Counter offer price (original: ${offer.rental_price}):`, offer.rental_price);
+    if (newPrice === null) return;
+    
+    const price = parseFloat(newPrice);
+    if (isNaN(price) || price <= 0) {
+        alert('Invalid price');
+        return;
+    }
+    
+    counterRentalOffer(offerId, price);
+}
+
+async function counterRentalOffer(offerId, price, duration = null, message = null) {
+    try {
+        await tradingManager.counterRentalOffer(offerId, price, duration, message);
+        alert('✅ Counter offer sent!');
+        await loadRentalOffers();
+    } catch (error) {
+        alert('❌ Failed to send counter offer: ' + error.message);
+        console.error('[counterRentalOffer] Error:', error);
+    }
+}
+
+async function updateRentalUI() {
+    // Called when rental events occur via WebSocket
+    if (tradingManager && document.getElementById('building-rental-modal').classList.contains('hidden') === false) {
+        await loadRentalOffers();
+        await loadActiveRentals();
+    }
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 
 function formatResourceName(resource) {
@@ -4147,6 +4462,47 @@ function handleGameEvent(data) {
                 tradingManager.handleTradeEvent(event_type, eventData);
             }
             addEventLog(`Trade offer ${event_type === 'team_trade_offer_rejected' ? 'rejected' : 'cancelled'}`, 'info');
+            break;
+        
+        // Building rental events
+        case 'building_rental_offer_created':
+            addEventLog(`Rental offer created: Team ${eventData.from_team} → Team ${eventData.to_team} for ${eventData.building_type}`, 'info');
+            if (typeof updateRentalUI === 'function') {
+                updateRentalUI();
+            }
+            break;
+        
+        case 'building_rental_offer_countered':
+            addEventLog(`Rental offer countered: Team ${eventData.from_team} ↔ Team ${eventData.to_team}`, 'info');
+            if (typeof updateRentalUI === 'function') {
+                updateRentalUI();
+            }
+            break;
+        
+        case 'building_rental_activated':
+            addEventLog(`Building rental activated: Team ${eventData.from_team} renting ${eventData.building_type} from Team ${eventData.to_team}`, 'success');
+            const currentTeam = currentPlayer.group_number || teamState.team_number;
+            if (currentTeam === eventData.from_team || currentTeam === eventData.to_team) {
+                loadGameState();
+            }
+            if (typeof updateRentalUI === 'function') {
+                updateRentalUI();
+            }
+            break;
+        
+        case 'building_rental_completed':
+            addEventLog(`Building rental completed: ${eventData.building_type}`, 'info');
+            if (typeof updateRentalUI === 'function') {
+                updateRentalUI();
+            }
+            break;
+        
+        case 'building_rental_offer_rejected':
+        case 'building_rental_offer_cancelled':
+            addEventLog(`Rental offer ${event_type === 'building_rental_offer_rejected' ? 'rejected' : 'cancelled'}`, 'info');
+            if (typeof updateRentalUI === 'function') {
+                updateRentalUI();
+            }
             break;
     }
 }

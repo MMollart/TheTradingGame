@@ -25,6 +25,17 @@ class TradeOfferStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+class RentalOfferStatus(str, Enum):
+    """Status of building rental offers"""
+    PENDING = "pending"
+    COUNTERED = "countered"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+    ACTIVE = "active"  # Rental is currently active
+    COMPLETED = "completed"  # Rental period ended
+
+
 class DynamicPricingSystem:
     """
     Manages dynamic pricing for bank trades
@@ -316,6 +327,117 @@ class TeamTradeOffer:
         return offer
 
 
+class BuildingRentalOffer:
+    """Represents a building rental offer between teams"""
+    
+    def __init__(
+        self,
+        offer_id: str,
+        from_team: int,  # Team requesting to rent
+        to_team: int,    # Team that owns the building
+        building_type: str,
+        rental_price: float,  # Price per production cycle
+        duration_cycles: int = 1,  # Number of production cycles
+        message: Optional[str] = None
+    ):
+        self.offer_id = offer_id
+        self.from_team = from_team
+        self.to_team = to_team
+        self.building_type = building_type
+        self.rental_price = rental_price
+        self.duration_cycles = duration_cycles
+        self.message = message
+        self.status = RentalOfferStatus.PENDING
+        self.created_at = datetime.utcnow()
+        self.accepted_at: Optional[datetime] = None
+        self.expires_at: Optional[datetime] = None
+        self.counter_offer: Optional[Dict[str, Any]] = None
+        self.cycles_used = 0
+    
+    def counter(
+        self,
+        new_rental_price: float,
+        new_duration_cycles: int = None,
+        message: Optional[str] = None
+    ):
+        """Create a counter offer with different price/duration"""
+        self.counter_offer = {
+            "rental_price": new_rental_price,
+            "duration_cycles": new_duration_cycles or self.duration_cycles,
+            "message": message,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        self.status = RentalOfferStatus.COUNTERED
+    
+    def accept(self):
+        """Accept the rental offer"""
+        self.status = RentalOfferStatus.ACCEPTED
+        self.accepted_at = datetime.utcnow()
+    
+    def activate(self):
+        """Activate the rental (payment made, rental begins)"""
+        self.status = RentalOfferStatus.ACTIVE
+    
+    def reject(self):
+        """Reject the rental offer"""
+        self.status = RentalOfferStatus.REJECTED
+    
+    def cancel(self):
+        """Cancel the rental offer"""
+        self.status = RentalOfferStatus.CANCELLED
+    
+    def complete(self):
+        """Mark rental as completed"""
+        self.status = RentalOfferStatus.COMPLETED
+    
+    def use_cycle(self):
+        """Mark one production cycle as used"""
+        self.cycles_used += 1
+        if self.cycles_used >= self.duration_cycles:
+            self.complete()
+    
+    def is_active(self) -> bool:
+        """Check if rental is currently active"""
+        return self.status == RentalOfferStatus.ACTIVE and self.cycles_used < self.duration_cycles
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize rental offer"""
+        return {
+            "offer_id": self.offer_id,
+            "from_team": self.from_team,
+            "to_team": self.to_team,
+            "building_type": self.building_type,
+            "rental_price": self.rental_price,
+            "duration_cycles": self.duration_cycles,
+            "message": self.message,
+            "status": self.status.value,
+            "created_at": self.created_at.isoformat(),
+            "accepted_at": self.accepted_at.isoformat() if self.accepted_at else None,
+            "counter_offer": self.counter_offer,
+            "cycles_used": self.cycles_used
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'BuildingRentalOffer':
+        """Deserialize rental offer"""
+        offer = cls(
+            offer_id=data["offer_id"],
+            from_team=data["from_team"],
+            to_team=data["to_team"],
+            building_type=data["building_type"],
+            rental_price=data["rental_price"],
+            duration_cycles=data["duration_cycles"],
+            message=data.get("message")
+        )
+        offer.status = RentalOfferStatus(data["status"])
+        offer.created_at = datetime.fromisoformat(data["created_at"])
+        if data.get("accepted_at"):
+            offer.accepted_at = datetime.fromisoformat(data["accepted_at"])
+        offer.counter_offer = data.get("counter_offer")
+        offer.cycles_used = data.get("cycles_used", 0)
+        return offer
+
+
 class TradingManager:
     """
     Manages all trading operations
@@ -324,6 +446,7 @@ class TradingManager:
     def __init__(self, pricing_system: Optional[DynamicPricingSystem] = None):
         self.pricing_system = pricing_system or DynamicPricingSystem()
         self.trade_offers: Dict[str, TeamTradeOffer] = {}
+        self.rental_offers: Dict[str, BuildingRentalOffer] = {}
     
     def execute_bank_trade(
         self,
@@ -490,6 +613,117 @@ class TradingManager:
         
         return True, None, new_from_resources, new_to_resources
     
+    # ==================== Building Rental Methods ====================
+    
+    def create_rental_offer(
+        self,
+        from_team: int,
+        to_team: int,
+        building_type: str,
+        rental_price: float,
+        duration_cycles: int = 1,
+        message: Optional[str] = None
+    ) -> BuildingRentalOffer:
+        """Create a new building rental offer"""
+        offer_id = f"rental_{from_team}_{to_team}_{building_type}_{int(datetime.utcnow().timestamp())}"
+        offer = BuildingRentalOffer(
+            offer_id=offer_id,
+            from_team=from_team,
+            to_team=to_team,
+            building_type=building_type,
+            rental_price=rental_price,
+            duration_cycles=duration_cycles,
+            message=message
+        )
+        self.rental_offers[offer_id] = offer
+        return offer
+    
+    def get_rental_offer(self, offer_id: str) -> Optional[BuildingRentalOffer]:
+        """Get a rental offer by ID"""
+        return self.rental_offers.get(offer_id)
+    
+    def get_team_rental_offers(
+        self,
+        team_number: int,
+        include_completed: bool = False
+    ) -> List[BuildingRentalOffer]:
+        """Get all rental offers involving a team"""
+        offers = []
+        for offer in self.rental_offers.values():
+            if offer.from_team == team_number or offer.to_team == team_number:
+                if include_completed or offer.status not in [RentalOfferStatus.COMPLETED, RentalOfferStatus.REJECTED, RentalOfferStatus.CANCELLED]:
+                    offers.append(offer)
+        return offers
+    
+    def get_active_rentals(self, team_number: int) -> List[BuildingRentalOffer]:
+        """Get all active rental agreements for a team"""
+        return [
+            offer for offer in self.rental_offers.values()
+            if (offer.from_team == team_number or offer.to_team == team_number)
+            and offer.is_active()
+        ]
+    
+    def execute_rental_payment(
+        self,
+        offer_id: str,
+        renter_resources: Dict[str, int],
+        owner_resources: Dict[str, int]
+    ) -> Tuple[bool, Optional[str], Optional[Dict[str, int]], Optional[Dict[str, int]]]:
+        """
+        Execute rental payment and activate rental
+        
+        Returns:
+            (success, error_message, updated_renter_resources, updated_owner_resources)
+        """
+        offer = self.rental_offers.get(offer_id)
+        if not offer:
+            return False, "Rental offer not found", None, None
+        
+        if offer.status != RentalOfferStatus.ACCEPTED and offer.status != RentalOfferStatus.COUNTERED:
+            return False, f"Rental offer is {offer.status.value}", None, None
+        
+        # Determine price to use (original or counter)
+        rental_price = offer.rental_price
+        if offer.status == RentalOfferStatus.COUNTERED and offer.counter_offer:
+            rental_price = offer.counter_offer["rental_price"]
+        
+        # Check if renter has enough currency
+        renter_currency = renter_resources.get("currency", 0)
+        if renter_currency < rental_price:
+            return False, f"Insufficient currency. Need {rental_price}, have {renter_currency}", None, None
+        
+        # Execute payment
+        new_renter_resources = renter_resources.copy()
+        new_owner_resources = owner_resources.copy()
+        
+        new_renter_resources["currency"] = renter_currency - rental_price
+        new_owner_resources["currency"] = new_owner_resources.get("currency", 0) + rental_price
+        
+        # Activate rental
+        offer.activate()
+        
+        return True, None, new_renter_resources, new_owner_resources
+    
+    def use_rented_building(
+        self,
+        offer_id: str
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Mark a production cycle as used for a rented building
+        
+        Returns:
+            (success, error_message)
+        """
+        offer = self.rental_offers.get(offer_id)
+        if not offer:
+            return False, "Rental offer not found"
+        
+        if not offer.is_active():
+            return False, "Rental is not active"
+        
+        offer.use_cycle()
+        return True, None
+    
     def to_dict(self) -> Dict[str, Any]:
         """Serialize trading manager state"""
         return {
@@ -497,6 +731,10 @@ class TradingManager:
             "trade_offers": {
                 offer_id: offer.to_dict()
                 for offer_id, offer in self.trade_offers.items()
+            },
+            "rental_offers": {
+                offer_id: offer.to_dict()
+                for offer_id, offer in self.rental_offers.items()
             }
         }
     
@@ -509,5 +747,9 @@ class TradingManager:
         # Restore trade offers
         for offer_id, offer_data in data.get("trade_offers", {}).items():
             manager.trade_offers[offer_id] = TeamTradeOffer.from_dict(offer_data)
+        
+        # Restore rental offers
+        for offer_id, offer_data in data.get("rental_offers", {}).items():
+            manager.rental_offers[offer_id] = BuildingRentalOffer.from_dict(offer_data)
         
         return manager

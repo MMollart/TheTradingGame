@@ -11,6 +11,8 @@ class TradingManager {
         this.currentPrices = {};
         this.priceHistory = {};
         this.activeOffers = [];
+        this.rentalOffers = [];
+        this.activeRentals = [];
         this.priceChart = null;
     }
 
@@ -429,5 +431,257 @@ class TradingManager {
             'currency': '💰'
         };
         return emojis[resource] || '📦';
+    }
+}
+
+    // ==================== Building Rental Methods ====================
+
+    /**
+     * Create a building rental offer
+     */
+    async createRentalOffer(fromTeam, toTeam, buildingType, rentalPrice, durationCycles = 1, message = null) {
+        try {
+            const response = await fetch(
+                `${this.gameAPI.baseURL}/api/v2/trading/games/${this.gameCode}/building-rental/offer`,
+                {
+                    method: 'POST',
+                    headers: this.gameAPI.headers,
+                    body: JSON.stringify({
+                        from_team: fromTeam,
+                        to_team: toTeam,
+                        building_type: buildingType,
+                        rental_price: rentalPrice,
+                        duration_cycles: durationCycles,
+                        message: message
+                    })
+                }
+            );
+            
+            const data = await response.json();
+            
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Failed to create rental offer');
+            }
+            
+            return data.offer;
+        } catch (error) {
+            console.error('[TradingManager] Error creating rental offer:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load rental offers for a team
+     */
+    async loadRentalOffers(teamNumber = null, includeCompleted = false) {
+        try {
+            let url = `${this.gameAPI.baseURL}/api/v2/trading/games/${this.gameCode}/building-rental/offers?include_completed=${includeCompleted}`;
+            if (teamNumber) {
+                url += `&team_number=${teamNumber}`;
+            }
+            
+            const response = await fetch(url, { headers: this.gameAPI.headers });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load rental offers: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            this.rentalOffers = data.offers;
+            return this.rentalOffers;
+        } catch (error) {
+            console.error('[TradingManager] Error loading rental offers:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load active rentals for a team
+     */
+    async loadActiveRentals(teamNumber) {
+        try {
+            const response = await fetch(
+                `${this.gameAPI.baseURL}/api/v2/trading/games/${this.gameCode}/building-rental/active?team_number=${teamNumber}`,
+                { headers: this.gameAPI.headers }
+            );
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load active rentals: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            this.activeRentals = data.active_rentals;
+            return this.activeRentals;
+        } catch (error) {
+            console.error('[TradingManager] Error loading active rentals:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Counter a rental offer
+     */
+    async counterRentalOffer(offerId, rentalPrice, durationCycles = null, message = null) {
+        try {
+            const body = {
+                rental_price: rentalPrice,
+                message: message
+            };
+            
+            if (durationCycles !== null) {
+                body.duration_cycles = durationCycles;
+            }
+            
+            const response = await fetch(
+                `${this.gameAPI.baseURL}/api/v2/trading/games/${this.gameCode}/building-rental/${offerId}/counter`,
+                {
+                    method: 'POST',
+                    headers: this.gameAPI.headers,
+                    body: JSON.stringify(body)
+                }
+            );
+            
+            const data = await response.json();
+            
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Failed to counter rental offer');
+            }
+            
+            return data.offer;
+        } catch (error) {
+            console.error('[TradingManager] Error countering rental offer:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Accept a rental offer
+     */
+    async acceptRentalOffer(offerId) {
+        try {
+            const response = await fetch(
+                `${this.gameAPI.baseURL}/api/v2/trading/games/${this.gameCode}/building-rental/${offerId}/accept`,
+                {
+                    method: 'POST',
+                    headers: this.gameAPI.headers
+                }
+            );
+            
+            const data = await response.json();
+            
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Failed to accept rental offer');
+            }
+            
+            return data.offer;
+        } catch (error) {
+            console.error('[TradingManager] Error accepting rental offer:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Reject a rental offer
+     */
+    async rejectRentalOffer(offerId) {
+        try {
+            const response = await fetch(
+                `${this.gameAPI.baseURL}/api/v2/trading/games/${this.gameCode}/building-rental/${offerId}/reject`,
+                {
+                    method: 'POST',
+                    headers: this.gameAPI.headers
+                }
+            );
+            
+            const data = await response.json();
+            
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Failed to reject rental offer');
+            }
+            
+            return data.offer;
+        } catch (error) {
+            console.error('[TradingManager] Error rejecting rental offer:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Cancel a rental offer
+     */
+    async cancelRentalOffer(offerId) {
+        try {
+            const response = await fetch(
+                `${this.gameAPI.baseURL}/api/v2/trading/games/${this.gameCode}/building-rental/${offerId}`,
+                {
+                    method: 'DELETE',
+                    headers: this.gameAPI.headers
+                }
+            );
+            
+            const data = await response.json();
+            
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Failed to cancel rental offer');
+            }
+            
+            return data.offer;
+        } catch (error) {
+            console.error('[TradingManager] Error cancelling rental offer:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Use a rented building for production
+     */
+    async useRentedBuilding(offerId) {
+        try {
+            const response = await fetch(
+                `${this.gameAPI.baseURL}/api/v2/trading/games/${this.gameCode}/building-rental/${offerId}/use`,
+                {
+                    method: 'POST',
+                    headers: this.gameAPI.headers
+                }
+            );
+            
+            const data = await response.json();
+            
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Failed to use rented building');
+            }
+            
+            return data.offer;
+        } catch (error) {
+            console.error('[TradingManager] Error using rented building:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get building emoji
+     */
+    getBuildingEmoji(buildingType) {
+        const emojis = {
+            'farm': '🌾',
+            'mine': '⛏️',
+            'electrical_factory': '⚡',
+            'medical_factory': '🏥',
+            'school': '🏫',
+            'hospital': '🏥',
+            'restaurant': '🍽️',
+            'infrastructure': '🏗️'
+        };
+        return emojis[buildingType] || '🏢';
+    }
+
+    /**
+     * Format building name for display
+     */
+    formatBuildingName(buildingType) {
+        return buildingType.replace(/_/g, ' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
     }
 }

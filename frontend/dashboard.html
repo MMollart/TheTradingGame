@@ -474,6 +474,7 @@
                         <div class="trading-controls">
                             <button class="btn btn-primary" onclick="openTradeWindow('bank')">💰 Trade with Bank</button>
                             <button class="btn btn-primary" onclick="openTradeWindow('nation')">🤝 Trade with Nation</button>
+                            <button class="btn btn-primary" onclick="openBuildingRentalModal()">🏢 Rent Buildings</button>
                         </div>
                     </div>
 
@@ -647,6 +648,76 @@
                 <div class="challenge-buttons">
                     <button class="btn btn-success" onclick="completeChallenge()">✅ Challenge Completed</button>
                     <button class="btn btn-secondary" onclick="closeChallengeModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Building Rental Modal -->
+    <div id="building-rental-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close" onclick="closeBuildingRentalModal()">&times;</span>
+            <h2>🏢 Building Rentals</h2>
+            
+            <!-- Tabs -->
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd;">
+                <button id="rental-tab-request" class="tab-btn active" onclick="switchRentalTab('request')" style="border: none; background: none; padding: 10px 20px; cursor: pointer; font-weight: 600; border-bottom: 3px solid #667eea;">Request Rental</button>
+                <button id="rental-tab-offers" class="tab-btn" onclick="switchRentalTab('offers')" style="border: none; background: none; padding: 10px 20px; cursor: pointer; font-weight: 600; border-bottom: 3px solid transparent;">Rental Offers</button>
+                <button id="rental-tab-active" class="tab-btn" onclick="switchRentalTab('active')" style="border: none; background: none; padding: 10px 20px; cursor: pointer; font-weight: 600; border-bottom: 3px solid transparent;">Active Rentals</button>
+            </div>
+
+            <!-- Request Rental Tab -->
+            <div id="rental-request-tab" class="rental-tab-content">
+                <form id="building-rental-request-form" onsubmit="createBuildingRentalRequest(event)">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Rent From Team:</label>
+                        <select id="rental-owner-team" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                            <option value="">Select Team...</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Building Type:</label>
+                        <select id="rental-building-type" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                            <option value="">Select Building...</option>
+                            <option value="farm">🌾 Farm</option>
+                            <option value="mine">⛏️ Mine</option>
+                            <option value="electrical_factory">⚡ Electrical Factory</option>
+                            <option value="medical_factory">🏥 Medical Factory</option>
+                        </select>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Rental Price (per cycle):</label>
+                            <input type="number" id="rental-price" min="0" step="0.01" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">Duration (cycles):</label>
+                            <input type="number" id="rental-duration" min="1" value="1" required style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Message (Optional):</label>
+                        <textarea id="rental-message" rows="2" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;" placeholder="Add a message..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">📨 Send Rental Request</button>
+                </form>
+            </div>
+
+            <!-- Rental Offers Tab -->
+            <div id="rental-offers-tab" class="rental-tab-content hidden">
+                <div id="rental-offers-list">
+                    <!-- Rental offers will be listed here -->
+                </div>
+            </div>
+
+            <!-- Active Rentals Tab -->
+            <div id="rental-active-tab" class="rental-tab-content hidden">
+                <div id="rental-active-list">
+                    <!-- Active rentals will be listed here -->
                 </div>
             </div>
         </div>

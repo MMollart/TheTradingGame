@@ -59,6 +59,23 @@ class PriceHistoryResponse(BaseModel):
     history: List[Dict[str, Any]]
 
 
+class BuildingRentalOfferRequest(BaseModel):
+    """Request to create a building rental offer"""
+    from_team: int = Field(..., ge=1, description="Team requesting to rent")
+    to_team: int = Field(..., ge=1, description="Team that owns the building")
+    building_type: str = Field(..., description="Type of building to rent")
+    rental_price: float = Field(..., gt=0, description="Price per production cycle")
+    duration_cycles: int = Field(1, ge=1, description="Number of production cycles")
+    message: Optional[str] = Field(None, description="Optional message")
+
+
+class RentalCounterOfferRequest(BaseModel):
+    """Request to counter a rental offer"""
+    rental_price: float = Field(..., gt=0, description="Counter rental price")
+    duration_cycles: Optional[int] = Field(None, ge=1, description="Counter duration cycles")
+    message: Optional[str] = Field(None, description="Optional message")
+
+
 # ==================== Helper Functions ====================
 
 def get_trading_manager(game: GameSession) -> TradingManager:
@@ -504,5 +521,374 @@ async def cancel_team_trade_offer(
     return {
         "success": True,
         "message": "Trade offer cancelled",
+        "offer": offer.to_dict()
+    }
+
+
+# ==================== Building Rental Endpoints ====================
+
+@router.post("/games/{game_code}/building-rental/offer")
+async def create_building_rental_offer(
+    game_code: str,
+    request: BuildingRentalOfferRequest,
+    db: Session = Depends(get_db)
+):
+    """Create a building rental offer from one team to another"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    if game.status not in [GameStatus.IN_PROGRESS, GameStatus.PAUSED]:
+        raise HTTPException(status_code=400, detail="Game must be in progress to rent buildings")
+    
+    # Validate teams exist
+    if "teams" not in game.game_state:
+        raise HTTPException(status_code=400, detail="Game not properly initialized")
+    
+    from_team_key = str(request.from_team)
+    to_team_key = str(request.to_team)
+    
+    if from_team_key not in game.game_state["teams"]:
+        raise HTTPException(status_code=404, detail=f"Team {request.from_team} not found")
+    if to_team_key not in game.game_state["teams"]:
+        raise HTTPException(status_code=404, detail=f"Team {request.to_team} not found")
+    
+    # Check if to_team has the building
+    to_team_buildings = game.game_state["teams"][to_team_key].get("buildings", {})
+    building_count = to_team_buildings.get(request.building_type, 0)
+    
+    if building_count == 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Team {request.to_team} does not have any {request.building_type} buildings"
+        )
+    
+    # Create rental offer
+    trading_manager = get_trading_manager(game)
+    offer = trading_manager.create_rental_offer(
+        from_team=request.from_team,
+        to_team=request.to_team,
+        building_type=request.building_type,
+        rental_price=request.rental_price,
+        duration_cycles=request.duration_cycles,
+        message=request.message
+    )
+    
+    # Save trading manager
+    save_trading_manager(game, trading_manager, db)
+    
+    # Broadcast rental offer event
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "event",
+        "event_type": "building_rental_offer_created",
+        "data": offer.to_dict()
+    })
+    
+    return {
+        "success": True,
+        "message": "Building rental offer created",
+        "offer": offer.to_dict()
+    }
+
+
+@router.get("/games/{game_code}/building-rental/offers")
+async def get_building_rental_offers(
+    game_code: str,
+    team_number: Optional[int] = None,
+    include_completed: bool = False,
+    db: Session = Depends(get_db)
+):
+    """Get building rental offers for a team or all teams"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    trading_manager = get_trading_manager(game)
+    
+    if team_number:
+        offers = trading_manager.get_team_rental_offers(
+            team_number=team_number,
+            include_completed=include_completed
+        )
+    else:
+        # Get all offers
+        offers = list(trading_manager.rental_offers.values())
+        if not include_completed:
+            offers = [o for o in offers if o.status.value not in ["completed", "rejected", "cancelled"]]
+    
+    return {
+        "game_code": game_code.upper(),
+        "offers": [offer.to_dict() for offer in offers]
+    }
+
+
+@router.get("/games/{game_code}/building-rental/active")
+async def get_active_rentals(
+    game_code: str,
+    team_number: int,
+    db: Session = Depends(get_db)
+):
+    """Get active rental agreements for a team"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    trading_manager = get_trading_manager(game)
+    active_rentals = trading_manager.get_active_rentals(team_number)
+    
+    return {
+        "game_code": game_code.upper(),
+        "team_number": team_number,
+        "active_rentals": [rental.to_dict() for rental in active_rentals]
+    }
+
+
+@router.post("/games/{game_code}/building-rental/{offer_id}/counter")
+async def counter_building_rental_offer(
+    game_code: str,
+    offer_id: str,
+    request: RentalCounterOfferRequest,
+    db: Session = Depends(get_db)
+):
+    """Counter a building rental offer"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    trading_manager = get_trading_manager(game)
+    offer = trading_manager.get_rental_offer(offer_id)
+    
+    if not offer:
+        raise HTTPException(status_code=404, detail="Rental offer not found")
+    
+    if offer.status.value not in ["pending", "countered"]:
+        raise HTTPException(status_code=400, detail=f"Cannot counter {offer.status.value} offer")
+    
+    # Create counter offer
+    offer.counter(
+        new_rental_price=request.rental_price,
+        new_duration_cycles=request.duration_cycles,
+        message=request.message
+    )
+    
+    # Save trading manager
+    save_trading_manager(game, trading_manager, db)
+    
+    # Broadcast counter offer event
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "event",
+        "event_type": "building_rental_offer_countered",
+        "data": offer.to_dict()
+    })
+    
+    return {
+        "success": True,
+        "message": "Counter offer created",
+        "offer": offer.to_dict()
+    }
+
+
+@router.post("/games/{game_code}/building-rental/{offer_id}/accept")
+async def accept_building_rental_offer(
+    game_code: str,
+    offer_id: str,
+    db: Session = Depends(get_db)
+):
+    """Accept a building rental offer and execute payment"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    trading_manager = get_trading_manager(game)
+    offer = trading_manager.get_rental_offer(offer_id)
+    
+    if not offer:
+        raise HTTPException(status_code=404, detail="Rental offer not found")
+    
+    if offer.status.value not in ["pending", "countered"]:
+        raise HTTPException(status_code=400, detail=f"Cannot accept {offer.status.value} offer")
+    
+    # Get team resources
+    from_team_key = str(offer.from_team)
+    to_team_key = str(offer.to_team)
+    
+    from_team_resources = game.game_state["teams"][from_team_key].get("resources", {})
+    to_team_resources = game.game_state["teams"][to_team_key].get("resources", {})
+    
+    # Execute rental payment
+    success, error_msg, new_from_resources, new_to_resources = trading_manager.execute_rental_payment(
+        offer_id=offer_id,
+        renter_resources=from_team_resources,
+        owner_resources=to_team_resources
+    )
+    
+    if not success:
+        raise HTTPException(status_code=400, detail=error_msg or "Rental payment failed")
+    
+    # Update team resources
+    game.game_state["teams"][from_team_key]["resources"] = new_from_resources
+    game.game_state["teams"][to_team_key]["resources"] = new_to_resources
+    
+    # Save trading manager and game state
+    save_trading_manager(game, trading_manager, db)
+    
+    # Broadcast rental activated event
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "event",
+        "event_type": "building_rental_activated",
+        "data": {
+            "offer_id": offer_id,
+            "from_team": offer.from_team,
+            "to_team": offer.to_team,
+            "building_type": offer.building_type,
+            "offer": offer.to_dict()
+        }
+    })
+    
+    return {
+        "success": True,
+        "message": "Building rental activated",
+        "offer": offer.to_dict()
+    }
+
+
+@router.post("/games/{game_code}/building-rental/{offer_id}/use")
+async def use_rented_building(
+    game_code: str,
+    offer_id: str,
+    db: Session = Depends(get_db)
+):
+    """Mark a production cycle as used for a rented building"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    trading_manager = get_trading_manager(game)
+    
+    success, error_msg = trading_manager.use_rented_building(offer_id)
+    
+    if not success:
+        raise HTTPException(status_code=400, detail=error_msg or "Failed to use rented building")
+    
+    # Save trading manager
+    save_trading_manager(game, trading_manager, db)
+    
+    offer = trading_manager.get_rental_offer(offer_id)
+    
+    # Broadcast event if rental completed
+    if offer and offer.status.value == "completed":
+        await manager.broadcast_to_game(game_code.upper(), {
+            "type": "event",
+            "event_type": "building_rental_completed",
+            "data": offer.to_dict()
+        })
+    
+    return {
+        "success": True,
+        "message": "Production cycle used",
+        "offer": offer.to_dict() if offer else None
+    }
+
+
+@router.post("/games/{game_code}/building-rental/{offer_id}/reject")
+async def reject_building_rental_offer(
+    game_code: str,
+    offer_id: str,
+    db: Session = Depends(get_db)
+):
+    """Reject a building rental offer"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    trading_manager = get_trading_manager(game)
+    offer = trading_manager.get_rental_offer(offer_id)
+    
+    if not offer:
+        raise HTTPException(status_code=404, detail="Rental offer not found")
+    
+    if offer.status.value not in ["pending", "countered"]:
+        raise HTTPException(status_code=400, detail=f"Cannot reject {offer.status.value} offer")
+    
+    # Reject offer
+    offer.reject()
+    
+    # Save trading manager
+    save_trading_manager(game, trading_manager, db)
+    
+    # Broadcast rejection event
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "event",
+        "event_type": "building_rental_offer_rejected",
+        "data": offer.to_dict()
+    })
+    
+    return {
+        "success": True,
+        "message": "Building rental offer rejected",
+        "offer": offer.to_dict()
+    }
+
+
+@router.delete("/games/{game_code}/building-rental/{offer_id}")
+async def cancel_building_rental_offer(
+    game_code: str,
+    offer_id: str,
+    db: Session = Depends(get_db)
+):
+    """Cancel a building rental offer"""
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    trading_manager = get_trading_manager(game)
+    offer = trading_manager.get_rental_offer(offer_id)
+    
+    if not offer:
+        raise HTTPException(status_code=404, detail="Rental offer not found")
+    
+    if offer.status.value not in ["pending", "countered"]:
+        raise HTTPException(status_code=400, detail=f"Cannot cancel {offer.status.value} offer")
+    
+    # Cancel offer
+    offer.cancel()
+    
+    # Save trading manager
+    save_trading_manager(game, trading_manager, db)
+    
+    # Broadcast cancellation event
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "event",
+        "event_type": "building_rental_offer_cancelled",
+        "data": offer.to_dict()
+    })
+    
+    return {
+        "success": True,
+        "message": "Building rental offer cancelled",
         "offer": offer.to_dict()
     }
