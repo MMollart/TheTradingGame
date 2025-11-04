@@ -33,6 +33,8 @@ from game_constants import (
 )
 from email_utils import send_registration_email
 from challenge_api import router as challenge_router_v2
+from trading_api import router as trading_router_v2
+from pricing_manager import PricingManager
 
 app = FastAPI(
     title="The Trading Game",
@@ -58,6 +60,9 @@ def on_startup():
 
 # Include v2 Challenge API routes
 app.include_router(challenge_router_v2)
+
+# Include v2 Trading API routes
+app.include_router(trading_router_v2)
 
 
 @app.get("/")
@@ -1082,6 +1087,11 @@ async def start_game(
     for player in game.players:
         if player.role.value == "banker":
             player.player_state = GameLogic.initialize_banker()
+            # Initialize dynamic pricing
+            pricing_mgr = PricingManager(db)
+            prices = pricing_mgr.initialize_bank_prices(game_code)
+            player.player_state['bank_prices'] = prices
+            flag_modified(player, 'player_state')
     
     game.status = GameStatus.IN_PROGRESS
     game.started_at = datetime.utcnow()
