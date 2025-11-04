@@ -122,7 +122,7 @@ class GameLogic:
         
         # Check optional building limits
         if building in [BuildingType.HOSPITAL, BuildingType.RESTAURANT, BuildingType.INFRASTRUCTURE]:
-            current_count = nation_state.get("optional_buildings", {}).get(building_type, 0)
+            current_count = nation_state.get("buildings", {}).get(building_type, 0)
             max_count = {
                 BuildingType.HOSPITAL: MAX_HOSPITALS,
                 BuildingType.RESTAURANT: MAX_RESTAURANTS,
@@ -136,13 +136,10 @@ class GameLogic:
         new_state = nation_state.copy()
         new_state["resources"] = GameLogic.deduct_resources(nation_state["resources"], cost)
         
-        # Add building
-        if building in [BuildingType.SCHOOL, BuildingType.HOSPITAL, BuildingType.RESTAURANT, BuildingType.INFRASTRUCTURE]:
-            if "optional_buildings" not in new_state:
-                new_state["optional_buildings"] = {}
-            new_state["optional_buildings"][building_type] = new_state["optional_buildings"].get(building_type, 0) + 1
-        else:
-            new_state["buildings"][building_type] = new_state["buildings"].get(building_type, 0) + 1
+        # Add building to buildings dict (all buildings stored in same place)
+        if "buildings" not in new_state:
+            new_state["buildings"] = {}
+        new_state["buildings"][building_type] = new_state["buildings"].get(building_type, 0) + 1
         
         return True, None, new_state
     
@@ -254,6 +251,8 @@ class GameLogic:
         """
         Apply food tax to a nation
         
+        Restaurant benefit: Generates currency when food tax is paid
+        
         Returns:
             (success, error_message, updated_state)
         """
@@ -263,10 +262,23 @@ class GameLogic:
         new_state = nation_state.copy()
         current_food = nation_state["resources"].get(ResourceType.FOOD.value, 0)
         
+        # Get restaurant count for currency generation
+        restaurant_count = nation_state.get("buildings", {}).get(BuildingType.RESTAURANT.value, 0)
+        
         if current_food >= tax_amount:
             # Can pay tax
             new_state["resources"][ResourceType.FOOD.value] = current_food - tax_amount
             new_state["last_food_tax"] = datetime.utcnow().isoformat()
+            
+            # Restaurant benefit: Generate currency based on food tax paid
+            if restaurant_count > 0:
+                from game_constants import BUILDING_BENEFITS
+                currency_per_food = BUILDING_BENEFITS[BuildingType.RESTAURANT].get("currency_per_food_tax", 5)
+                currency_generated = tax_amount * currency_per_food * restaurant_count
+                current_currency = new_state["resources"].get(ResourceType.CURRENCY.value, 0)
+                new_state["resources"][ResourceType.CURRENCY.value] = current_currency + currency_generated
+                return True, f"Food tax paid. Restaurants generated {currency_generated} currency!", new_state
+            
             return True, None, new_state
         else:
             # Famine - must pay bank double rate
@@ -298,10 +310,15 @@ class GameLogic:
         """
         Apply a disaster event to a nation
         
+        Hospital benefit: Reduces disease impact (20% per hospital, max 5)
+        Infrastructure benefit: Reduces drought impact (20% per infrastructure, max 5)
+        
         Args:
             disaster_type: Type of disaster (natural_disaster, drought, disease, etc.)
             severity: Severity level (1-5)
         """
+        from game_constants import BUILDING_BENEFITS
+        
         new_state = nation_state.copy()
         message = ""
         
@@ -311,20 +328,35 @@ class GameLogic:
             message = f"Natural disaster struck! Severity: {severity}"
         
         elif disaster_type == "drought":
-            # Reduce building outputs
-            message = f"Drought occurred! Production reduced. Severity: {severity}"
+            # Infrastructure benefit: Reduce drought impact
+            infrastructure_count = new_state.get("buildings", {}).get(BuildingType.INFRASTRUCTURE.value, 0)
+            reduction = min(infrastructure_count * BUILDING_BENEFITS[BuildingType.INFRASTRUCTURE]["drought_reduction_per_building"], 1.0)
+            
+            # Apply reduced drought impact
+            effective_severity = severity * (1.0 - reduction)
+            
+            if effective_severity > 0:
+                message = f"Drought occurred! Production reduced by {int(effective_severity * 100)}% (Infrastructure reduced impact by {int(reduction * 100)}%)"
+            else:
+                message = f"Drought occurred but Infrastructure completely negated the impact!"
         
         elif disaster_type == "disease":
-            # Requires medical supplies
-            hospitals = new_state.get("optional_buildings", {}).get(BuildingType.HOSPITAL.value, 0)
-            medical_needed = max(0, severity * 10 - hospitals * 2)
+            # Hospital benefit: Reduce disease impact
+            hospital_count = new_state.get("buildings", {}).get(BuildingType.HOSPITAL.value, 0)
+            reduction = min(hospital_count * BUILDING_BENEFITS[BuildingType.HOSPITAL]["disease_reduction_per_building"], 1.0)
+            
+            # Calculate medical goods needed after hospital reduction
+            base_medical_needed = severity * 10
+            medical_needed = int(base_medical_needed * (1.0 - reduction))
             
             if medical_needed > 0:
                 current_medical = new_state["resources"].get(ResourceType.MEDICAL_GOODS.value, 0)
                 if current_medical >= medical_needed:
                     new_state["resources"][ResourceType.MEDICAL_GOODS.value] = current_medical - medical_needed
-                    message = f"Disease outbreak! Spent {medical_needed} medical goods"
+                    message = f"Disease outbreak! Spent {medical_needed} medical goods (Hospitals reduced impact by {int(reduction * 100)}%)"
                 else:
-                    message = f"Disease outbreak! Need {medical_needed} medical goods but only have {current_medical}"
+                    message = f"Disease outbreak! Need {medical_needed} medical goods but only have {current_medical} (Hospitals reduced impact by {int(reduction * 100)}%)"
+            else:
+                message = f"Disease outbreak but Hospitals completely negated the impact!"
         
         return True, message, new_state

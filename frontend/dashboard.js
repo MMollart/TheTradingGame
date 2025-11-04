@@ -2697,6 +2697,147 @@ function updatePlayerDashboard() {
     
     // Update building button states after dashboard refresh
     updateAllBuildingButtons();
+    
+    // Update build buildings section
+    updateBuildBuildingsSection();
+}
+
+// Building costs definition (from backend game_constants.py)
+const BUILDING_COSTS = {
+    'farm': { 'currency': 50, 'raw_materials': 30 },
+    'mine': { 'currency': 50, 'raw_materials': 30, 'electrical_goods': 5 },
+    'electrical_factory': { 'currency': 200, 'raw_materials': 50, 'electrical_goods': 30 },
+    'medical_factory': { 'currency': 200, 'raw_materials': 50, 'food': 20, 'electrical_goods': 15 },
+    'school': { 'currency': 100, 'raw_materials': 30 },
+    'hospital': { 'currency': 300, 'raw_materials': 50, 'electrical_goods': 10, 'medical_goods': 10 },
+    'restaurant': { 'currency': 200, 'raw_materials': 50, 'food': 25, 'electrical_goods': 5 },
+    'infrastructure': { 'currency': 300, 'raw_materials': 50, 'electrical_goods': 10 }
+};
+
+// Building limits for optional buildings
+const BUILDING_LIMITS = {
+    'hospital': 5,
+    'restaurant': 5,
+    'infrastructure': 5
+};
+
+// Building descriptions
+const BUILDING_DESCRIPTIONS = {
+    'farm': 'Produces Food',
+    'mine': 'Produces Raw Materials',
+    'electrical_factory': 'Produces Electrical Goods',
+    'medical_factory': 'Produces Medical Goods',
+    'school': 'Allows single team member to use factories. Increases food tax.',
+    'hospital': 'Reduces disease impact by 20% per hospital. Max 5.',
+    'restaurant': 'Generates currency on food tax payment. Max 5.',
+    'infrastructure': 'Reduces drought impact by 20% per infrastructure. Max 5.'
+};
+
+// Update build buildings section
+function updateBuildBuildingsSection() {
+    const buildControls = document.getElementById('build-controls');
+    if (!buildControls) return;
+    
+    buildControls.innerHTML = '';
+    
+    // All buildable buildings
+    const buildings = [
+        'farm', 'mine', 'electrical_factory', 'medical_factory',
+        'school', 'hospital', 'restaurant', 'infrastructure'
+    ];
+    
+    buildings.forEach(buildingType => {
+        const currentCount = teamState.buildings?.[buildingType] || 0;
+        const cost = BUILDING_COSTS[buildingType];
+        const limit = BUILDING_LIMITS[buildingType];
+        const description = BUILDING_DESCRIPTIONS[buildingType];
+        
+        // Check if limit reached
+        const limitReached = limit && currentCount >= limit;
+        
+        // Check if can afford
+        let canAfford = true;
+        let missingResources = [];
+        for (const [resource, amount] of Object.entries(cost)) {
+            const available = teamState.resources?.[resource] || 0;
+            if (available < amount) {
+                canAfford = false;
+                missingResources.push(`${formatResourceName(resource)}: ${available}/${amount}`);
+            }
+        }
+        
+        // Create building card
+        const buildingCard = document.createElement('div');
+        buildingCard.className = 'build-item';
+        buildingCard.innerHTML = `
+            <h4>${formatBuildingName(buildingType)}</h4>
+            <p class="building-description">${description}</p>
+            <p>Current: <strong>${currentCount}</strong>${limit ? ` / ${limit}` : ''}</p>
+            <div class="cost-display">
+                <strong>Cost:</strong>
+                ${Object.entries(cost).map(([resource, amount]) => {
+                    const available = teamState.resources?.[resource] || 0;
+                    const sufficient = available >= amount;
+                    return `<span class="${sufficient ? 'cost-sufficient' : 'cost-insufficient'}">
+                        ${formatResourceName(resource)}: ${amount}
+                    </span>`;
+                }).join(' ')}
+            </div>
+            ${limitReached ? '<p class="limit-warning">⚠️ Maximum limit reached</p>' : ''}
+            ${!canAfford && !limitReached ? `<p class="missing-resources">Missing: ${missingResources.join(', ')}</p>` : ''}
+            <button 
+                class="btn ${canAfford && !limitReached ? 'btn-success' : 'btn-secondary'}" 
+                onclick="buildBuilding('${buildingType}')"
+                ${!canAfford || limitReached ? 'disabled' : ''}
+            >
+                🏗️ Build ${formatBuildingName(buildingType)}
+            </button>
+        `;
+        buildControls.appendChild(buildingCard);
+    });
+}
+
+// Build a building
+async function buildBuilding(buildingType) {
+    if (!currentPlayer.groupNumber) {
+        alert('You must be assigned to a team first!');
+        return;
+    }
+    
+    const teamNumber = currentPlayer.groupNumber;
+    const buildingName = formatBuildingName(buildingType);
+    const cost = BUILDING_COSTS[buildingType];
+    
+    // Confirm with user
+    const costStr = Object.entries(cost)
+        .map(([resource, amount]) => `${amount} ${formatResourceName(resource)}`)
+        .join(', ');
+    
+    const confirmed = confirm(
+        `Build ${buildingName}?\n\nCost: ${costStr}\n\nThis will deduct resources from your team.`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+        const result = await gameAPI.buildBuilding(currentGameCode, teamNumber, buildingType);
+        console.log('[buildBuilding] Success:', result);
+        
+        // Update local state
+        teamState.resources = result.remaining_resources;
+        if (!teamState.buildings) {
+            teamState.buildings = {};
+        }
+        teamState.buildings[buildingType] = result.new_count;
+        
+        // Update UI
+        updatePlayerDashboard();
+        
+        alert(`✅ Successfully built ${buildingName}!`);
+    } catch (error) {
+        console.error('[buildBuilding] Error:', error);
+        alert(`Failed to build ${buildingName}: ${error.message || error}`);
+    }
 }
 
 // Update team name section for players
@@ -3630,6 +3771,24 @@ function handleGameEvent(data) {
             refreshAllTeamNameDisplays();
             
             addEventLog(`Team ${eventData.team_number} renamed to "${eventData.team_name}"`, 'info');
+            break;
+        case 'building_constructed':
+            // Building has been constructed by a team
+            console.log(`[building_constructed] Team ${eventData.team_number} built ${eventData.building_type}`);
+            
+            // Update local state if this is our team
+            if (eventData.team_number === currentPlayer.groupNumber) {
+                teamState.resources = eventData.resources;
+                if (!teamState.buildings) {
+                    teamState.buildings = {};
+                }
+                teamState.buildings[eventData.building_type] = eventData.new_count;
+                updatePlayerDashboard();
+            }
+            
+            // Log event
+            const buildingName = formatBuildingName(eventData.building_type);
+            addEventLog(`Team ${eventData.team_number} built a ${buildingName}!`, 'success');
             break;
     }
 }

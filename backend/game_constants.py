@@ -279,20 +279,23 @@ MAX_INFRASTRUCTURE = 5
 # Optional building benefits
 BUILDING_BENEFITS = {
     BuildingType.SCHOOL: {
-        "description": "Reduces production team requirements",
-        "effect": "Farm and Mine production only requires 1 team member instead of full team"
+        "description": "Allows single team member to use factories",
+        "effect": "Farm and Mine production only requires 1 team member instead of full team. Increases food tax."
     },
     BuildingType.HOSPITAL: {
-        "description": "Provides disease protection",
-        "effect": "Reduces impact of disease events"
+        "description": "Reduces disease impact",
+        "effect": "Each hospital reduces disease impact by 20%. Max 5 hospitals = no disease impact.",
+        "disease_reduction_per_building": 0.2  # 20% reduction per hospital
     },
     BuildingType.RESTAURANT: {
-        "description": "Reduces food consumption",
-        "effect": "Lower food tax requirements"
+        "description": "Generates currency on food tax payment",
+        "effect": "Generates currency every time food tax is paid. Amount scales with food tax level. Max 5 restaurants.",
+        "currency_per_food_tax": 5  # Base currency per food unit taxed, scales with restaurant count
     },
     BuildingType.INFRASTRUCTURE: {
-        "description": "Improves efficiency",
-        "effect": "Faster production and trading"
+        "description": "Reduces drought impact",
+        "effect": "Each infrastructure reduces drought impact by 20%. Max 5 infrastructure = no drought impact.",
+        "drought_reduction_per_building": 0.2  # 20% reduction per infrastructure
     }
 }
 
