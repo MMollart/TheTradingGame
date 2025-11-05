@@ -1876,6 +1876,9 @@ async def update_challenge(
         elif status == ChallengeStatus.ASSIGNED.value:  # type: ignore
             print(f"[update_challenge] Broadcasting challenge_assigned event")
             await manager.broadcast_challenge_assigned(game_code.upper(), response_data)
+        elif status == ChallengeStatus.REQUESTED.value:  # type: ignore
+            print(f"[update_challenge] Broadcasting challenge_requested event")
+            await manager.broadcast_challenge_requested(game_code.upper(), response_data)
     
     return response_data
 
