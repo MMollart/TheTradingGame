@@ -25,9 +25,9 @@ async function loadGameReport() {
         const players = await gameAPI.getPlayers(gameCode);
         const challenges = await gameAPI.getChallenges(gameCode);
         
-        console.log('Game:', game);
-        console.log('Players:', players);
-        console.log('Challenges:', challenges);
+        // console.log('Game:', game);
+        // console.log('Players:', players);
+        // console.log('Challenges:', challenges);
         
         // Populate statistics
         populateStats(game, players, challenges);

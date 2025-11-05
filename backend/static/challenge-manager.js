@@ -38,10 +38,10 @@ class ChallengeManager {
      * Initialize the challenge manager by loading challenges from server
      */
     async initialize() {
-        console.log('[ChallengeManager] Initializing...');
+        // console.log('[ChallengeManager] Initializing...');
         await this.loadFromServer();
         this.startTimerInterval();
-        console.log('[ChallengeManager] Initialized with', this.challenges.size, 'challenges');
+        // console.log('[ChallengeManager] Initialized with', this.challenges.size, 'challenges');
     }
     
     /**
@@ -50,35 +50,35 @@ class ChallengeManager {
     async loadFromServer() {
         try {
             const challenges = await this.gameAPI.getChallenges(this.gameCode);
-            console.log('[ChallengeManager] loadFromServer - Raw challenges from API:', challenges);
-            console.log('[ChallengeManager] loadFromServer - Number of challenges:', challenges.length);
+            // console.log('[ChallengeManager] loadFromServer - Raw challenges from API:', challenges);
+            // console.log('[ChallengeManager] loadFromServer - Number of challenges:', challenges.length);
             
             // Fetch player names to enrich challenge data
             const players = await this.gameAPI.getPlayers(this.gameCode);
-            console.log('[ChallengeManager] loadFromServer - Players from API:', players);
-            console.log('[ChallengeManager] loadFromServer - First player structure:', players[0]);
+            // console.log('[ChallengeManager] loadFromServer - Players from API:', players);
+            // console.log('[ChallengeManager] loadFromServer - First player structure:', players[0]);
             const playerMap = new Map(players.map(p => [p.id, p.name || p.player_name]));
             
             // Clear and rebuild challenge map
             this.challenges.clear();
             
             for (const challenge of challenges) {
-                console.log('[ChallengeManager] loadFromServer - Processing challenge:', challenge);
-                console.log('[ChallengeManager] loadFromServer - Challenge ID:', challenge.id);
-                console.log('[ChallengeManager] loadFromServer - Challenge status:', challenge.status);
-                console.log('[ChallengeManager] loadFromServer - Challenge player_id:', challenge.player_id);
-                console.log('[ChallengeManager] loadFromServer - Challenge team_number:', challenge.team_number);
-                console.log('[ChallengeManager] loadFromServer - Challenge building_type:', challenge.building_type);
-                console.log('[ChallengeManager] loadFromServer - Challenge assigned_at:', challenge.assigned_at);
-                console.log('[ChallengeManager] loadFromServer - Challenge start_time:', challenge.start_time);
+                // console.log('[ChallengeManager] loadFromServer - Processing challenge:', challenge);
+                // console.log('[ChallengeManager] loadFromServer - Challenge ID:', challenge.id);
+                // console.log('[ChallengeManager] loadFromServer - Challenge status:', challenge.status);
+                // console.log('[ChallengeManager] loadFromServer - Challenge player_id:', challenge.player_id);
+                // console.log('[ChallengeManager] loadFromServer - Challenge team_number:', challenge.team_number);
+                // console.log('[ChallengeManager] loadFromServer - Challenge building_type:', challenge.building_type);
+                // console.log('[ChallengeManager] loadFromServer - Challenge assigned_at:', challenge.assigned_at);
+                // console.log('[ChallengeManager] loadFromServer - Challenge start_time:', challenge.start_time);
                 
                 // Only load active challenges
                 if (challenge.status === 'requested' || challenge.status === 'assigned') {
                     const key = this._getChallengeKey(challenge);
-                    console.log('[ChallengeManager] loadFromServer - Challenge key:', key);
+                    // console.log('[ChallengeManager] loadFromServer - Challenge key:', key);
                     const normalizedChallenge = this._normalizeChallenge(challenge);
-                    console.log('[ChallengeManager] loadFromServer - Normalized challenge:', normalizedChallenge);
-                    console.log('[ChallengeManager] loadFromServer - Normalized status:', normalizedChallenge.status);
+                    // console.log('[ChallengeManager] loadFromServer - Normalized challenge:', normalizedChallenge);
+                    // console.log('[ChallengeManager] loadFromServer - Normalized status:', normalizedChallenge.status);
                     
                     // Add player name from players list
                     normalizedChallenge.player_name = playerMap.get(challenge.player_id) || 'Unknown Player';
@@ -87,8 +87,8 @@ class ChallengeManager {
             }
             
             this._notifyUpdates();
-            console.log('[ChallengeManager] Loaded', this.challenges.size, 'challenges from server');
-            console.log('[ChallengeManager] Final challenges map:', Array.from(this.challenges.entries()));
+            // console.log('[ChallengeManager] Loaded', this.challenges.size, 'challenges from server');
+            // console.log('[ChallengeManager] Final challenges map:', Array.from(this.challenges.entries()));
         } catch (error) {
             console.error('[ChallengeManager] Failed to load challenges:', error);
             throw error;
@@ -100,7 +100,7 @@ class ChallengeManager {
      */
     async requestChallenge(playerId, buildingType, buildingName, teamNumber, hasSchool) {
         try {
-            console.log('[ChallengeManager] Requesting challenge:', { playerId, buildingType });
+            // console.log('[ChallengeManager] Requesting challenge:', { playerId, buildingType });
             
             const response = await fetch(`${this.gameAPI.baseUrl}/games/${this.gameCode}/challenges`, {
                 method: 'POST',
@@ -140,7 +140,7 @@ class ChallengeManager {
      */
     async assignChallenge(challengeId, challengeType, challengeDescription, targetNumber) {
         try {
-            console.log('[ChallengeManager] Assigning challenge:', challengeId);
+            // console.log('[ChallengeManager] Assigning challenge:', challengeId);
             
             const response = await this.gameAPI.updateChallenge(this.gameCode, challengeId, {
                 status: 'assigned',
@@ -175,7 +175,7 @@ class ChallengeManager {
      */
     async completeChallenge(challengeId) {
         try {
-            console.log('[ChallengeManager] Completing challenge:', challengeId);
+            // console.log('[ChallengeManager] Completing challenge:', challengeId);
             
             await this.gameAPI.updateChallenge(this.gameCode, challengeId, {
                 status: 'completed'
@@ -200,7 +200,7 @@ class ChallengeManager {
      */
     async cancelChallenge(challengeId) {
         try {
-            console.log('[ChallengeManager] Cancelling challenge:', challengeId);
+            // console.log('[ChallengeManager] Cancelling challenge:', challengeId);
             
             await this.gameAPI.updateChallenge(this.gameCode, challengeId, {
                 status: 'cancelled'
@@ -225,7 +225,7 @@ class ChallengeManager {
      */
     async adjustForPause(pauseDurationMs) {
         try {
-            console.log('[ChallengeManager] Adjusting for pause:', pauseDurationMs, 'ms');
+            // console.log('[ChallengeManager] Adjusting for pause:', pauseDurationMs, 'ms');
             
             const response = await fetch(`${this.gameAPI.baseUrl}/games/${this.gameCode}/challenges/adjust-for-pause`, {
                 method: 'POST',
@@ -257,24 +257,24 @@ class ChallengeManager {
      * Get challenges for display (filtered by user role)
      */
     getChallengesForUser() {
-        console.log('[ChallengeManager] getChallengesForUser - currentPlayer:', this.currentPlayer);
+        // console.log('[ChallengeManager] getChallengesForUser - currentPlayer:', this.currentPlayer);
         const isHostOrBanker = this.currentPlayer.role === 'host' || this.currentPlayer.role === 'banker';
         const challenges = Array.from(this.challenges.values());
-        console.log('[ChallengeManager] getChallengesForUser - all challenges:', challenges);
-        console.log('[ChallengeManager] getChallengesForUser - isHostOrBanker:', isHostOrBanker);
+        // console.log('[ChallengeManager] getChallengesForUser - all challenges:', challenges);
+        // console.log('[ChallengeManager] getChallengesForUser - isHostOrBanker:', isHostOrBanker);
         
         if (isHostOrBanker) {
             // Host/banker sees all challenges
-            console.log('[ChallengeManager] getChallengesForUser - returning all challenges (host/banker)');
+            // console.log('[ChallengeManager] getChallengesForUser - returning all challenges (host/banker)');
             return challenges;
         } else {
             // Team members see only their team's challenges
-            console.log('[ChallengeManager] getChallengesForUser - filtering by team:', this.currentPlayer.groupNumber);
+            // console.log('[ChallengeManager] getChallengesForUser - filtering by team:', this.currentPlayer.groupNumber);
             const filtered = challenges.filter(c => {
-                console.log('[ChallengeManager] getChallengesForUser - checking challenge team:', c.team_number, 'vs player team:', this.currentPlayer.groupNumber);
+                // console.log('[ChallengeManager] getChallengesForUser - checking challenge team:', c.team_number, 'vs player team:', this.currentPlayer.groupNumber);
                 return c.team_number === this.currentPlayer.groupNumber;
             });
-            console.log('[ChallengeManager] getChallengesForUser - filtered challenges:', filtered);
+            // console.log('[ChallengeManager] getChallengesForUser - filtered challenges:', filtered);
             return filtered;
         }
     }
@@ -284,18 +284,18 @@ class ChallengeManager {
      */
     getAssignedChallenges() {
         const userChallenges = this.getChallengesForUser();
-        console.log('[ChallengeManager] getAssignedChallenges - user challenges:', userChallenges);
-        console.log('[ChallengeManager] getAssignedChallenges - current player role:', this.currentPlayer.role);
-        console.log('[ChallengeManager] getAssignedChallenges - current player groupNumber:', this.currentPlayer.groupNumber);
+        // console.log('[ChallengeManager] getAssignedChallenges - user challenges:', userChallenges);
+        // console.log('[ChallengeManager] getAssignedChallenges - current player role:', this.currentPlayer.role);
+        // console.log('[ChallengeManager] getAssignedChallenges - current player groupNumber:', this.currentPlayer.groupNumber);
         
         const assigned = userChallenges.filter(c => {
-            console.log('[ChallengeManager] Checking challenge:', c);
-            console.log('[ChallengeManager] - status:', c.status, 'expected: assigned');
-            console.log('[ChallengeManager] - start_time:', c.start_time);
+            // console.log('[ChallengeManager] Checking challenge:', c);
+            // console.log('[ChallengeManager] - status:', c.status, 'expected: assigned');
+            // console.log('[ChallengeManager] - start_time:', c.start_time);
             return c.status === 'assigned' && c.start_time;
         });
         
-        console.log('[ChallengeManager] getAssignedChallenges - filtered assigned challenges:', assigned);
+        // console.log('[ChallengeManager] getAssignedChallenges - filtered assigned challenges:', assigned);
         return assigned;
     }
     
@@ -303,26 +303,26 @@ class ChallengeManager {
      * Get only requested challenges (for Challenge Requests tab)
      */
     getRequestedChallenges() {
-        console.log('[ChallengeManager] getRequestedChallenges called');
-        console.log('[ChallengeManager] currentPlayer:', this.currentPlayer);
-        console.log('[ChallengeManager] currentPlayer.role:', this.currentPlayer?.role);
-        console.log('[ChallengeManager] typeof role:', typeof this.currentPlayer?.role);
+        // console.log('[ChallengeManager] getRequestedChallenges called');
+        // console.log('[ChallengeManager] currentPlayer:', this.currentPlayer);
+        // console.log('[ChallengeManager] currentPlayer.role:', this.currentPlayer?.role);
+        // console.log('[ChallengeManager] typeof role:', typeof this.currentPlayer?.role);
         
         // Normalize role to lowercase for comparison
         const role = this.currentPlayer?.role?.toLowerCase();
         const isHostOrBanker = role === 'host' || role === 'banker';
-        console.log('[ChallengeManager] normalized role:', role);
-        console.log('[ChallengeManager] isHostOrBanker:', isHostOrBanker);
+        // console.log('[ChallengeManager] normalized role:', role);
+        // console.log('[ChallengeManager] isHostOrBanker:', isHostOrBanker);
         
         if (!isHostOrBanker) {
-            console.log('[ChallengeManager] Not host or banker, returning empty array');
+            // console.log('[ChallengeManager] Not host or banker, returning empty array');
             return [];
         }
         
         const requested = Array.from(this.challenges.values()).filter(c => c.status === 'requested');
-        console.log('[ChallengeManager] Requested challenges:', requested);
-        console.log('[ChallengeManager] Challenges map size:', this.challenges.size);
-        console.log('[ChallengeManager] All challenges:', Array.from(this.challenges.entries()));
+        // console.log('[ChallengeManager] Requested challenges:', requested);
+        // console.log('[ChallengeManager] Challenges map size:', this.challenges.size);
+        // console.log('[ChallengeManager] All challenges:', Array.from(this.challenges.entries()));
         return requested;
     }
     
@@ -351,7 +351,7 @@ class ChallengeManager {
      * Set game status (waiting, in_progress, paused, completed)
      */
     setGameStatus(status, pauseTime = null) {
-        console.log('[ChallengeManager] Game status:', status);
+        // console.log('[ChallengeManager] Game status:', status);
         this.gameStatus = status;
         
         if (status === 'paused') {
@@ -372,7 +372,7 @@ class ChallengeManager {
      * Clean up resources
      */
     async clearAll() {
-        console.log('[ChallengeManager] Clearing all challenges');
+        // console.log('[ChallengeManager] Clearing all challenges');
         this.challenges.clear();
         this._notifyUpdates();
     }
@@ -426,8 +426,8 @@ class ChallengeManager {
     }
     
     _notifyUpdates() {
-        console.log('[ChallengeManager] _notifyUpdates called, callbacks count:', this.updateCallbacks.length);
-        console.log('[ChallengeManager] Current challenges:', Array.from(this.challenges.entries()));
+        // console.log('[ChallengeManager] _notifyUpdates called, callbacks count:', this.updateCallbacks.length);
+        // console.log('[ChallengeManager] Current challenges:', Array.from(this.challenges.entries()));
         for (const callback of this.updateCallbacks) {
             try {
                 callback(this.challenges);
@@ -440,7 +440,7 @@ class ChallengeManager {
     _setupWebSocketHandlers() {
         // Hook into existing WebSocket event system
         // This assumes the WebSocket has an event handler we can extend
-        console.log('[ChallengeManager] Setting up WebSocket handlers');
+        // console.log('[ChallengeManager] Setting up WebSocket handlers');
     }
     
     startTimerInterval() {
@@ -474,7 +474,7 @@ class ChallengeManager {
                 const elapsed = now - challenge.start_time;
                 
                 if (elapsed >= this.CHALLENGE_DURATION_MS) {
-                    console.log('[ChallengeManager] Challenge expired:', key);
+                    // console.log('[ChallengeManager] Challenge expired:', key);
                     
                     // Mark as expired in database
                     this.gameAPI.updateChallenge(this.gameCode, challenge.db_id, { status: 'expired' })
@@ -494,9 +494,9 @@ class ChallengeManager {
     // WebSocket event handlers (to be called from main dashboard code)
     
     handleChallengeRequest(eventData) {
-        console.log('[ChallengeManager] WebSocket: challenge_request', eventData);
-        console.log('[ChallengeManager] Current player:', this.currentPlayer);
-        console.log('[ChallengeManager] Current player role:', this.currentPlayer?.role);
+        // console.log('[ChallengeManager] WebSocket: challenge_request', eventData);
+        // console.log('[ChallengeManager] Current player:', this.currentPlayer);
+        // console.log('[ChallengeManager] Current player role:', this.currentPlayer?.role);
         
         const challenge = {
             db_id: eventData.db_id || null, // Database ID from HTTP response
@@ -518,18 +518,18 @@ class ChallengeManager {
         };
         
         const key = this._getChallengeKey(challenge);
-        console.log('[ChallengeManager] Adding challenge with key:', key);
-        console.log('[ChallengeManager] Challenge object:', challenge);
+        // console.log('[ChallengeManager] Adding challenge with key:', key);
+        // console.log('[ChallengeManager] Challenge object:', challenge);
         this.challenges.set(key, challenge);
-        console.log('[ChallengeManager] Challenges map after add:', Array.from(this.challenges.entries()));
-        console.log('[ChallengeManager] Challenges map size:', this.challenges.size);
-        console.log('[ChallengeManager] Calling _notifyUpdates()...');
+        // console.log('[ChallengeManager] Challenges map after add:', Array.from(this.challenges.entries()));
+        // console.log('[ChallengeManager] Challenges map size:', this.challenges.size);
+        // console.log('[ChallengeManager] Calling _notifyUpdates()...');
         this._notifyUpdates();
-        console.log('[ChallengeManager] _notifyUpdates() called');
+        // console.log('[ChallengeManager] _notifyUpdates() called');
     }
     
     handleChallengeAssigned(eventData) {
-        console.log('[ChallengeManager] WebSocket: challenge_assigned', eventData);
+        // console.log('[ChallengeManager] WebSocket: challenge_assigned', eventData);
         
         // Find existing challenge
         const key = this._findChallengeKeyByPlayerAndBuilding(eventData.player_id, eventData.building_type);
@@ -546,13 +546,13 @@ class ChallengeManager {
             this._notifyUpdates();
         } else {
             // Challenge doesn't exist locally - reload from server
-            console.log('[ChallengeManager] Challenge not found locally, reloading from server');
+            // console.log('[ChallengeManager] Challenge not found locally, reloading from server');
             this.loadFromServer();
         }
     }
     
     handleChallengeCompleted(eventData) {
-        console.log('[ChallengeManager] WebSocket: challenge_completed', eventData);
+        // console.log('[ChallengeManager] WebSocket: challenge_completed', eventData);
         
         const key = this._findChallengeKeyByPlayerAndBuilding(eventData.player_id, eventData.building_type);
         if (key) {
@@ -562,7 +562,7 @@ class ChallengeManager {
     }
     
     handleChallengeCancelled(eventData) {
-        console.log('[ChallengeManager] WebSocket: challenge_cancelled', eventData);
+        // console.log('[ChallengeManager] WebSocket: challenge_cancelled', eventData);
         
         const key = this._findChallengeKeyByPlayerAndBuilding(eventData.player_id, eventData.building_type);
         if (key) {

@@ -47,9 +47,9 @@ async function loadHostReport() {
         const players = await gameAPI.getPlayers(gameCode);
         const challenges = await gameAPI.getChallenges(gameCode);
         
-        console.log('Game:', game);
-        console.log('Players:', players);
-        console.log('Challenges:', challenges);
+        // console.log('Game:', game);
+        // console.log('Players:', players);
+        // console.log('Challenges:', challenges);
         
         // Get bank prices from game state or use defaults
         const bankPrices = game.game_state?.bank_prices || BANK_INITIAL_PRICES;

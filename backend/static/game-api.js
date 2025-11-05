@@ -24,17 +24,17 @@ class GameWebSocket {
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
-            console.log('WebSocket connected');
+            // console.log('WebSocket connected');
             this.reconnectAttempts = 0;
             this.trigger('connected');
         };
 
         this.ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            console.log('[WebSocket] Received message:', data);
-            console.log('[WebSocket] Message type:', data.type);
+            // console.log('[WebSocket] Received message:', data);
+            // console.log('[WebSocket] Message type:', data.type);
             this.trigger(data.type, data);
-            console.log('[WebSocket] Triggered event handler for type:', data.type);
+            // console.log('[WebSocket] Triggered event handler for type:', data.type);
         };
 
         this.ws.onerror = (error) => {
@@ -43,7 +43,7 @@ class GameWebSocket {
         };
 
         this.ws.onclose = () => {
-            console.log('WebSocket disconnected');
+            // console.log('WebSocket disconnected');
             this.trigger('disconnected');
             this.attemptReconnect();
         };
@@ -52,7 +52,7 @@ class GameWebSocket {
     attemptReconnect() {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            // console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
             setTimeout(() => this.connect(), 2000 * this.reconnectAttempts);
         }
     }
@@ -103,7 +103,7 @@ class GameAPI {
     }
 
     async request(method, endpoint, data = null) {
-        console.log(`[GameAPI] ${method} ${endpoint}`, data);
+        // console.log(`[GameAPI] ${method} ${endpoint}`, data);
         const options = {
             method,
             headers: {

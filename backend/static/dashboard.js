@@ -60,7 +60,7 @@ async function initDashboard() {
     const authToken = localStorage.getItem('authToken');
     if (authToken) {
         gameAPI.setToken(authToken);
-        console.log('Auth token loaded from localStorage');
+        // console.log('Auth token loaded from localStorage');
     }
     
     // Fetch actual player data from backend to get the real role
@@ -69,7 +69,7 @@ async function initDashboard() {
         const playerData = players.find(p => p.id === parseInt(playerId));
         if (playerData && playerData.role) {
             role = playerData.role; // Use role from database, not URL
-            console.log(`[initDashboard] Using role from database: ${role}`);
+            // console.log(`[initDashboard] Using role from database: ${role}`);
         }
     } catch (error) {
         console.error('[initDashboard] Failed to fetch player data, using URL role:', error);
@@ -140,7 +140,7 @@ function updateTeamStateFromGameState(source) {
                 resources: gameState.teams[teamNumber].resources || {},
                 buildings: gameState.teams[teamNumber].buildings || {}
             };
-            console.log(`[WebSocket ${source}] Updated teamState for team`, teamNumber, teamState);
+            // console.log(`[WebSocket ${source}] Updated teamState for team`, teamNumber, teamState);
         }
     }
 }
@@ -172,7 +172,7 @@ function connectWebSocket() {
             const playerData = data.players.find(p => p.id === currentPlayer.id);
             if (playerData && playerData.group_number) {
                 currentPlayer.groupNumber = playerData.group_number;
-                console.log('[WebSocket game_state] Set currentPlayer.groupNumber to:', currentPlayer.groupNumber);
+                // console.log('[WebSocket game_state] Set currentPlayer.groupNumber to:', currentPlayer.groupNumber);
             }
         }
         
@@ -240,10 +240,10 @@ function connectWebSocket() {
     });
     
     gameWS.on('player_approved', (data) => {
-        console.log('[player_approved] Received approval notification:', data);
+        // console.log('[player_approved] Received approval notification:', data);
         // If this is me, reload the dashboard
         if (data.player_id === currentPlayer.id) {
-            console.log('[player_approved] I was approved! Reloading dashboard...');
+            // console.log('[player_approved] I was approved! Reloading dashboard...');
             addEventLog('You have been approved! Loading dashboard...', 'success');
             // Reload the page to refresh all data and show the dashboard
             setTimeout(() => {
@@ -259,36 +259,36 @@ function connectWebSocket() {
     });
     
     gameWS.on('player_assigned_team', (data) => {
-        console.log('[player_assigned_team] Team assignment notification:', data);
-        console.log('[player_assigned_team] Comparing player_id:', data.player_id, 'with currentPlayer.id:', currentPlayer.id);
-        console.log('[player_assigned_team] Types:', typeof data.player_id, 'vs', typeof currentPlayer.id);
-        console.log('[player_assigned_team] Match?', data.player_id == currentPlayer.id);
+        // console.log('[player_assigned_team] Team assignment notification:', data);
+        // console.log('[player_assigned_team] Comparing player_id:', data.player_id, 'with currentPlayer.id:', currentPlayer.id);
+        // console.log('[player_assigned_team] Types:', typeof data.player_id, 'vs', typeof currentPlayer.id);
+        // console.log('[player_assigned_team] Match?', data.player_id == currentPlayer.id);
         
         // If this is me, refresh game data and update dashboard
         // Use loose equality to handle string/number mismatch
         if (data.player_id == currentPlayer.id) {
-            console.log('[player_assigned_team] ✅ I was assigned to Team', data.team_number);
-            console.log('[player_assigned_team] Setting currentPlayer.groupNumber to:', data.team_number);
+            // console.log('[player_assigned_team] ✅ I was assigned to Team', data.team_number);
+            // console.log('[player_assigned_team] Setting currentPlayer.groupNumber to:', data.team_number);
             addEventLog(`You have been assigned to Team ${data.team_number}!`, 'success');
             // Update my group number
             currentPlayer.groupNumber = data.team_number;
-            console.log('[player_assigned_team] currentPlayer.groupNumber is now:', currentPlayer.groupNumber);
-            console.log('[player_assigned_team] Calling loadGameData()...');
+            // console.log('[player_assigned_team] currentPlayer.groupNumber is now:', currentPlayer.groupNumber);
+            // console.log('[player_assigned_team] Calling loadGameData()...');
             // Reload game data to get player state and show cards
             loadGameData().then(() => {
-                console.log('[player_assigned_team] loadGameData() complete, calling updatePlayerCardsVisibility()...');
+                // console.log('[player_assigned_team] loadGameData() complete, calling updatePlayerCardsVisibility()...');
                 updatePlayerCardsVisibility();
-                console.log('[player_assigned_team] Calling updateDashboard()...');
+                // console.log('[player_assigned_team] Calling updateDashboard()...');
                 updateDashboard();
-                console.log('[player_assigned_team] Calling refreshTeamMembers()...');
+                // console.log('[player_assigned_team] Calling refreshTeamMembers()...');
                 refreshTeamMembers();
-                console.log('[player_assigned_team] Dashboard update complete!');
+                // console.log('[player_assigned_team] Dashboard update complete!');
             });
         } else {
-            console.log('[player_assigned_team] ❌ Not me, checking if host/banker...');
+            // console.log('[player_assigned_team] ❌ Not me, checking if host/banker...');
             if (currentPlayer.role === 'host' || currentPlayer.role === 'banker') {
                 // Host/Banker refreshes player lists and team overview
-                console.log('[player_assigned_team] I am host/banker, refreshing displays');
+                // console.log('[player_assigned_team] I am host/banker, refreshing displays');
                 addEventLog(`${data.player_name} assigned to Team ${data.team_number}`, 'info');
                 updatePlayersOverview();
                 refreshUnassigned();
@@ -302,30 +302,30 @@ function connectWebSocket() {
     });
     
     gameWS.on('player_unassigned_team', (data) => {
-        console.log('[player_unassigned_team] Team unassignment notification:', data);
+        // console.log('[player_unassigned_team] Team unassignment notification:', data);
         
         // If this is me, refresh game data and update dashboard
         if (data.player_id == currentPlayer.id) {
-            console.log('[player_unassigned_team] ✅ I was unassigned from team');
+            // console.log('[player_unassigned_team] ✅ I was unassigned from team');
             addEventLog(`You have been removed from your team`, 'warning');
             // Update my group number
             currentPlayer.groupNumber = null;
-            console.log('[player_unassigned_team] Calling loadGameData()...');
+            // console.log('[player_unassigned_team] Calling loadGameData()...');
             // Reload game data to get player state and hide cards
             loadGameData().then(() => {
-                console.log('[player_unassigned_team] loadGameData() complete, calling updatePlayerCardsVisibility()...');
+                // console.log('[player_unassigned_team] loadGameData() complete, calling updatePlayerCardsVisibility()...');
                 updatePlayerCardsVisibility();
-                console.log('[player_unassigned_team] Calling updateDashboard()...');
+                // console.log('[player_unassigned_team] Calling updateDashboard()...');
                 updateDashboard();
-                console.log('[player_unassigned_team] Calling refreshTeamMembers()...');
+                // console.log('[player_unassigned_team] Calling refreshTeamMembers()...');
                 refreshTeamMembers();
-                console.log('[player_unassigned_team] Dashboard update complete!');
+                // console.log('[player_unassigned_team] Dashboard update complete!');
             });
         } else {
-            console.log('[player_unassigned_team] ❌ Not me, checking if host/banker...');
+            // console.log('[player_unassigned_team] ❌ Not me, checking if host/banker...');
             if (currentPlayer.role === 'host' || currentPlayer.role === 'banker') {
                 // Host/Banker refreshes player lists and team overview
-                console.log('[player_unassigned_team] I am host/banker, refreshing displays');
+                // console.log('[player_unassigned_team] I am host/banker, refreshing displays');
                 addEventLog(`${data.player_name} removed from team`, 'info');
                 updatePlayersOverview();
                 refreshUnassigned();
@@ -335,10 +335,10 @@ function connectWebSocket() {
     });
     
     gameWS.on('player_role_changed', (data) => {
-        console.log('[player_role_changed] Role change notification:', data);
+        // console.log('[player_role_changed] Role change notification:', data);
         // If this is me, update my role and reload the dashboard
         if (data.player_id === currentPlayer.id) {
-            console.log('[player_role_changed] My role changed to:', data.new_role);
+            // console.log('[player_role_changed] My role changed to:', data.new_role);
             addEventLog(`Your role has been changed to ${data.new_role}!`, 'success');
             // Update role and reload page to show correct dashboard
             setTimeout(() => {
@@ -353,7 +353,7 @@ function connectWebSocket() {
     });
     
     gameWS.on('game_status_changed', (data) => {
-        console.log('[game_status_changed] Game status changed:', data);
+        // console.log('[game_status_changed] Game status changed:', data);
         // Update the game status for all players
         currentGameStatus = data.status;
         updateGameStatusDisplay();
@@ -376,32 +376,32 @@ function connectWebSocket() {
         
         // Handle countdown timer based on status
         if (data.status === 'paused') {
-            console.log('[game_status_changed] Status is paused, calling pauseCountdownTimer()');
+            // console.log('[game_status_changed] Status is paused, calling pauseCountdownTimer()');
             pauseCountdownTimer();
             // Challenge states are already in the database - no action needed on pause
         } else if (data.status === 'in_progress') {
-            console.log('[game_status_changed] Status is in_progress');
-            console.log('[game_status_changed] gameStartTime:', gameStartTime);
-            console.log('[game_status_changed] pausedRemainingTime:', pausedRemainingTime);
-            console.log('[game_status_changed] lastPauseTime:', lastPauseTime);
+            // console.log('[game_status_changed] Status is in_progress');
+            // console.log('[game_status_changed] gameStartTime:', gameStartTime);
+            // console.log('[game_status_changed] pausedRemainingTime:', pausedRemainingTime);
+            // console.log('[game_status_changed] lastPauseTime:', lastPauseTime);
             
             // Check if we're resuming from a pause
             const wasJustPaused = (pausedRemainingTime !== null || lastPauseTime !== null);
-            console.log('[game_status_changed] wasJustPaused:', wasJustPaused);
+            // console.log('[game_status_changed] wasJustPaused:', wasJustPaused);
             
             if (wasJustPaused) {
                 // Resuming from pause - use stored state
-                console.log('[game_status_changed] ***** CALLING resumeCountdownTimer() - detected pause state *****');
+                // console.log('[game_status_changed] ***** CALLING resumeCountdownTimer() - detected pause state *****');
                 resumeCountdownTimer();
             } else if (data.started_at && data.game_duration_minutes) {
                 // Game starting fresh - need backend data
-                console.log('[game_status_changed] Starting fresh game with backend data');
+                // console.log('[game_status_changed] Starting fresh game with backend data');
                 if (!gameStartTime) {
                     startCountdownTimer(data.started_at, data.game_duration_minutes);
                 }
             } else if (gameStartTime) {
                 // Timer already running, just ensure interval is active
-                console.log('[game_status_changed] Timer already running');
+                // console.log('[game_status_changed] Timer already running');
                 if (!countdownInterval) {
                     resumeCountdownTimer();
                 }
@@ -409,11 +409,11 @@ function connectWebSocket() {
             
             // On resume: Load updated challenge states from database into all clients
             if (challengeManager && wasJustPaused) {
-                console.log('[game_status_changed] Resume detected - loading updated challenges from database');
+                // console.log('[game_status_changed] Resume detected - loading updated challenges from database');
                 // Wait for backend to finish adjusting timestamps
                 setTimeout(() => {
                     challengeManager.loadFromServer().then(() => {
-                        console.log('[game_status_changed] Challenges loaded from database with adjusted timestamps');
+                        // console.log('[game_status_changed] Challenges loaded from database with adjusted timestamps');
                     }).catch(err => {
                         console.error('[game_status_changed] Failed to load challenges from database:', err);
                     });
@@ -454,7 +454,7 @@ function connectWebSocket() {
     });
     
     gameWS.on('lobby_cleared', (data) => {
-        console.log('[lobby_cleared] Lobby has been cleared by host');
+        // console.log('[lobby_cleared] Lobby has been cleared by host');
         // If I'm not the host, redirect to join screen
         if (currentPlayer.role !== 'host') {
             alert(data.message || 'The host has closed the lobby.');
@@ -470,7 +470,7 @@ function connectWebSocket() {
     });
     
     gameWS.on('game_deleted', (data) => {
-        console.log('[game_deleted] Game has been deleted');
+        // console.log('[game_deleted] Game has been deleted');
         // Everyone gets kicked out
         alert(data.message || 'This game has been deleted.');
         // Disconnect and redirect to index
@@ -492,8 +492,8 @@ async function loadGameData() {
         currentGameStatus = game.status || 'waiting';
         
         // Debug: Log gameState structure
-        console.log('[loadGameData] gameState:', gameState);
-        console.log('[loadGameData] gameState.teams:', gameState.teams);
+        // console.log('[loadGameData] gameState:', gameState);
+        // console.log('[loadGameData] gameState.teams:', gameState.teams);
         
         // Update game status display
         updateGameStatusDisplay();
@@ -539,7 +539,7 @@ async function loadGameData() {
                         resources: gameState.teams[teamNumber].resources || {},
                         buildings: gameState.teams[teamNumber].buildings || {}
                     };
-                    console.log('[loadGameData] Loaded team state from gameState.teams (team', teamNumber + ')');
+                    // console.log('[loadGameData] Loaded team state from gameState.teams (team', teamNumber + ')');
                 } else {
                     // Team exists but no state in gameState.teams - this will break if backend hasn't been updated
                     teamState = { resources: {}, buildings: {} };
@@ -548,7 +548,7 @@ async function loadGameData() {
             } else {
                 // Player not assigned to team yet, keep empty
                 teamState = { resources: {}, buildings: {} };
-                console.log('[loadGameData] Player not assigned to team - keeping team state empty');
+                // console.log('[loadGameData] Player not assigned to team - keeping team state empty');
             }
         }
         
@@ -558,7 +558,7 @@ async function loadGameData() {
         // Initialize challenge manager if game is in progress or paused
         // This ensures challenge manager is available for bankers/hosts who join mid-game
         if ((currentGameStatus === 'in_progress' || currentGameStatus === 'paused') && !challengeManager) {
-            console.log('[loadGameData] Game in progress, initializing challenge manager...');
+            // console.log('[loadGameData] Game in progress, initializing challenge manager...');
             await initializeChallengeManager();
         }
         
@@ -587,8 +587,8 @@ function updatePlayerCardsVisibility() {
         return;
     }
     
-    console.log('[updatePlayerCardsVisibility] Current game status:', currentGameStatus);
-    console.log('[updatePlayerCardsVisibility] Current player group:', currentPlayer.groupNumber);
+    // console.log('[updatePlayerCardsVisibility] Current game status:', currentGameStatus);
+    // console.log('[updatePlayerCardsVisibility] Current player group:', currentPlayer.groupNumber);
     
     const resourcesCard = document.getElementById('card-resources');
     const buildingsCard = document.getElementById('card-buildings');
@@ -601,21 +601,21 @@ function updatePlayerCardsVisibility() {
     // Check if game has started (in_progress or paused)
     const gameStarted = currentGameStatus === 'in_progress' || currentGameStatus === 'paused';
     
-    console.log('[updatePlayerCardsVisibility] Game started:', gameStarted);
+    // console.log('[updatePlayerCardsVisibility] Game started:', gameStarted);
     
     // Show Resources and Buildings cards when game starts
     if (resourcesCard) {
         resourcesCard.style.display = gameStarted ? 'block' : 'none';
-        console.log('[updatePlayerCardsVisibility] Resources card display:', resourcesCard.style.display);
+        // console.log('[updatePlayerCardsVisibility] Resources card display:', resourcesCard.style.display);
     }
     if (buildingsCard) {
         buildingsCard.style.display = gameStarted ? 'block' : 'none';
-        console.log('[updatePlayerCardsVisibility] Buildings card display:', buildingsCard.style.display);
+        // console.log('[updatePlayerCardsVisibility] Buildings card display:', buildingsCard.style.display);
     }
     
     // Hide gameplay cards if player is not assigned to a team
     if (!currentPlayer.groupNumber) {
-        console.log('[updatePlayerCardsVisibility] Player not assigned to team - hiding gameplay cards');
+        // console.log('[updatePlayerCardsVisibility] Player not assigned to team - hiding gameplay cards');
         if (productionCard) productionCard.style.display = 'none';
         if (tradingCard) tradingCard.style.display = 'none';
         if (notificationsCard) notificationsCard.style.display = 'none';
@@ -627,23 +627,23 @@ function updatePlayerCardsVisibility() {
     // Show gameplay cards when player has a team AND game has started
     if (productionCard) {
         productionCard.style.display = gameStarted ? 'block' : 'none';
-        console.log('[updatePlayerCardsVisibility] Production card display:', productionCard.style.display);
+        // console.log('[updatePlayerCardsVisibility] Production card display:', productionCard.style.display);
     }
     if (tradingCard) {
         tradingCard.style.display = gameStarted ? 'block' : 'none';
-        console.log('[updatePlayerCardsVisibility] Trading card display:', tradingCard.style.display);
+        // console.log('[updatePlayerCardsVisibility] Trading card display:', tradingCard.style.display);
     }
     if (notificationsCard) {
         notificationsCard.style.display = gameStarted ? 'block' : 'none';
-        console.log('[updatePlayerCardsVisibility] Notifications card display:', notificationsCard.style.display);
+        // console.log('[updatePlayerCardsVisibility] Notifications card display:', notificationsCard.style.display);
     }
     if (activeChallengesCard) {
         activeChallengesCard.style.display = gameStarted ? 'block' : 'none';
-        console.log('[updatePlayerCardsVisibility] Active challenges card display:', activeChallengesCard.style.display);
+        // console.log('[updatePlayerCardsVisibility] Active challenges card display:', activeChallengesCard.style.display);
     }
     if (buildBuildingsCard) {
         buildBuildingsCard.style.display = gameStarted ? 'block' : 'none';
-        console.log('[updatePlayerCardsVisibility] Build buildings card display:', buildBuildingsCard.style.display);
+        // console.log('[updatePlayerCardsVisibility] Build buildings card display:', buildBuildingsCard.style.display);
     }
     
     // Original logic (now disabled):
@@ -676,10 +676,10 @@ let challengeTimerInterval = null;
 // Load active challenges from database
 async function loadActiveChallenges(players = null) {
     try {
-        console.log('[loadActiveChallenges] Loading challenges from database...');
+        // console.log('[loadActiveChallenges] Loading challenges from database...');
         const challenges = await gameAPI.getChallenges(currentGameCode);
         
-        console.log('[loadActiveChallenges] Loaded challenges:', challenges);
+        // console.log('[loadActiveChallenges] Loaded challenges:', challenges);
         
         // Clear and repopulate allActiveChallenges from database
         allActiveChallenges = {};
@@ -730,7 +730,7 @@ async function loadActiveChallenges(players = null) {
                         has_school: challenge.has_school,
                         timestamp: challenge.created_at || new Date().toISOString()
                     });
-                    console.log(`[loadActiveChallenges] Added challenge ${challenge.id} to pendingChallengeRequests (status: ${challenge.status})`);
+                    // console.log(`[loadActiveChallenges] Added challenge ${challenge.id} to pendingChallengeRequests (status: ${challenge.status})`);
                 }
                 
                 // Add assignment data if challenge is assigned
@@ -740,7 +740,7 @@ async function loadActiveChallenges(players = null) {
                     const elapsed = now - startTime;
                     const expiryTime = 10 * 60 * 1000; // 10 minutes in ms
                     
-                    console.log(`[loadActiveChallenges] Challenge ${challenge.id}:`, {
+                    // console.log(`[loadActiveChallenges] Challenge ${challenge.id}:`, {
                         assigned_at: challenge.assigned_at,
                         startTime: new Date(startTime).toISOString(),
                         now: new Date(now).toISOString(),
@@ -754,11 +754,11 @@ async function loadActiveChallenges(players = null) {
                     // When loading after resume, the database assigned_at has already been adjusted
                     // so we should trust it and let the timer handle expiry during gameplay
                     if (currentGameStatus === 'in_progress' && elapsed >= expiryTime) {
-                        console.log(`[loadActiveChallenges] Challenge ${challenge.id} has expired (elapsed: ${Math.floor(elapsed/1000)}s), marking as expired`);
+                        // console.log(`[loadActiveChallenges] Challenge ${challenge.id} has expired (elapsed: ${Math.floor(elapsed/1000)}s), marking as expired`);
                         // Update challenge status in database to expired
                         try {
                             await gameAPI.updateChallenge(currentGameCode, challenge.id, { status: 'expired' });
-                            console.log(`[loadActiveChallenges] Challenge ${challenge.id} marked as expired in database`);
+                            // console.log(`[loadActiveChallenges] Challenge ${challenge.id} marked as expired in database`);
                         } catch (err) {
                             console.error(`[loadActiveChallenges] Failed to mark challenge ${challenge.id} as expired:`, err);
                         }
@@ -774,12 +774,12 @@ async function loadActiveChallenges(players = null) {
                 
                 // Add ALL challenges to allActiveChallenges (single source of truth)
                 allActiveChallenges[challengeKey] = challengeData;
-                console.log(`[loadActiveChallenges] Added challenge ${challengeKey} to allActiveChallenges (status: ${challenge.status})`);
+                // console.log(`[loadActiveChallenges] Added challenge ${challengeKey} to allActiveChallenges (status: ${challenge.status})`);
             }
         }
         
-        console.log('[loadActiveChallenges] allActiveChallenges:', allActiveChallenges);
-        console.log('[loadActiveChallenges] pendingChallengeRequests:', pendingChallengeRequests);
+        // console.log('[loadActiveChallenges] allActiveChallenges:', allActiveChallenges);
+        // console.log('[loadActiveChallenges] pendingChallengeRequests:', pendingChallengeRequests);
         
         // Update UI
         updateActiveChallengesList();
@@ -808,17 +808,17 @@ const challengeTypes = {
 };
 
 function updateChallengeRequestsList() {
-    console.log('[updateChallengeRequestsList] Called');
+    // console.log('[updateChallengeRequestsList] Called');
     const requestsList = document.getElementById('challenge-requests-list');
     if (!requestsList) {
-        console.log('[updateChallengeRequestsList] Element not found: challenge-requests-list');
+        // console.log('[updateChallengeRequestsList] Element not found: challenge-requests-list');
         return;
     }
     
     // Get requested challenges from challenge manager
     const requestedChallenges = challengeManager ? challengeManager.getRequestedChallenges() : [];
-    console.log('[updateChallengeRequestsList] Requested challenges:', requestedChallenges);
-    console.log('[updateChallengeRequestsList] Challenge manager exists:', !!challengeManager);
+    // console.log('[updateChallengeRequestsList] Requested challenges:', requestedChallenges);
+    // console.log('[updateChallengeRequestsList] Challenge manager exists:', !!challengeManager);
     
     if (requestedChallenges.length === 0) {
         requestsList.innerHTML = '<p style="color: #999; font-style: italic;">No pending challenge requests</p>';
@@ -884,14 +884,14 @@ function updateChallengeTargetPreview(playerId, buildingType) {
 }
 
 async function assignChallenge(playerId, buildingType) {
-    console.log('[assignChallenge] ===== FUNCTION CALLED =====');
-    console.log('[assignChallenge] playerId:', playerId, 'buildingType:', buildingType);
+    // console.log('[assignChallenge] ===== FUNCTION CALLED =====');
+    // console.log('[assignChallenge] playerId:', playerId, 'buildingType:', buildingType);
     
     const typeSelect = document.getElementById(`challenge-type-${playerId}-${buildingType}`);
     const targetSpan = document.getElementById(`challenge-target-${playerId}-${buildingType}`);
     
-    console.log('[assignChallenge] typeSelect:', typeSelect);
-    console.log('[assignChallenge] targetSpan:', targetSpan);
+    // console.log('[assignChallenge] typeSelect:', typeSelect);
+    // console.log('[assignChallenge] targetSpan:', targetSpan);
     
     if (!typeSelect || !targetSpan) {
         console.error('[assignChallenge] ❌ Challenge inputs not found');
@@ -902,8 +902,8 @@ async function assignChallenge(playerId, buildingType) {
     const challengeType = typeSelect.value;
     const targetNumber = parseInt(targetSpan.textContent);
     
-    console.log('[assignChallenge] challengeType:', challengeType);
-    console.log('[assignChallenge] targetNumber:', targetNumber);
+    // console.log('[assignChallenge] challengeType:', challengeType);
+    // console.log('[assignChallenge] targetNumber:', targetNumber);
     
     if (!targetNumber || targetNumber < 1) {
         console.error('[assignChallenge] ❌ Invalid target number');
@@ -916,7 +916,7 @@ async function assignChallenge(playerId, buildingType) {
     const challengeDescription = `${targetNumber} ${challengeName}`;
     const startTime = Date.now();
     
-    console.log('[assignChallenge] challengeDescription:', challengeDescription);
+    // console.log('[assignChallenge] challengeDescription:', challengeDescription);
     
     // Find the request - check challenge manager first, then fall back to legacy array
     let request = null;
@@ -925,7 +925,7 @@ async function assignChallenge(playerId, buildingType) {
     if (challengeManager) {
         // Get request from challenge manager
         const requestedChallenges = challengeManager.getRequestedChallenges();
-        console.log('[assignChallenge] Requested challenges from manager:', requestedChallenges);
+        // console.log('[assignChallenge] Requested challenges from manager:', requestedChallenges);
         
         request = requestedChallenges.find(
             req => req.player_id === playerId && req.building_type === buildingType
@@ -933,7 +933,7 @@ async function assignChallenge(playerId, buildingType) {
         
         if (request) {
             challengeDbId = request.db_id;
-            console.log('[assignChallenge] Found request in challenge manager:', request);
+            // console.log('[assignChallenge] Found request in challenge manager:', request);
         }
     }
     
@@ -945,18 +945,18 @@ async function assignChallenge(playerId, buildingType) {
         
         if (request) {
             challengeDbId = request.db_id;
-            console.log('[assignChallenge] Found request in pendingChallengeRequests:', request);
+            // console.log('[assignChallenge] Found request in pendingChallengeRequests:', request);
         }
     }
     
-    console.log('[assignChallenge] Final request:', request);
-    console.log('[assignChallenge] Challenge DB ID:', challengeDbId);
+    // console.log('[assignChallenge] Final request:', request);
+    // console.log('[assignChallenge] Challenge DB ID:', challengeDbId);
     
     if (!request) {
         console.error('[assignChallenge] ❌ Request not found');
-        console.log('[assignChallenge] pendingChallengeRequests:', pendingChallengeRequests);
+        // console.log('[assignChallenge] pendingChallengeRequests:', pendingChallengeRequests);
         if (challengeManager) {
-            console.log('[assignChallenge] challengeManager.challenges:', Array.from(challengeManager.challenges.entries()));
+            // console.log('[assignChallenge] challengeManager.challenges:', Array.from(challengeManager.challenges.entries()));
         }
         alert('Error: Challenge request not found');
         return;
@@ -964,7 +964,7 @@ async function assignChallenge(playerId, buildingType) {
     
     // Use challenge manager if available
     if (challengeManager && challengeDbId) {
-        console.log('[assignChallenge] Using challenge manager to assign challenge');
+        // console.log('[assignChallenge] Using challenge manager to assign challenge');
         try {
             await challengeManager.assignChallenge(
                 challengeDbId,
@@ -972,7 +972,7 @@ async function assignChallenge(playerId, buildingType) {
                 challengeDescription,
                 targetNumber
             );
-            console.log('[assignChallenge] ✅ Challenge assigned successfully via challenge manager');
+            // console.log('[assignChallenge] ✅ Challenge assigned successfully via challenge manager');
         } catch (error) {
             console.error('[assignChallenge] ❌ Failed to assign challenge via challenge manager:', error);
             alert('Failed to assign challenge: ' + error.message);
@@ -980,8 +980,8 @@ async function assignChallenge(playerId, buildingType) {
         }
     } else {
         console.warn('[assignChallenge] ⚠️ Challenge manager not available or no db_id');
-        console.log('[assignChallenge] challengeManager exists:', !!challengeManager);
-        console.log('[assignChallenge] challengeDbId:', challengeDbId);
+        // console.log('[assignChallenge] challengeManager exists:', !!challengeManager);
+        // console.log('[assignChallenge] challengeDbId:', challengeDbId);
     }
     
     // Track as active challenge with timestamp (legacy support)
@@ -1004,7 +1004,7 @@ async function assignChallenge(playerId, buildingType) {
         db_id: request.db_id
     };
     
-    console.log(`[assignChallenge] Added challenge to allActiveChallenges with key: ${challengeKey}`, allActiveChallenges[challengeKey]);
+    // console.log(`[assignChallenge] Added challenge to allActiveChallenges with key: ${challengeKey}`, allActiveChallenges[challengeKey]);
     
     // Send challenge assignment via WebSocket
     gameWS.send({
@@ -1033,7 +1033,7 @@ async function assignChallenge(playerId, buildingType) {
 }
 
 async function dismissChallengeRequest(playerId, buildingType) {
-    console.log('[dismissChallengeRequest] Called for player:', playerId, 'building:', buildingType);
+    // console.log('[dismissChallengeRequest] Called for player:', playerId, 'building:', buildingType);
     
     // Find the request - check challenge manager first
     let request = null;
@@ -1046,7 +1046,7 @@ async function dismissChallengeRequest(playerId, buildingType) {
         );
         if (request) {
             challengeDbId = request.db_id;
-            console.log('[dismissChallengeRequest] Found in challenge manager, db_id:', challengeDbId);
+            // console.log('[dismissChallengeRequest] Found in challenge manager, db_id:', challengeDbId);
         }
     }
     
@@ -1057,7 +1057,7 @@ async function dismissChallengeRequest(playerId, buildingType) {
         );
         if (request) {
             challengeDbId = request.db_id;
-            console.log('[dismissChallengeRequest] Found in pendingChallengeRequests, db_id:', challengeDbId);
+            // console.log('[dismissChallengeRequest] Found in pendingChallengeRequests, db_id:', challengeDbId);
         }
     }
     
@@ -1065,7 +1065,7 @@ async function dismissChallengeRequest(playerId, buildingType) {
     if (challengeDbId) {
         try {
             await gameAPI.deleteChallenge(currentGameCode, challengeDbId);
-            console.log('[dismissChallengeRequest] ✅ Challenge deleted from database');
+            // console.log('[dismissChallengeRequest] ✅ Challenge deleted from database');
         } catch (error) {
             console.error('[dismissChallengeRequest] ❌ Failed to delete challenge from database:', error);
         }
@@ -1134,9 +1134,9 @@ async function setTeamsConfiguration() {
 
 // Create team boxes for drag and drop
 function createTeamBoxes(numTeams) {
-    console.log('createTeamBoxes called with numTeams:', numTeams);
+    // console.log('createTeamBoxes called with numTeams:', numTeams);
     const teamsGrid = document.getElementById('teams-grid');
-    console.log('teamsGrid element:', teamsGrid);
+    // console.log('teamsGrid element:', teamsGrid);
     if (!teamsGrid) {
         console.error('teams-grid element not found!');
         return;
@@ -1261,7 +1261,7 @@ async function handleDrop(e) {
     
     // Check if player is already on this team
     if (currentTeam && parseInt(currentTeam) === targetTeam) {
-        console.log(`${playerName} is already on Team ${targetTeam}`);
+        // console.log(`${playerName} is already on Team ${targetTeam}`);
         return;
     }
     
@@ -1269,10 +1269,10 @@ async function handleDrop(e) {
         await gameAPI.assignPlayerGroup(currentGameCode, playerId, targetTeam);
         
         if (currentTeam) {
-            console.log(`Moved ${playerName} from Team ${currentTeam} to Team ${targetTeam}`);
+            // console.log(`Moved ${playerName} from Team ${currentTeam} to Team ${targetTeam}`);
             addEventLog(`${playerName} moved from Team ${currentTeam} to Team ${targetTeam}`, 'info');
         } else {
-            console.log(`Assigned ${playerName} to Team ${targetTeam}`);
+            // console.log(`Assigned ${playerName} to Team ${targetTeam}`);
             addEventLog(`${playerName} assigned to Team ${targetTeam}`, 'success');
         }
         
@@ -1375,7 +1375,7 @@ async function unassignPlayer(playerId, playerName) {
     
     try {
         await gameAPI.unassignPlayerGroup(currentGameCode, playerId);
-        console.log(`Unassigned ${playerName} from team`);
+        // console.log(`Unassigned ${playerName} from team`);
         
         addEventLog(`${playerName} removed from team`, 'info');
         
@@ -1391,8 +1391,8 @@ async function unassignPlayer(playerId, playerName) {
 }
 
 async function setupHostDashboard() {
-    console.log('setupHostDashboard: Starting setup...');
-    console.log('currentPlayer.role:', currentPlayer.role);
+    // console.log('setupHostDashboard: Starting setup...');
+    // console.log('currentPlayer.role:', currentPlayer.role);
     
     // Show test mode toggle for host only
     showTestModeToggleForHost();
@@ -1401,20 +1401,20 @@ async function setupHostDashboard() {
     const isHost = currentPlayer.role === 'host';
     const isBanker = currentPlayer.role === 'banker';
     
-    console.log('isHost:', isHost, 'isBanker:', isBanker);
+    // console.log('isHost:', isHost, 'isBanker:', isBanker);
     
     // Reorder tabs based on role
     reorderTabsForRole(currentPlayer.role);
     
     // Show/hide Game Controls tab based on role
     const gameControlsTab = document.getElementById('tab-btn-controls');
-    console.log('gameControlsTab found:', !!gameControlsTab);
+    // console.log('gameControlsTab found:', !!gameControlsTab);
     if (gameControlsTab) {
         if (isHost) {
-            console.log('Showing Game Controls tab for host');
+            // console.log('Showing Game Controls tab for host');
             gameControlsTab.style.display = 'inline-block';
         } else {
-            console.log('Hiding Game Controls tab for non-host');
+            // console.log('Hiding Game Controls tab for non-host');
             gameControlsTab.style.display = 'none';
         }
     }
@@ -1474,9 +1474,9 @@ async function setupHostDashboard() {
     refreshPendingPlayers();
     
     // Try to load team configuration if it exists
-    console.log('setupHostDashboard: About to call loadGameAndCreateTeamBoxes...');
+    // console.log('setupHostDashboard: About to call loadGameAndCreateTeamBoxes...');
     await loadGameAndCreateTeamBoxes();
-    console.log('setupHostDashboard: loadGameAndCreateTeamBoxes completed');
+    // console.log('setupHostDashboard: loadGameAndCreateTeamBoxes completed');
     
     // Update nations/teams overview after team assignments are loaded
     await updateNationsOverview();
@@ -1506,7 +1506,7 @@ async function setupHostDashboard() {
         }
     }
     
-    console.log('setupHostDashboard: Setup complete');
+    // console.log('setupHostDashboard: Setup complete');
 }
 
 // Update game control button states based on current game status
@@ -1593,7 +1593,7 @@ function updateGameStatusDisplay() {
 }
 
 function startCountdownTimer(startTime, durationMinutes) {
-    console.log('[startCountdownTimer] Starting timer:', { startTime, durationMinutes });
+    // console.log('[startCountdownTimer] Starting timer:', { startTime, durationMinutes });
     
     // Store game start time and duration
     gameStartTime = new Date(startTime);
@@ -1622,17 +1622,17 @@ function startCountdownTimer(startTime, durationMinutes) {
 function updateCountdownDisplay() {
     const display = document.getElementById('countdown-display');
     if (!display || !gameStartTime) {
-        console.log('[updateCountdownDisplay] Early return - display:', !!display, 'gameStartTime:', !!gameStartTime);
+        // console.log('[updateCountdownDisplay] Early return - display:', !!display, 'gameStartTime:', !!gameStartTime);
         return;
     }
     
     // If the game is paused, don't update
     if (currentGameStatus === 'paused') {
-        console.log('[updateCountdownDisplay] Paused, skipping update');
+        // console.log('[updateCountdownDisplay] Paused, skipping update');
         return;
     }
     
-    console.log('[updateCountdownDisplay] Updating display...');
+    // console.log('[updateCountdownDisplay] Updating display...');
     
     // Calculate remaining time
     const now = new Date();
@@ -1651,7 +1651,7 @@ function updateCountdownDisplay() {
         
         // Auto-end the game when timer reaches zero (only if host)
         if (currentPlayer.role === 'host' && currentGameStatus === 'in_progress') {
-            console.log('[updateCountdownDisplay] Time expired, auto-ending game...');
+            // console.log('[updateCountdownDisplay] Time expired, auto-ending game...');
             autoEndGameOnTimeout();
         }
         return;
@@ -1676,7 +1676,7 @@ function updateCountdownDisplay() {
 }
 
 function pauseCountdownTimer() {
-    console.log('[pauseCountdownTimer] Pausing timer');
+    // console.log('[pauseCountdownTimer] Pausing timer');
     
     // Stop the interval immediately
     if (countdownInterval) {
@@ -1693,13 +1693,13 @@ function pauseCountdownTimer() {
         
         const mins = Math.floor(pausedRemainingTime / 60000);
         const secs = Math.floor((pausedRemainingTime % 60000) / 1000);
-        console.log('[pauseCountdownTimer] Stored remaining time:', mins, 'min', secs, 'sec');
+        // console.log('[pauseCountdownTimer] Stored remaining time:', mins, 'min', secs, 'sec');
     }
     
     // Record when pause started
     if (!lastPauseTime) {
         lastPauseTime = new Date();
-        console.log('[pauseCountdownTimer] Pause started at:', lastPauseTime.toISOString());
+        // console.log('[pauseCountdownTimer] Pause started at:', lastPauseTime.toISOString());
     }
     
     // Update display to show paused state
@@ -1710,10 +1710,10 @@ function pauseCountdownTimer() {
 }
 
 function resumeCountdownTimer() {
-    console.log('[resumeCountdownTimer] ===== FUNCTION CALLED =====');
-    console.log('[resumeCountdownTimer] lastPauseTime:', lastPauseTime);
-    console.log('[resumeCountdownTimer] pausedRemainingTime:', pausedRemainingTime);
-    console.log('[resumeCountdownTimer] Resuming timer');
+    // console.log('[resumeCountdownTimer] ===== FUNCTION CALLED =====');
+    // console.log('[resumeCountdownTimer] lastPauseTime:', lastPauseTime);
+    // console.log('[resumeCountdownTimer] pausedRemainingTime:', pausedRemainingTime);
+    // console.log('[resumeCountdownTimer] Resuming timer');
     
     let pauseDuration = 0;
     
@@ -1724,8 +1724,8 @@ function resumeCountdownTimer() {
         
         const pauseMins = Math.floor(pauseDuration / 60000);
         const pauseSecs = Math.floor((pauseDuration % 60000) / 1000);
-        console.log('[resumeCountdownTimer] Pause duration:', pauseMins, 'min', pauseSecs, 'sec', '(' + pauseDuration + ' ms)');
-        console.log('[resumeCountdownTimer] Total paused time:', totalPausedTime, 'ms');
+        // console.log('[resumeCountdownTimer] Pause duration:', pauseMins, 'min', pauseSecs, 'sec', '(' + pauseDuration + ' ms)');
+        // console.log('[resumeCountdownTimer] Total paused time:', totalPausedTime, 'ms');
         
         lastPauseTime = null;
     }
@@ -1734,29 +1734,29 @@ function resumeCountdownTimer() {
     if (pausedRemainingTime && gameStartTime) {
         const remainingMins = Math.floor(pausedRemainingTime / 60000);
         const remainingSecs = Math.floor((pausedRemainingTime % 60000) / 1000);
-        console.log('[resumeCountdownTimer] Remaining time at resume:', remainingMins, 'min', remainingSecs, 'sec', '(' + pausedRemainingTime + ' ms)');
+        // console.log('[resumeCountdownTimer] Remaining time at resume:', remainingMins, 'min', remainingSecs, 'sec', '(' + pausedRemainingTime + ' ms)');
         
         const totalGameTime = gameDurationMinutes * 60 * 1000;
         gameStartTime = new Date(new Date() - (totalGameTime - pausedRemainingTime));
         totalPausedTime = 0;  // Reset since we adjusted start time
         pausedRemainingTime = null;
-        console.log('[resumeCountdownTimer] Adjusted game start time to maintain remaining time');
+        // console.log('[resumeCountdownTimer] Adjusted game start time to maintain remaining time');
     }
     
     // Restart the interval
     if (countdownInterval) {
-        console.log('[resumeCountdownTimer] Clearing existing interval');
+        // console.log('[resumeCountdownTimer] Clearing existing interval');
         clearInterval(countdownInterval);
     }
-    console.log('[resumeCountdownTimer] Calling updateCountdownDisplay()');
+    // console.log('[resumeCountdownTimer] Calling updateCountdownDisplay()');
     updateCountdownDisplay();
-    console.log('[resumeCountdownTimer] Setting up new interval');
+    // console.log('[resumeCountdownTimer] Setting up new interval');
     countdownInterval = setInterval(updateCountdownDisplay, 1000);
-    console.log('[resumeCountdownTimer] Timer resumed, interval ID:', countdownInterval);
+    // console.log('[resumeCountdownTimer] Timer resumed, interval ID:', countdownInterval);
 }
 
 function stopCountdownTimer() {
-    console.log('[stopCountdownTimer] Stopping timer');
+    // console.log('[stopCountdownTimer] Stopping timer');
     
     if (countdownInterval) {
         clearInterval(countdownInterval);
@@ -1779,13 +1779,13 @@ function stopCountdownTimer() {
 // Load game data and create team boxes if teams are configured
 async function loadGameAndCreateTeamBoxes() {
     try {
-        console.log('loadGameAndCreateTeamBoxes: Loading game config...');
+        // console.log('loadGameAndCreateTeamBoxes: Loading game config...');
         const game = await gameAPI.getGame(currentGameCode);
-        console.log('Game data:', game);
-        console.log('num_teams:', game.num_teams);
+        // console.log('Game data:', game);
+        // console.log('num_teams:', game.num_teams);
         
         if (game.num_teams && game.num_teams > 0) {
-            console.log('Creating team boxes for', game.num_teams, 'teams');
+            // console.log('Creating team boxes for', game.num_teams, 'teams');
             // Update the input and status
             const numTeamsInput = document.getElementById('num-teams-config');
             if (numTeamsInput) {
@@ -1801,7 +1801,7 @@ async function loadGameAndCreateTeamBoxes() {
             // Create the team boxes
             createTeamBoxes(game.num_teams);
         } else {
-            console.log('No teams configured yet (num_teams is', game.num_teams, ')');
+            // console.log('No teams configured yet (num_teams is', game.num_teams, ')');
         }
     } catch (error) {
         console.error('Error loading game configuration:', error);
@@ -1824,15 +1824,15 @@ async function refreshUnassigned() {
     try {
         const unassignedList = document.getElementById('unassigned-players-list');
         if (!unassignedList) {
-            console.log('refreshUnassigned: unassigned-players-list element not found');
+            // console.log('refreshUnassigned: unassigned-players-list element not found');
             return;
         }
 
-        console.log('Fetching unassigned players for game:', currentGameCode);
+        // console.log('Fetching unassigned players for game:', currentGameCode);
         const response = await gameAPI.getUnassignedPlayers(currentGameCode);
-        console.log('Unassigned players response:', response);
+        // console.log('Unassigned players response:', response);
         const players = response.players || [];
-        console.log('Extracted players array:', players);
+        // console.log('Extracted players array:', players);
         
         // Update count
         const countSpan = document.getElementById('unassigned-count');
@@ -1928,7 +1928,7 @@ async function refreshPendingPlayers() {
 async function approvePlayerAction(playerId, playerName) {
     try {
         await gameAPI.approvePlayer(currentGameCode, playerId);
-        console.log(`Approved player: ${playerName}`);
+        // console.log(`Approved player: ${playerName}`);
         
         // Refresh pending list and players overview
         await refreshPendingPlayers();
@@ -1951,7 +1951,7 @@ async function rejectPlayerAction(playerId, playerName) {
     
     try {
         await gameAPI.removePlayerFromGame(currentGameCode, playerId);
-        console.log(`Rejected player: ${playerName}`);
+        // console.log(`Rejected player: ${playerName}`);
         
         // Refresh pending list and players overview
         await refreshPendingPlayers();
@@ -1974,7 +1974,7 @@ async function togglePlayerRole(playerId, playerName, currentRole) {
     try {
         // Backend automatically removes bankers/hosts from teams
         await gameAPI.assignPlayerRole(currentGameCode, playerId, newRole);
-        console.log(`Changed ${playerName}'s role from ${currentRole} to ${newRole}`);
+        // console.log(`Changed ${playerName}'s role from ${currentRole} to ${newRole}`);
         
         // Refresh the players list and team assignments
         await updatePlayersOverview();
@@ -2000,7 +2000,7 @@ async function removePlayerFromGame(playerId, playerName) {
     
     try {
         await gameAPI.removePlayerFromGame(currentGameCode, playerId);
-        console.log(`Removed ${playerName} from game`);
+        // console.log(`Removed ${playerName} from game`);
         
         addEventLog(`${playerName} removed from game`, 'warning');
         
@@ -2024,7 +2024,7 @@ async function clearAllPlayers() {
     
     try {
         const result = await gameAPI.clearAllPlayersFromLobby(currentGameCode);
-        console.log(`Cleared ${result.deleted_count} players from lobby`);
+        // console.log(`Cleared ${result.deleted_count} players from lobby`);
         
         addEventLog(`Cleared ${result.deleted_count} players from lobby`, 'warning');
         
@@ -2048,7 +2048,7 @@ async function clearAllPlayers() {
     
     try {
         const result = await gameAPI.clearAllPlayersFromLobby(currentGameCode);
-        console.log(`Cleared ${result.deleted_count} players from lobby`);
+        // console.log(`Cleared ${result.deleted_count} players from lobby`);
         
         addEventLog(`Cleared ${result.deleted_count} players from lobby`, 'warning');
         
@@ -2077,7 +2077,7 @@ async function deleteGame() {
     
     try {
         const result = await gameAPI.deleteGame(currentGameCode);
-        console.log(`Game deleted:`, result);
+        // console.log(`Game deleted:`, result);
         
         addEventLog(`Game ${currentGameCode} deleted - ${result.deleted_players} players removed`, 'warning');
         
@@ -2102,7 +2102,7 @@ async function resetAllChallenges() {
     }
     
     try {
-        console.log('[resetAllChallenges] Resetting all challenges for game:', currentGameCode);
+        // console.log('[resetAllChallenges] Resetting all challenges for game:', currentGameCode);
         
         // Clear challenge manager's internal state
         if (challengeManager) {
@@ -2111,7 +2111,7 @@ async function resetAllChallenges() {
         
         // Get all challenges from the server and delete them
         const challenges = await gameAPI.getChallenges(currentGameCode);
-        console.log('[resetAllChallenges] Found challenges:', challenges);
+        // console.log('[resetAllChallenges] Found challenges:', challenges);
         
         let deletedCount = 0;
         for (const challenge of challenges) {
@@ -2135,7 +2135,7 @@ async function resetAllChallenges() {
         addEventLog(`All challenges reset (${deletedCount} cleared)`, 'info');
         alert(`✅ Challenge Reset Complete\n\n${deletedCount} challenge(s) cleared.\nAll buildings unlocked.`);
         
-        console.log('[resetAllChallenges] Reset complete');
+        // console.log('[resetAllChallenges] Reset complete');
     } catch (error) {
         console.error('[resetAllChallenges] Error:', error);
         alert('Failed to reset challenges: ' + (error.message || error));
@@ -2390,9 +2390,9 @@ async function updateNationsOverview() {
 
 async function startGame() {
     try {
-        console.log('[startGame] Starting game...');
+        // console.log('[startGame] Starting game...');
         await gameAPI.startGame(currentGameCode);
-        console.log('[startGame] Game started on backend');
+        // console.log('[startGame] Game started on backend');
         
         // Note: WebSocket will broadcast the status change to all players
         // This function is just for the host's immediate feedback
@@ -2409,18 +2409,18 @@ async function startGame() {
         // Update UI immediately
         updateControlButtons();
         updateGameStatusDisplay();
-        console.log('[startGame] Control buttons and status display updated');
+        // console.log('[startGame] Control buttons and status display updated');
         
         // Disable test mode when game starts
         updateTestModeToggleState();
         
         // Update player card visibility (for players)
         updatePlayerCardsVisibility();
-        console.log('[startGame] Player cards visibility updated');
+        // console.log('[startGame] Player cards visibility updated');
         
         // Update dashboard to show new status
         updateDashboard();
-        console.log('[startGame] Dashboard updated');
+        // console.log('[startGame] Dashboard updated');
     } catch (error) {
         console.error('[startGame] Error:', error);
         alert('Failed to start game: ' + error.message);
@@ -2429,7 +2429,7 @@ async function startGame() {
 
 async function initializeChallengeManager() {
     try {
-        console.log('[initializeChallengeManager] Initializing challenge manager...');
+        // console.log('[initializeChallengeManager] Initializing challenge manager...');
         
         // Clean up existing manager if any
         if (challengeManager) {
@@ -2447,18 +2447,18 @@ async function initializeChallengeManager() {
         if (currentPlayer.role === 'player' && currentPlayer.groupNumber) {
             tradingManager = new TradingManager(currentGameCode, currentPlayer.id, currentPlayer.groupNumber, gameAPI, gameWS);
             await tradingManager.initialize();
-            console.log('[initializeChallengeManager] Trading manager initialized');
+            // console.log('[initializeChallengeManager] Trading manager initialized');
         }
         
         // Register update callback
         challengeManager.onChallengesUpdated(() => {
-            console.log('[ChallengeManager] Challenges updated, refreshing UI');
+            // console.log('[ChallengeManager] Challenges updated, refreshing UI');
             updateActiveChallengesList(); // For host's active challenges tab
             updateChallengeRequestsList(); // For host's challenge requests tab
             updateActiveChallenges(); // For player dashboard active challenges card
         });
         
-        console.log('[initializeChallengeManager] Challenge manager initialized successfully');
+        // console.log('[initializeChallengeManager] Challenge manager initialized successfully');
     } catch (error) {
         console.error('[initializeChallengeManager] Failed to initialize challenge manager:', error);
         // Don't throw - allow game to continue even if challenge system fails
@@ -2492,14 +2492,14 @@ async function resumeGame() {
         // Calculate the duration of the most recent pause
         const pauseDuration = lastPauseTime ? (Date.now() - lastPauseTime) : 0;
         
-        console.log(`[resumeGame] Pause duration: ${pauseDuration}ms`);
+        // console.log(`[resumeGame] Pause duration: ${pauseDuration}ms`);
         
         // Use challenge manager to adjust for pause in database
         if (challengeManager && pauseDuration > 0) {
             try {
-                console.log('[resumeGame] Adjusting challenges in database for pause...');
+                // console.log('[resumeGame] Adjusting challenges in database for pause...');
                 await challengeManager.adjustForPause(pauseDuration);
-                console.log('[resumeGame] Database adjusted successfully');
+                // console.log('[resumeGame] Database adjusted successfully');
             } catch (error) {
                 console.error('[resumeGame] Challenge manager adjustment failed:', error);
             }
@@ -2514,10 +2514,10 @@ async function resumeGame() {
         
         // Reload challenges from database to get adjusted timestamps
         if (challengeManager) {
-            console.log('[resumeGame] Reloading challenges from database...');
+            // console.log('[resumeGame] Reloading challenges from database...');
             await challengeManager.loadFromServer();
             challengeManager.setGameStatus('in_progress');
-            console.log('[resumeGame] Challenges reloaded from database');
+            // console.log('[resumeGame] Challenges reloaded from database');
         }
         
         addEventLog('Game resumed');
@@ -2558,7 +2558,7 @@ async function endGame() {
 }
 
 async function autoEndGameOnTimeout() {
-    console.log('[autoEndGameOnTimeout] Auto-ending game due to timeout');
+    // console.log('[autoEndGameOnTimeout] Auto-ending game due to timeout');
     
     try {
         const result = await gameAPI.endGame(currentGameCode);
@@ -2890,7 +2890,7 @@ async function buildBuilding(buildingType) {
     
     try {
         const result = await gameAPI.buildBuilding(currentGameCode, teamNumber, buildingType);
-        console.log('[buildBuilding] Success:', result);
+        // console.log('[buildBuilding] Success:', result);
         
         // Update local state
         teamState.resources = result.remaining_resources;
@@ -3008,7 +3008,7 @@ async function savePlayerTeamName(newName) {
             currentTeamNameSpan.textContent = newName.trim();
         }
         
-        console.log(`Team renamed to "${newName.trim()}"`);
+        // console.log(`Team renamed to "${newName.trim()}"`);
     } catch (error) {
         console.error('Error choosing team name:', error);
         const errorMessage = error.message || error.detail || JSON.stringify(error);
@@ -3072,7 +3072,7 @@ async function requestChallenge(buildingType) {
             team_number: teamNumber,
             has_school: hasSchool
         });
-        console.log(`[requestChallenge] Challenge saved to database:`, dbChallenge);
+        // console.log(`[requestChallenge] Challenge saved to database:`, dbChallenge);
         
         // Store the database ID in the challenge object
         allActiveChallenges[challengeKey].db_id = dbChallenge.id;
@@ -3176,8 +3176,8 @@ function validateProductionRequirements(buildingType, teamNumber) {
         teamData = teamState;
     }
     
-    console.log(`[validateProductionRequirements] Checking ${buildingType} for team ${teamNumber}`);
-    console.log(`[validateProductionRequirements] Using teamData:`, teamData);
+    // console.log(`[validateProductionRequirements] Checking ${buildingType} for team ${teamNumber}`);
+    // console.log(`[validateProductionRequirements] Using teamData:`, teamData);
     
     if (!teamData || !teamData.buildings) {
         console.error(`[validateProductionRequirements] No team data found for team ${teamNumber}`);
@@ -3186,7 +3186,7 @@ function validateProductionRequirements(buildingType, teamNumber) {
     
     // Check if team has the building
     const buildingCount = teamData.buildings[buildingType] || 0;
-    console.log(`[validateProductionRequirements] Building count for ${buildingType}:`, buildingCount);
+    // console.log(`[validateProductionRequirements] Building count for ${buildingType}:`, buildingCount);
     if (buildingCount === 0) {
         const buildingName = formatBuildingName(buildingType).replace(/^[^\s]+\s/, ''); // Remove emoji
         return { 
@@ -3234,21 +3234,21 @@ function checkTeamHasSchool(game, teamNumber) {
 async function checkChallengeLock(buildingType) {
     const currentTeamNumber = currentPlayer.groupNumber;
     
-    console.log(`[checkChallengeLock] Checking ${buildingType} for player ${currentPlayer.name} (Team ${currentTeamNumber})`);
-    console.log('[checkChallengeLock] allActiveChallenges:', JSON.stringify(allActiveChallenges, null, 2));
+    // console.log(`[checkChallengeLock] Checking ${buildingType} for player ${currentPlayer.name} (Team ${currentTeamNumber})`);
+    // console.log('[checkChallengeLock] allActiveChallenges:', JSON.stringify(allActiveChallenges, null, 2));
     
     // Check all active challenges - any challenge locks ALL buildings
     for (const [key, challenge] of Object.entries(allActiveChallenges)) {
-        console.log(`[checkChallengeLock] Examining challenge key: ${key}`, challenge);
-        console.log(`[checkChallengeLock] Challenge for building: ${challenge.building_type}, team: ${challenge.team_number}`);
-        console.log(`[checkChallengeLock] Current team: ${currentTeamNumber}, Has school: ${challenge.has_school}`);
+        // console.log(`[checkChallengeLock] Examining challenge key: ${key}`, challenge);
+        // console.log(`[checkChallengeLock] Challenge for building: ${challenge.building_type}, team: ${challenge.team_number}`);
+        // console.log(`[checkChallengeLock] Current team: ${currentTeamNumber}, Has school: ${challenge.has_school}`);
         
         // If no school, check team-wide lock (locks all buildings for the team)
         if (!challenge.has_school) {
-            console.log(`[checkChallengeLock] No school - checking team-wide lock`);
+            // console.log(`[checkChallengeLock] No school - checking team-wide lock`);
             // Only lock if same team
             if (challenge.team_number === currentTeamNumber) {
-                console.log(`[checkChallengeLock] LOCKED - Same team, team-wide lock (all buildings locked)`);
+                // console.log(`[checkChallengeLock] LOCKED - Same team, team-wide lock (all buildings locked)`);
                 return {
                     isLocked: true,
                     teamWide: true,
@@ -3258,13 +3258,13 @@ async function checkChallengeLock(buildingType) {
                     activeBuildingType: challenge.building_type
                 };
             } else {
-                console.log(`[checkChallengeLock] Different team (${challenge.team_number} vs ${currentTeamNumber}) - not locked`);
+                // console.log(`[checkChallengeLock] Different team (${challenge.team_number} vs ${currentTeamNumber}) - not locked`);
             }
         } else {
-            console.log(`[checkChallengeLock] Has school - checking individual lock`);
+            // console.log(`[checkChallengeLock] Has school - checking individual lock`);
             // With school, only lock for the specific player (locks all buildings for that player)
             if (challenge.player_id === currentPlayer.id && challenge.team_number === currentTeamNumber) {
-                console.log(`[checkChallengeLock] LOCKED - Same player and team (all buildings locked for this player only)`);
+                // console.log(`[checkChallengeLock] LOCKED - Same player and team (all buildings locked for this player only)`);
                 return {
                     isLocked: true,
                     teamWide: false,
@@ -3274,13 +3274,13 @@ async function checkChallengeLock(buildingType) {
                     activeBuildingType: challenge.building_type
                 };
             } else {
-                console.log(`[checkChallengeLock] Different player (${challenge.player_id} vs ${currentPlayer.id}) or team - NOT locked (has school = individual locks)`);
+                // console.log(`[checkChallengeLock] Different player (${challenge.player_id} vs ${currentPlayer.id}) or team - NOT locked (has school = individual locks)`);
                 // Don't lock - this is a different player and the team has a school
             }
         }
     }
     
-    console.log(`[checkChallengeLock] No locks found - returning unlocked`);
+    // console.log(`[checkChallengeLock] No locks found - returning unlocked`);
     return { isLocked: false };
 }
 
@@ -3424,7 +3424,7 @@ function closeChallengeModal() {
 // ==================== BANK TRADING ====================
 
 async function openBankTradeModal() {
-    console.log('[openBankTradeModal] Called. tradingManager:', tradingManager);
+    // console.log('[openBankTradeModal] Called. tradingManager:', tradingManager);
     
     if (!tradingManager) {
         if (currentPlayer.role !== 'player') {
@@ -3438,10 +3438,10 @@ async function openBankTradeModal() {
     }
     
     try {
-        console.log('[openBankTradeModal] Opening modal...');
+        // console.log('[openBankTradeModal] Opening modal...');
         const modal = document.getElementById('bank-trade-modal');
-        console.log('[openBankTradeModal] Modal element:', modal);
-        console.log('[openBankTradeModal] Modal classList before:', modal ? modal.classList.toString() : 'ELEMENT NOT FOUND');
+        // console.log('[openBankTradeModal] Modal element:', modal);
+        // console.log('[openBankTradeModal] Modal classList before:', modal ? modal.classList.toString() : 'ELEMENT NOT FOUND');
         
         if (!modal) {
             throw new Error('Modal element bank-trade-modal not found in DOM');
@@ -3449,15 +3449,15 @@ async function openBankTradeModal() {
         
         modal.classList.remove('hidden');
         modal.classList.add('show');
-        console.log('[openBankTradeModal] Modal classList after:', modal.classList.toString());
-        console.log('[openBankTradeModal] Modal display style:', window.getComputedStyle(modal).display);
+        // console.log('[openBankTradeModal] Modal classList after:', modal.classList.toString());
+        // console.log('[openBankTradeModal] Modal display style:', window.getComputedStyle(modal).display);
         
         // Load current prices
-        console.log('[openBankTradeModal] Loading bank prices...');
+        // console.log('[openBankTradeModal] Loading bank prices...');
         await tradingManager.loadBankPrices();
         
         // Render price chart for food by default
-        console.log('[openBankTradeModal] Updating price chart...');
+        // console.log('[openBankTradeModal] Updating price chart...');
         await updatePriceChart();
         
         // Reset form
@@ -3466,7 +3466,7 @@ async function openBankTradeModal() {
         document.querySelector('input[name="bank-trade-action"][value="buy"]').checked = true;
         document.getElementById('bank-trade-preview').style.display = 'none';
         
-        console.log('[openBankTradeModal] Modal opened successfully');
+        // console.log('[openBankTradeModal] Modal opened successfully');
     } catch (error) {
         console.error('[openBankTradeModal] Error opening modal:', error);
         alert(`Failed to open trading modal: ${error.message}`);
@@ -4082,39 +4082,39 @@ function clearAllNotifications() {
 // ==================== ACTIVE CHALLENGES DISPLAY ====================
 
 function updateActiveChallenges() {
-    console.log('[updateActiveChallenges] Called');
-    console.log('[updateActiveChallenges] challengeManager exists:', !!challengeManager);
+    // console.log('[updateActiveChallenges] Called');
+    // console.log('[updateActiveChallenges] challengeManager exists:', !!challengeManager);
     
     if (!challengeManager) {
-        console.log('[updateActiveChallenges] No challenge manager, exiting');
+        // console.log('[updateActiveChallenges] No challenge manager, exiting');
         return;
     }
     
     const activeChallengesList = document.getElementById('player-active-challenges-list');
-    console.log('[updateActiveChallenges] player-active-challenges-list element found:', !!activeChallengesList);
+    // console.log('[updateActiveChallenges] player-active-challenges-list element found:', !!activeChallengesList);
     
     if (!activeChallengesList) return;
     
     // Get assigned challenges for the current player's team
     const assignedChallenges = challengeManager.getAssignedChallenges();
-    console.log('[updateActiveChallenges] Assigned challenges count:', assignedChallenges.length);
-    console.log('[updateActiveChallenges] Assigned challenges:', assignedChallenges);
-    console.log('[updateActiveChallenges] Current player:', currentPlayer);
+    // console.log('[updateActiveChallenges] Assigned challenges count:', assignedChallenges.length);
+    // console.log('[updateActiveChallenges] Assigned challenges:', assignedChallenges);
+    // console.log('[updateActiveChallenges] Current player:', currentPlayer);
     
     // Log each challenge in detail
     assignedChallenges.forEach((ch, idx) => {
-        console.log(`[updateActiveChallenges] Challenge ${idx}:`, ch);
-        console.log(`[updateActiveChallenges] Challenge ${idx} - team_number:`, ch.team_number, 'player groupNumber:', currentPlayer.groupNumber);
-        console.log(`[updateActiveChallenges] Challenge ${idx} - player_id:`, ch.player_id, 'current player id:', currentPlayer.id);
+        // console.log(`[updateActiveChallenges] Challenge ${idx}:`, ch);
+        // console.log(`[updateActiveChallenges] Challenge ${idx} - team_number:`, ch.team_number, 'player groupNumber:', currentPlayer.groupNumber);
+        // console.log(`[updateActiveChallenges] Challenge ${idx} - player_id:`, ch.player_id, 'current player id:', currentPlayer.id);
     });
     
     if (assignedChallenges.length === 0) {
-        console.log('[updateActiveChallenges] No challenges - showing empty state');
+        // console.log('[updateActiveChallenges] No challenges - showing empty state');
         activeChallengesList.innerHTML = '<p class="no-challenges">No active challenges</p>';
         return;
     }
     
-    console.log('[updateActiveChallenges] Processing challenges for display...');
+    // console.log('[updateActiveChallenges] Processing challenges for display...');
     
     // Sort challenges by time remaining (ascending - most urgent first)
     const sortedChallenges = assignedChallenges.sort((a, b) => {
@@ -4177,8 +4177,8 @@ function updateActiveChallenges() {
         `;
     }).join('');
     
-    console.log('[updateActiveChallenges] Generated HTML length:', activeChallengesList.innerHTML.length);
-    console.log('[updateActiveChallenges] First 200 chars of HTML:', activeChallengesList.innerHTML.substring(0, 200));
+    // console.log('[updateActiveChallenges] Generated HTML length:', activeChallengesList.innerHTML.length);
+    // console.log('[updateActiveChallenges] First 200 chars of HTML:', activeChallengesList.innerHTML.substring(0, 200));
 }
 
 // Start updating active challenges every second
@@ -4202,7 +4202,7 @@ function startActiveChallengesUpdate() {
         if (challengeRefreshCounter >= 10) {
             challengeRefreshCounter = 0;
             if (challengeManager) {
-                console.log('[startActiveChallengesUpdate] Refreshing challenges from server...');
+                // console.log('[startActiveChallengesUpdate] Refreshing challenges from server...');
                 challengeManager.loadFromServer();
             }
         }
@@ -4436,7 +4436,7 @@ async function giveBuildings() {
 function handleGameEvent(data) {
     const { event_type, data: eventData } = data;
     
-    console.log(`[WebSocket Event] Received event_type: ${event_type}`, eventData);
+    // console.log(`[WebSocket Event] Received event_type: ${event_type}`, eventData);
     
     // Handle notification-type messages (challenge assignments/completions sent to teams)
     if (data.type === 'notification' && data.notification_type) {
@@ -4489,7 +4489,7 @@ function handleGameEvent(data) {
             }
             
             // Log and UI updates
-            console.log(`[challenge_request] Received for player ${eventData.player_name}`);
+            // console.log(`[challenge_request] Received for player ${eventData.player_name}`);
             addEventLog(`Challenge requested by ${eventData.player_name} (Team ${eventData.team_number}) for ${eventData.building_name}`, 'info');
             
             // Update UI for team members
@@ -4528,7 +4528,7 @@ function handleGameEvent(data) {
                     if (game.game_state) {
                         gameState = game.game_state;
                         loadHostBankerView();
-                        console.log('[challenge_completed] Refreshed banker view, new inventory:', gameState.bank_inventory);
+                        // console.log('[challenge_completed] Refreshed banker view, new inventory:', gameState.bank_inventory);
                     }
                 })();
             }
@@ -4609,7 +4609,7 @@ function handleGameEvent(data) {
             break;
         case 'team_name_changed':
             // Team name has been changed by host
-            console.log(`[team_name_changed] Team ${eventData.team_number} renamed to "${eventData.team_name}"`);
+            // console.log(`[team_name_changed] Team ${eventData.team_number} renamed to "${eventData.team_name}"`);
             
             // Refresh all displays that show team names
             refreshAllTeamNameDisplays();
@@ -4618,7 +4618,7 @@ function handleGameEvent(data) {
             break;
         case 'building_constructed':
             // Building has been constructed by a team
-            console.log(`[building_constructed] Team ${eventData.team_number} built ${eventData.building_type}`);
+            // console.log(`[building_constructed] Team ${eventData.team_number} built ${eventData.building_type}`);
             
             // Update local state if this is our team
             if (eventData.team_number === currentPlayer.groupNumber) {
@@ -4772,7 +4772,7 @@ async function refreshAllTeamNameDisplays() {
             }
         });
         
-        console.log('[refreshAllTeamNameDisplays] All team name displays refreshed');
+        // console.log('[refreshAllTeamNameDisplays] All team name displays refreshed');
     } catch (error) {
         console.error('Error refreshing team name displays:', error);
     }
@@ -4994,9 +4994,9 @@ async function applyTeamConfiguration() {
     }
     
     try {
-        console.log('Applying team configuration:', numTeams);
+        // console.log('Applying team configuration:', numTeams);
         const response = await gameAPI.setNumTeams(currentGameCode, numTeams);
-        console.log('Team configuration response:', response);
+        // console.log('Team configuration response:', response);
         
         const statusSpan = document.getElementById('teams-status-modal');
         if (statusSpan) {
@@ -5007,9 +5007,9 @@ async function applyTeamConfiguration() {
         addEventLog(`Team configuration updated: ${numTeams} teams`, 'info');
         
         // Reload team boxes
-        console.log('Reloading team boxes...');
+        // console.log('Reloading team boxes...');
         await loadGameAndCreateTeamBoxes();
-        console.log('Team boxes reloaded successfully');
+        // console.log('Team boxes reloaded successfully');
         
         alert(`Team configuration saved: ${numTeams} teams`);
     } catch (error) {
@@ -5092,7 +5092,7 @@ function updateTestModeToggleState() {
 
 // Test Mode Toggle
 function toggleTestMode(enabled) {
-    console.log('Test mode toggled:', enabled);
+    // console.log('Test mode toggled:', enabled);
     
     // Only allow hosts to enable test mode
     if (enabled && currentPlayer && currentPlayer.role !== 'host') {
@@ -5154,7 +5154,7 @@ function toggleTestMode(enabled) {
 
 // Switch the dashboard view to simulate different roles
 function switchRoleView(role) {
-    console.log('Switching view to role:', role);
+    // console.log('Switching view to role:', role);
     
     // Hide all role dashboards
     const hostDashboard = document.getElementById('host-dashboard');
@@ -5169,7 +5169,7 @@ function switchRoleView(role) {
         case 'banker':
             // Restore original player when switching back to host/banker view
             if (originalPlayer) {
-                console.log(`[switchRoleView] Restoring original player: ${originalPlayer.name} (ID: ${originalPlayer.id})`);
+                // console.log(`[switchRoleView] Restoring original player: ${originalPlayer.name} (ID: ${originalPlayer.id})`);
                 currentPlayer = { ...originalPlayer };
                 
                 // Reconnect WebSocket with original player ID
@@ -5179,7 +5179,7 @@ function switchRoleView(role) {
                     gameWS = new GameWebSocket(currentGameCode, currentPlayer.id, wsBaseUrl);
                     
                     gameWS.on('connected', () => {
-                        console.log(`[switchRoleView] WebSocket reconnected as original player ${currentPlayer.name}`);
+                        // console.log(`[switchRoleView] WebSocket reconnected as original player ${currentPlayer.name}`);
                     });
                     
                     gameWS.on('game_event', (data) => {
@@ -5344,7 +5344,7 @@ function showPlayerDashboardContent() {
 
 async function switchPlayerView(playerId) {
     if (!playerId) {
-        console.log('No player selected');
+        // console.log('No player selected');
         hidePlayerDashboardContent();
         return;
     }
@@ -5367,16 +5367,16 @@ async function switchPlayerView(playerId) {
             groupNumber: selectedPlayer.group_number
         };
         
-        console.log(`[switchPlayerView] Now viewing as: ${currentPlayer.name} (ID: ${currentPlayer.id}, Team: ${currentPlayer.groupNumber})`);
+        // console.log(`[switchPlayerView] Now viewing as: ${currentPlayer.name} (ID: ${currentPlayer.id}, Team: ${currentPlayer.groupNumber})`);
         
         // DON'T clear allActiveChallenges - they should persist across player switches
         // The WebSocket events keep them synchronized
-        console.log(`[switchPlayerView] Keeping allActiveChallenges:`, allActiveChallenges);
+        // console.log(`[switchPlayerView] Keeping allActiveChallenges:`, allActiveChallenges);
         
         // DON'T reconnect WebSocket in test mode - keep the original host/banker connection
         // This ensures challenge requests are received even when viewing as a player
-        console.log(`[switchPlayerView] Keeping WebSocket connected as original player (${originalPlayer.name})`);
-        console.log(`[switchPlayerView] Events will be received and processed based on the original connection`)
+        // console.log(`[switchPlayerView] Keeping WebSocket connected as original player (${originalPlayer.name})`);
+        // console.log(`[switchPlayerView] Events will be received and processed based on the original connection`)
         
         // Show the dashboard content AFTER currentPlayer is updated
         showPlayerDashboardContent();
@@ -5498,7 +5498,7 @@ function reorderTabsForRole(role) {
 
 // Switch between host dashboard tabs
 function switchHostTab(tabName) {
-    console.log('Switching to tab:', tabName);
+    // console.log('Switching to tab:', tabName);
     
     // Remove active class from all tabs
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -5629,8 +5629,8 @@ function updateActiveChallengesList() {
     // Get assigned challenges from challenge manager (already filtered by role)
     const activeChallengesList = challengeManager ? challengeManager.getAssignedChallenges() : [];
     
-    console.log(`[updateActiveChallengesList] Role: ${currentPlayer.role}`);
-    console.log(`[updateActiveChallengesList] Filtered challenges:`, activeChallengesList);
+    // console.log(`[updateActiveChallengesList] Role: ${currentPlayer.role}`);
+    // console.log(`[updateActiveChallengesList] Filtered challenges:`, activeChallengesList);
     
     if (activeChallengesList.length === 0) {
         listDiv.innerHTML = '<p style="color: #999; font-style: italic;">No active challenges</p>';
@@ -5693,17 +5693,17 @@ function startChallengeTimers() {
     // This function is kept for backward compatibility but is no longer needed.
     // The challenge manager's timer calls the onChallengesUpdated callback,
     // which triggers updateActiveChallengesList() to refresh the UI.
-    console.log('[startChallengeTimers] Challenge manager handles timers automatically');
+    // console.log('[startChallengeTimers] Challenge manager handles timers automatically');
 }
 
 // Complete challenge and grant resources (host/banker only)
 async function completeChallengeAndGrantResources(playerId, buildingType, teamNumber) {
-    console.log('[completeChallengeAndGrantResources] Called for player:', playerId, 'building:', buildingType, 'team:', teamNumber);
-    console.log('[completeChallengeAndGrantResources] playerId type:', typeof playerId);
+    // console.log('[completeChallengeAndGrantResources] Called for player:', playerId, 'building:', buildingType, 'team:', teamNumber);
+    // console.log('[completeChallengeAndGrantResources] playerId type:', typeof playerId);
     
     // Convert playerId to number if it's a string
     const playerIdNum = typeof playerId === 'string' ? parseInt(playerId) : playerId;
-    console.log('[completeChallengeAndGrantResources] playerIdNum:', playerIdNum);
+    // console.log('[completeChallengeAndGrantResources] playerIdNum:', playerIdNum);
     
     // Find challenge - check challenge manager first
     let challenge = null;
@@ -5711,24 +5711,24 @@ async function completeChallengeAndGrantResources(playerId, buildingType, teamNu
     
     if (challengeManager) {
         const assignedChallenges = challengeManager.getAssignedChallenges();
-        console.log('[completeChallengeAndGrantResources] Assigned challenges:', assignedChallenges);
+        // console.log('[completeChallengeAndGrantResources] Assigned challenges:', assignedChallenges);
         challenge = assignedChallenges.find(
             ch => ch.player_id === playerIdNum && ch.building_type === buildingType
         );
         if (challenge) {
             challengeDbId = challenge.db_id;
-            console.log('[completeChallengeAndGrantResources] Found in challenge manager, db_id:', challengeDbId);
+            // console.log('[completeChallengeAndGrantResources] Found in challenge manager, db_id:', challengeDbId);
         }
     }
     
     // Fall back to legacy object
     if (!challenge) {
         const challengeKey = `team${teamNumber}-${buildingType}`;
-        console.log('[completeChallengeAndGrantResources] Trying legacy key:', challengeKey);
+        // console.log('[completeChallengeAndGrantResources] Trying legacy key:', challengeKey);
         challenge = allActiveChallenges[challengeKey];
         if (challenge) {
             challengeDbId = challenge.db_id;
-            console.log('[completeChallengeAndGrantResources] Found in allActiveChallenges');
+            // console.log('[completeChallengeAndGrantResources] Found in allActiveChallenges');
         }
     }
     
@@ -5739,7 +5739,7 @@ async function completeChallengeAndGrantResources(playerId, buildingType, teamNu
         return;
     }
     
-    console.log('[completeChallengeAndGrantResources] Challenge found:', challenge);
+    // console.log('[completeChallengeAndGrantResources] Challenge found:', challenge);
     
     try {
         // Get production grant info
@@ -5805,13 +5805,13 @@ async function completeChallengeAndGrantResources(playerId, buildingType, teamNu
         }
         
         const result = await response.json();
-        console.log('[completeChallengeAndGrantResources] Bank transfer result:', result);
+        // console.log('[completeChallengeAndGrantResources] Bank transfer result:', result);
         
         // Complete challenge via challenge manager
         if (challengeManager && challengeDbId) {
             try {
                 await challengeManager.completeChallenge(challengeDbId);
-                console.log('[completeChallengeAndGrantResources] ✅ Challenge completed via manager');
+                // console.log('[completeChallengeAndGrantResources] ✅ Challenge completed via manager');
             } catch (error) {
                 console.error('[completeChallengeAndGrantResources] ❌ Failed to complete via manager:', error);
             }
@@ -5855,7 +5855,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
         return;
     }
     
-    console.log('[cancelActiveChallenge] Called for player:', playerId, 'building:', buildingType);
+    // console.log('[cancelActiveChallenge] Called for player:', playerId, 'building:', buildingType);
     
     // Find challenge - check challenge manager first
     let challenge = null;
@@ -5868,7 +5868,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
         );
         if (challenge) {
             challengeDbId = challenge.db_id;
-            console.log('[cancelActiveChallenge] Found in challenge manager, db_id:', challengeDbId);
+            // console.log('[cancelActiveChallenge] Found in challenge manager, db_id:', challengeDbId);
         }
     }
     
@@ -5878,7 +5878,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
         challenge = allActiveChallenges[challengeKey];
         if (challenge) {
             challengeDbId = challenge.db_id;
-            console.log('[cancelActiveChallenge] Found in allActiveChallenges');
+            // console.log('[cancelActiveChallenge] Found in allActiveChallenges');
         }
     }
     
@@ -5891,7 +5891,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
     if (challengeManager && challengeDbId) {
         try {
             await challengeManager.cancelChallenge(challengeDbId);
-            console.log('[cancelActiveChallenge] ✅ Challenge cancelled via manager');
+            // console.log('[cancelActiveChallenge] ✅ Challenge cancelled via manager');
         } catch (error) {
             console.error('[cancelActiveChallenge] ❌ Failed to cancel via manager:', error);
         }
