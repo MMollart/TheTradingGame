@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Trading Game</title>
+    <!-- Version: 2025-11-05 OSM Login -->
     <style>
         * {
             margin: 0;
@@ -231,6 +232,7 @@
                 </div>
                 
                 <button onclick="performLogin()">🔐 Login</button>
+                <button onclick="loginWithOSM()" style="margin-top: 10px; background: #007bff;">🔗 Login with Online Scout Manager</button>
                 <button onclick="skipAuth()" style="margin-top: 10px; background: #6c757d;">⚡ Quick Start (No Account)</button>
             </div>
             
@@ -477,6 +479,11 @@
             currentUser = null;
             authToken = null;
             showGameScreen();
+        }
+
+        // Login with Online Scout Manager
+        function loginWithOSM() {
+            window.location.href = '/oauth/osm/authorize';
         }
         
         // Logout

@@ -25,8 +25,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+def verify_password(plain_password: str, hashed_password: Optional[str]) -> bool:
     """Verify a password against its hash"""
+    # OSM users have no password (None or empty string)
+    if not hashed_password:
+        return False
     return pwd_context.verify(plain_password, hashed_password)
 
 
