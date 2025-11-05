@@ -6,10 +6,13 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
+import logging
 from dotenv import load_dotenv
 from typing import Optional
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Email configuration from environment variables
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
@@ -35,7 +38,7 @@ def send_email(to_email: str, subject: str, html_body: str, text_body: Optional[
     """
     # Skip if email not configured
     if not SMTP_USERNAME or not SMTP_PASSWORD:
-        print(f"Email not configured. Would have sent to {to_email}: {subject}")
+        logger.info(f"Email not configured. Would have sent to {to_email}: {subject}")
         return False
     
     try:
@@ -59,11 +62,11 @@ def send_email(to_email: str, subject: str, html_body: str, text_body: Optional[
             server.login(SMTP_USERNAME, SMTP_PASSWORD)
             server.send_message(msg)
         
-        print(f"Email sent successfully to {to_email}")
+        logger.info(f"Email sent successfully to {to_email}")
         return True
     
     except Exception as e:
-        print(f"Failed to send email to {to_email}: {str(e)}")
+        logger.error(f"Failed to send email to {to_email}: {str(e)}")
         return False
 
 

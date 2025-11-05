@@ -13,6 +13,7 @@ from datetime import timedelta, datetime
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import asyncio
+import logging
 from pathlib import Path
 
 from database import get_db, init_db
@@ -38,6 +39,9 @@ from email_utils import send_registration_email
 from challenge_api import router as challenge_router_v2
 from trading_api import router as trading_router_v2
 from pricing_manager import PricingManager
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="The Trading Game",
@@ -127,7 +131,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     try:
         send_registration_email(user.username, user.email)
     except Exception as e:
-        print(f"Failed to send registration email: {str(e)}")
+        logger.warning(f"Failed to send registration email: {str(e)}")
     
     return db_user
 
@@ -893,9 +897,9 @@ async def auto_assign_groups(
     db.commit()
     
     # Broadcast WebSocket events for each assigned player
-    print(f"[auto_assign_groups] Broadcasting {len(assigned_players_list)} team assignments")
+    logger.info(f"[auto_assign_groups] Broadcasting {len(assigned_players_list)} team assignments")
     for assignment in assigned_players_list:
-        print(f"[auto_assign_groups] Broadcasting: player_id={assignment['player_id']}, team={assignment['team_number']}")
+        logger.debug(f"[auto_assign_groups] Broadcasting: player_id={assignment['player_id']}, team={assignment['team_number']}")
         await manager.broadcast_to_game(
             game_code.upper(),
             {
@@ -905,7 +909,7 @@ async def auto_assign_groups(
                 "team_number": assignment['team_number']
             }
         )
-        print(f"[auto_assign_groups] Broadcast complete for player {assignment['player_id']}")
+        logger.debug(f"[auto_assign_groups] Broadcast complete for player {assignment['player_id']}")
     
     # Initialize game state with team configurations if not exists
     if not game.game_state:
@@ -1518,8 +1522,8 @@ async def complete_challenge_with_bank_transfer(
     resource_type = request_body.get('resource_type')
     amount = request_body.get('amount')
     
-    print(f"[complete_challenge] game_code={game_code}, challenge_id={challenge_id}")
-    print(f"[complete_challenge] team_number={team_number}, resource_type={resource_type}, amount={amount}")
+    logger.debug(f"[complete_challenge] game_code={game_code}, challenge_id={challenge_id}")
+    logger.debug(f"[complete_challenge] team_number={team_number}, resource_type={resource_type}, amount={amount}")
     
     game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
     if not game:
@@ -1541,7 +1545,7 @@ async def complete_challenge_with_bank_transfer(
     if not bank_manager:
         raise HTTPException(status_code=404, detail="No banker or host found to manage bank inventory")
     
-    print(f"[complete_challenge] Bank manager ({bank_manager.role}) found: {bank_manager.id}, player_state type: {type(bank_manager.player_state)}")
+    logger.debug(f"[complete_challenge] Bank manager ({bank_manager.role}) found: {bank_manager.id}, player_state type: {type(bank_manager.player_state)}")
     
     # Check bank inventory
     if not bank_manager.player_state:
@@ -1556,8 +1560,8 @@ async def complete_challenge_with_bank_transfer(
     bank_inventory = bank_manager.player_state.get('bank_inventory', {})
     current_inventory = bank_inventory.get(resource_type, 0)
     
-    print(f"[complete_challenge] BEFORE - Bank inventory: {bank_inventory}")
-    print(f"[complete_challenge] Current {resource_type}: {current_inventory}, Requested: {amount}")
+    logger.debug(f"[complete_challenge] BEFORE - Bank inventory: {bank_inventory}")
+    logger.debug(f"[complete_challenge] Current {resource_type}: {current_inventory}, Requested: {amount}")
     
     if current_inventory < amount:
         raise HTTPException(
@@ -1569,8 +1573,8 @@ async def complete_challenge_with_bank_transfer(
     bank_manager.player_state['bank_inventory'][resource_type] = current_inventory - amount
     flag_modified(bank_manager, 'player_state')
     
-    print(f"[complete_challenge] AFTER - Bank inventory: {bank_manager.player_state['bank_inventory']}")
-    print(f"[complete_challenge] New {resource_type}: {bank_manager.player_state['bank_inventory'][resource_type]}")
+    logger.debug(f"[complete_challenge] AFTER - Bank inventory: {bank_manager.player_state['bank_inventory']}")
+    logger.debug(f"[complete_challenge] New {resource_type}: {bank_manager.player_state['bank_inventory'][resource_type]}")
     
     # Add to team resources
     team_key = str(team_number)
@@ -1803,16 +1807,16 @@ async def update_challenge(
     challenge_description = update_data.get('challenge_description')
     target_number = update_data.get('target_number')
     
-    print(f"[update_challenge] game_code: {game_code}, challenge_id: {challenge_id}")
-    print(f"[update_challenge] Received update_data: {update_data}")
-    print(f"[update_challenge] status: {status}, type: {type(status)}")
+    logger.debug(f"[update_challenge] game_code: {game_code}, challenge_id: {challenge_id}")
+    logger.debug(f"[update_challenge] Received update_data: {update_data}")
+    logger.debug(f"[update_challenge] status: {status}, type: {type(status)}")
     
     game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
     if not game:
-        print(f"[update_challenge] ❌ Game not found: {game_code.upper()}")
+        logger.warning(f"[update_challenge] Game not found: {game_code.upper()}")
         raise HTTPException(status_code=404, detail="Game not found")
     
-    print(f"[update_challenge] ✅ Game found, ID: {game.id}")
+    logger.debug(f"[update_challenge] Game found, ID: {game.id}")
     
     challenge = db.query(Challenge).filter(
         Challenge.id == challenge_id,
@@ -1820,13 +1824,13 @@ async def update_challenge(
     ).first()
     
     if not challenge:
-        print(f"[update_challenge] ❌ Challenge not found - ID: {challenge_id}, game_session_id: {game.id}")
+        logger.warning(f"[update_challenge] Challenge not found - ID: {challenge_id}, game_session_id: {game.id}")
         # Log all challenges for this game to debug
         all_challenges = db.query(Challenge).filter(Challenge.game_session_id == game.id).all()
-        print(f"[update_challenge] Available challenges for this game: {[(c.id, c.player_id, c.building_type) for c in all_challenges]}")
+        logger.debug(f"[update_challenge] Available challenges for this game: {[(c.id, c.player_id, c.building_type) for c in all_challenges]}")
         raise HTTPException(status_code=404, detail="Challenge not found")
     
-    print(f"[update_challenge] ✅ Challenge found: ID {challenge.id}, player_id: {challenge.player_id}, building: {challenge.building_type}")
+    logger.debug(f"[update_challenge] Challenge found: ID {challenge.id}, player_id: {challenge.player_id}, building: {challenge.building_type}")
     
     # Update fields
     if status:

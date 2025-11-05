@@ -29,11 +29,11 @@ class ChallengeWebSocketClient {
   connect() {
     const wsUrl = `ws://localhost:8000/ws/${this.gameCode}/${this.playerId}`;
     
-    console.log(`[ChallengeWS] Connecting to ${wsUrl}`);
+    // console.log(`[ChallengeWS] Connecting to ${wsUrl}`);
     this.ws = new WebSocket(wsUrl);
     
     this.ws.onopen = () => {
-      console.log('[ChallengeWS] Connected');
+      // console.log('[ChallengeWS] Connected');
       this.reconnectAttempts = 0;
     };
     
@@ -47,7 +47,7 @@ class ChallengeWebSocketClient {
     };
     
     this.ws.onclose = () => {
-      console.log('[ChallengeWS] Disconnected');
+      // console.log('[ChallengeWS] Disconnected');
       this.attemptReconnect();
     };
   }
@@ -56,7 +56,7 @@ class ChallengeWebSocketClient {
    * Handle incoming WebSocket messages
    */
   handleMessage(data) {
-    console.log('[ChallengeWS] Received:', data);
+    // console.log('[ChallengeWS] Received:', data);
     
     const { type, challenge } = data;
     
@@ -93,7 +93,7 @@ class ChallengeWebSocketClient {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
     
-    console.log(`[ChallengeWS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    // console.log(`[ChallengeWS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
     setTimeout(() => this.connect(), delay);
   }
 
@@ -123,16 +123,16 @@ class ChallengeWebSocketClient {
  *   
  *   useChallengeWebSocket(gameCode, playerId, {
  *     onChallengeRequested: (challenge) => {
- *       console.log('New challenge requested:', challenge);
+ *       // console.log('New challenge requested:', challenge);
  *       // Host/Banker sees this in their pending challenges list
  *     },
  *     onChallengeAssigned: (challenge) => {
- *       console.log('Challenge assigned:', challenge);
+ *       // console.log('Challenge assigned:', challenge);
  *       // Player sees this - move to active challenges tab
  *       setChallenges(prev => [...prev, challenge]);
  *     },
  *     onChallengeCompleted: (challenge) => {
- *       console.log('Challenge completed:', challenge);
+ *       // console.log('Challenge completed:', challenge);
  *       // Remove from active challenges
  *       setChallenges(prev => prev.filter(c => c.id !== challenge.id));
  *     }
@@ -200,7 +200,7 @@ export function useChallengeWebSocket(gameCode, playerId, callbacks = {}) {
 const playerA = new ChallengeWebSocketClient('ABC123', 1);
 
 playerA.on('challenge_assigned', (challenge) => {
-  console.log('[Player A] My challenge is ready!', challenge);
+  // console.log('[Player A] My challenge is ready!', challenge);
   // Show challenge in UI
   showActiveChallenge(challenge);
   // Start timer countdown
@@ -208,7 +208,7 @@ playerA.on('challenge_assigned', (challenge) => {
 });
 
 playerA.on('challenge_completed', (challenge) => {
-  console.log('[Player A] Challenge completed!', challenge);
+  // console.log('[Player A] Challenge completed!', challenge);
   // Remove from active challenges
   removeActiveChallenge(challenge.id);
   // Show success message
@@ -222,7 +222,7 @@ playerA.connect();
 const hostBanker = new ChallengeWebSocketClient('ABC123', 2);
 
 hostBanker.on('challenge_requested', (challenge) => {
-  console.log('[Host] New challenge request:', challenge);
+  // console.log('[Host] New challenge request:', challenge);
   // Add to pending challenges list
   addToPendingChallenges(challenge);
   // Show notification
@@ -230,13 +230,13 @@ hostBanker.on('challenge_requested', (challenge) => {
 });
 
 hostBanker.on('challenge_assigned', (challenge) => {
-  console.log('[Host] Challenge assigned:', challenge);
+  // console.log('[Host] Challenge assigned:', challenge);
   // Move from pending to active
   movePendingToActive(challenge);
 });
 
 hostBanker.on('challenge_completed', (challenge) => {
-  console.log('[Host] Challenge completed by player:', challenge);
+  // console.log('[Host] Challenge completed by player:', challenge);
   // Remove from active challenges
   removeFromActiveChallenges(challenge.id);
 });
@@ -318,17 +318,17 @@ function removeFromActiveChallenges(challengeId) {
 
 function showNotification(message) {
   // Show toast notification
-  console.log('Notification:', message);
+  // console.log('Notification:', message);
 }
 
 function showSuccessMessage(message) {
   // Show success modal/toast
-  console.log('Success:', message);
+  // console.log('Success:', message);
 }
 
 function startChallengeTimer(seconds) {
   // Start countdown timer
-  console.log('Starting timer:', seconds);
+  // console.log('Starting timer:', seconds);
 }
 
 
@@ -357,7 +357,7 @@ async function assignChallenge(challengeId) {
   
   if (response.ok) {
     // WebSocket will handle UI update automatically
-    console.log('Challenge assigned successfully');
+    // console.log('Challenge assigned successfully');
   } else {
     console.error('Failed to assign challenge');
   }
@@ -373,7 +373,7 @@ async function completeChallenge(challengeId) {
   
   if (response.ok) {
     // WebSocket will handle UI update automatically
-    console.log('Challenge completed successfully');
+    // console.log('Challenge completed successfully');
   } else {
     console.error('Failed to complete challenge');
   }
@@ -389,7 +389,7 @@ async function cancelChallenge(challengeId) {
   
   if (response.ok) {
     // WebSocket will handle UI update automatically
-    console.log('Challenge cancelled successfully');
+    // console.log('Challenge cancelled successfully');
   } else {
     console.error('Failed to cancel challenge');
   }
