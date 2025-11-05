@@ -33,9 +33,9 @@ def test_host_can_complete_challenge_without_banker(client, sample_game, db):
     assert approve_response.status_code == 200
     
     # Assign player to Team 1
-    assign_response = client.post(
-        f"/games/{game_code}/players/{player_id}/assign-team",
-        params={"team_number": 1}
+    assign_response = client.put(
+        f"/games/{game_code}/players/{player_id}/assign-group",
+        params={"group_number": 1}
     )
     assert assign_response.status_code == 200
     
@@ -91,7 +91,7 @@ def test_host_can_complete_challenge_without_banker(client, sample_game, db):
     
     assert response_data["success"] is True
     assert "Transferred" in response_data["message"]
-    assert response_data["bank_remaining"] == 985  # 1000 - 15
+    assert response_data["bank_remaining"] == 135  # 150 (1 team * 150) - 15
     assert response_data["team_total"] >= 15  # At least the transferred amount
     
     # Verify challenge status
@@ -103,7 +103,8 @@ def test_host_can_complete_challenge_without_banker(client, sample_game, db):
 @pytest.mark.quick
 def test_host_bank_inventory_initialized(client, sample_game, db):
     """
-    Test that host's bank inventory is properly initialized when completing a challenge.
+    Test that bank inventory is properly initialized in game_state when completing a challenge.
+    Bank inventory is now stored in game_state, not player_state.
     """
     game_code = sample_game["game_code"]
     
@@ -118,21 +119,18 @@ def test_host_bank_inventory_initialized(client, sample_game, db):
     
     # Approve and assign to team
     client.put(f"/games/{game_code}/players/{player_id}/approve")
-    client.post(f"/games/{game_code}/players/{player_id}/assign-team", params={"team_number": 1})
+    client.put(f"/games/{game_code}/players/{player_id}/assign-group", params={"group_number": 1})
     
-    # Start the game
+    # Start the game (this should initialize bank_inventory in game_state)
     client.post(f"/games/{game_code}/start")
     
-    # Get the host player
+    # Get the game
     game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
-    host = db.query(Player).filter(
-        Player.game_session_id == game.id,
-        Player.role == "host"
-    ).first()
     
-    # Before completing a challenge, host might not have bank inventory
-    initial_state = host.player_state or {}
-    assert 'bank_inventory' not in initial_state or initial_state.get('bank_inventory') == {}
+    # Bank inventory should be initialized in game_state after game starts
+    assert game.game_state is not None
+    assert 'bank_inventory' in game.game_state
+    initial_food = game.game_state['bank_inventory']['food']
     
     # Create and complete a challenge
     challenge = Challenge(
@@ -162,17 +160,17 @@ def test_host_bank_inventory_initialized(client, sample_game, db):
     )
     assert complete_response.status_code == 200
     
-    # Verify host now has initialized bank inventory
-    db.refresh(host)
-    assert host.player_state is not None
-    assert 'bank_inventory' in host.player_state
-    assert host.player_state['bank_inventory']['food'] == 985  # 1000 - 15
+    # Verify bank inventory in game_state was updated
+    db.refresh(game)
+    assert 'bank_inventory' in game.game_state
+    assert game.game_state['bank_inventory']['food'] == initial_food - 15
 
 
 @pytest.mark.quick
 def test_banker_takes_precedence_over_host(client, sample_game, db):
     """
-    Test that if both banker and host exist, banker is used for bank management.
+    Test that bank inventory is stored in game_state regardless of whether banker or host exists.
+    Bank inventory is now at game level, not player level.
     """
     game_code = sample_game["game_code"]
     
@@ -196,9 +194,9 @@ def test_banker_takes_precedence_over_host(client, sample_game, db):
     
     # Approve and assign player to team
     client.put(f"/games/{game_code}/players/{player_id}/approve")
-    client.post(f"/games/{game_code}/players/{player_id}/assign-team", params={"team_number": 1})
+    client.put(f"/games/{game_code}/players/{player_id}/assign-group", params={"group_number": 1})
     
-    # Start the game (this initializes banker's bank_inventory)
+    # Start the game (this initializes bank_inventory in game_state)
     client.post(f"/games/{game_code}/start")
     
     # Verify both banker and host exist
@@ -214,9 +212,12 @@ def test_banker_takes_precedence_over_host(client, sample_game, db):
     assert banker is not None
     assert host is not None
     
-    # Banker should have initialized bank inventory
-    assert 'bank_inventory' in banker.player_state
-    initial_banker_food = banker.player_state['bank_inventory']['food']
+    # Bank inventory should be in game_state, not player_state
+    assert 'bank_inventory' in game.game_state
+    initial_food = game.game_state['bank_inventory']['food']
+    
+    # Banker should NOT have bank_inventory in player_state anymore
+    assert 'bank_inventory' not in banker.player_state
     
     # Create and complete a challenge
     challenge = Challenge(
@@ -246,10 +247,12 @@ def test_banker_takes_precedence_over_host(client, sample_game, db):
     )
     assert complete_response.status_code == 200
     
-    # Verify banker's inventory was used (not host's)
+    # Verify game_state bank inventory was updated
+    db.refresh(game)
+    assert game.game_state['bank_inventory']['food'] == initial_food - 15
+    
+    # Neither banker nor host should have bank_inventory in their player_state
     db.refresh(banker)
     db.refresh(host)
-    assert banker.player_state['bank_inventory']['food'] == initial_banker_food - 15
-    
-    # Host should not have bank_inventory (since banker exists)
-    assert 'bank_inventory' not in host.player_state or host.player_state.get('bank_inventory', {}).get('food', 0) == 0
+    assert 'bank_inventory' not in banker.player_state
+    assert 'bank_inventory' not in (host.player_state or {})

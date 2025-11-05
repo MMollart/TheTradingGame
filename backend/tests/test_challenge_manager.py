@@ -63,14 +63,25 @@ def challenge_manager(db):
 
 @pytest.fixture
 def banker(db, game_session):
-    """Create a banker player with initial inventory"""
+    """Create a banker player - bank_inventory now stored in game_state"""
     banker = Player(
         game_session_id=game_session.id,
         player_name="Banker",
         role=PlayerRole.BANKER,
-        player_state={'bank_inventory': {'food': 1000, 'raw_materials': 1000, 'electrical_goods': 1000, 'medical_goods': 1000}}
+        player_state={}  # Bank inventory no longer in player_state
     )
     db.add(banker)
+    
+    # Initialize bank inventory in game_state instead
+    if not game_session.game_state:
+        game_session.game_state = {}
+    game_session.game_state['bank_inventory'] = {
+        'food': 1000, 
+        'raw_materials': 1000, 
+        'electrical_goods': 1000, 
+        'medical_goods': 1000
+    }
+    
     db.commit()
     db.refresh(banker)
     return banker
@@ -99,22 +110,23 @@ class TestChallengeCreation:
     @pytest.mark.asyncio
     async def test_create_challenge_request(self, challenge_manager, game_session, player, db):
         """Test creating a new challenge request"""
-        # Create banker with initial inventory
+        # Create banker (bank_inventory now in game_state)
         banker = Player(
             game_session_id=game_session.id,
             player_name="Banker",
             role=PlayerRole.BANKER,
-            player_state={'bank_inventory': {'food': 1000, 'raw_materials': 1000}}
+            player_state={}
         )
         db.add(banker)
         
-        # Initialize game state with team buildings
+        # Initialize game state with team buildings and bank inventory
         game_session.game_state = {
             'teams': {
                 '1': {
                     'buildings': {'farm': 1}
                 }
-            }
+            },
+            'bank_inventory': {'food': 1000, 'raw_materials': 1000}
         }
         db.commit()
         
@@ -137,22 +149,23 @@ class TestChallengeCreation:
     @pytest.mark.asyncio
     async def test_prevent_duplicate_request(self, challenge_manager, game_session, player, db):
         """Test that duplicate requests are prevented"""
-        # Create banker with initial inventory
+        # Create banker (bank_inventory now in game_state)
         banker = Player(
             game_session_id=game_session.id,
             player_name="Banker",
             role=PlayerRole.BANKER,
-            player_state={'bank_inventory': {'food': 1000, 'raw_materials': 1000}}
+            player_state={}
         )
         db.add(banker)
         
-        # Initialize game state with team buildings
+        # Initialize game state with team buildings and bank inventory
         game_session.game_state = {
             'teams': {
                 '1': {
                     'buildings': {'farm': 1}
                 }
-            }
+            },
+            'bank_inventory': {'food': 1000, 'raw_materials': 1000}
         }
         db.commit()
         
