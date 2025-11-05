@@ -1849,7 +1849,8 @@ async def update_challenge(
     db.commit()
     db.refresh(challenge)
     
-    return {
+    # Prepare response data
+    response_data = {
         "id": challenge.id,
         "player_id": challenge.player_id,
         "building_type": challenge.building_type,
@@ -1864,6 +1865,23 @@ async def update_challenge(
         "assigned_at": challenge.assigned_at.isoformat() if challenge.assigned_at else None,  # type: ignore
         "completed_at": challenge.completed_at.isoformat() if challenge.completed_at else None  # type: ignore
     }
+    
+    # Broadcast WebSocket events based on status change
+    if status:
+        if status == ChallengeStatus.CANCELLED.value:  # type: ignore
+            print(f"[update_challenge] Broadcasting challenge_cancelled event")
+            await manager.broadcast_challenge_cancelled(game_code.upper(), response_data)
+        elif status == ChallengeStatus.COMPLETED.value:  # type: ignore
+            print(f"[update_challenge] Broadcasting challenge_completed event")
+            await manager.broadcast_challenge_completed(game_code.upper(), response_data)
+        elif status == ChallengeStatus.ASSIGNED.value:  # type: ignore
+            print(f"[update_challenge] Broadcasting challenge_assigned event")
+            await manager.broadcast_challenge_assigned(game_code.upper(), response_data)
+        elif status == ChallengeStatus.REQUESTED.value:  # type: ignore
+            print(f"[update_challenge] Broadcasting challenge_requested event")
+            await manager.broadcast_challenge_requested(game_code.upper(), response_data)
+    
+    return response_data
 
 
 @app.post("/games/{game_code}/challenges/adjust-for-pause")
