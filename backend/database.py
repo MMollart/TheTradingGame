@@ -3,20 +3,11 @@ Database configuration and session management
 """
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy.pool import StaticPool
-
-# Import Base from models to avoid circular imports
-from models import Base
+from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 
 # Check if running on Azure (Azure sets WEBSITE_SITE_NAME)
 IS_AZURE = os.getenv("WEBSITE_SITE_NAME") is not None
@@ -27,9 +18,12 @@ if IS_AZURE:
     if not DATABASE_URL:
         print("WARNING: DATABASE_URL not set, using SQLite on Azure (not recommended for production)")
         DATABASE_URL = "sqlite:///./trading_game.db"
+    else:
+        print(f"INFO: Using PostgreSQL database on Azure")
 else:
     # Local SQLite
     DATABASE_URL = "sqlite:///./trading_game.db"
+    print(f"INFO: Using local SQLite database")
 
 # Create engine
 if DATABASE_URL.startswith("sqlite"):
@@ -39,27 +33,29 @@ if DATABASE_URL.startswith("sqlite"):
     )
 else:
     # PostgreSQL (Azure)
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(DATABASE_URL, echo=True)  # echo=True for debugging
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def init_db():
-    from models import User, GameSession, Player, GameConfiguration
-    Base.metadata.create_all(bind=engine)
-
 
 def init_db():
     """Initialize database tables"""
-    Base.metadata.create_all(bind=engine)
-
+    print("INFO: Initializing database tables...")
+    try:
+        # Import all models to ensure they are registered with Base
+        import models
+        from models import Base, User, GameSession, Player, GameConfiguration
+        
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        print("INFO: Database tables created successfully")
+        
+        # List created tables for verification
+        print(f"INFO: Created tables: {list(Base.metadata.tables.keys())}")
+    except Exception as e:
+        print(f"ERROR: Failed to create database tables: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 def get_db():
     """Dependency for getting database session"""
