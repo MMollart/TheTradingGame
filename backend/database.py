@@ -5,7 +5,15 @@ Database configuration and session management
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os
+import logging
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -16,14 +24,14 @@ if IS_AZURE:
     # Use PostgreSQL connection string from Azure if available, otherwise fall back to SQLite
     DATABASE_URL = os.getenv("DATABASE_URL")
     if not DATABASE_URL:
-        print("WARNING: DATABASE_URL not set, using SQLite on Azure (not recommended for production)")
+        logger.warning("DATABASE_URL not set, using SQLite on Azure (not recommended for production)")
         DATABASE_URL = "sqlite:///./trading_game.db"
     else:
-        print(f"INFO: Using PostgreSQL database on Azure")
+        logger.info("Using PostgreSQL database on Azure")
 else:
     # Local SQLite
     DATABASE_URL = "sqlite:///./trading_game.db"
-    print(f"INFO: Using local SQLite database")
+    logger.info("Using local SQLite database")
 
 # Create engine
 if DATABASE_URL.startswith("sqlite"):
@@ -41,19 +49,19 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     """Initialize database tables"""
-    print("INFO: Initializing database tables...")
+    logger.info("Initializing database tables...")
     try:
         # Import all models to ensure they are registered with Base
         from models import Base, User, GameSession, Player, GameConfiguration
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
-        print("INFO: Database tables created successfully")
+        logger.info("Database tables created successfully")
         
         # List created tables for verification
-        print(f"INFO: Created tables: {list(Base.metadata.tables.keys())}")
+        logger.info(f"Created tables: {list(Base.metadata.tables.keys())}")
     except Exception as e:
-        print(f"ERROR: Failed to create database tables: {e}")
+        logger.error(f"Failed to create database tables: {e}")
         import traceback
         traceback.print_exc()
         raise
