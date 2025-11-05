@@ -90,7 +90,14 @@ def read_root():
     """Serve the frontend index.html"""
     index_file = Path(__file__).parent / "static" / "index.html"
     if index_file.exists():
-        return FileResponse(str(index_file))
+        return FileResponse(
+            str(index_file),
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     return {
         "message": "The Trading Game API",
         "version": "0.1.0",
