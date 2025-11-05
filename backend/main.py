@@ -51,6 +51,7 @@ app.add_middleware(
     allow_origins=[
         "https://tg.pegasusesu.org.uk",
         "http://localhost:5173",  # For local development
+        "http://localhost:3000",  # Frontend server
     ],  # Update with specific origins in production
     allow_credentials=True,
     allow_methods=["*"],
