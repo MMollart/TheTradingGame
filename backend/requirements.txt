@@ -6,7 +6,7 @@ python-multipart==0.0.6
 # Database
 sqlalchemy>=2.0.35  # Python 3.13 compatible version
 alembic>=1.13.0
-# psycopg2-binary==2.9.9  # Commented out - using SQLite for development
+psycopg2-binary==2.9.9  # PostgreSQL adapter for Azure
 
 # Authentication
 python-jose[cryptography]==3.3.0
