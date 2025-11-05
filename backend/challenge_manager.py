@@ -88,14 +88,9 @@ class ChallengeManager:
         base_amount = grant_info['amount']
         required_amount = base_amount * building_count * 1.0  # Normal difficulty
         
-        # Get banker and check inventory
-        banker = self.db.query(Player).filter(
-            Player.game_session_id == game.id,
-            Player.role == "banker"
-        ).first()
-        
-        if banker and banker.player_state:
-            bank_inventory = banker.player_state.get('bank_inventory', {})
+        # Check bank inventory from game_state
+        if game.game_state and 'bank_inventory' in game.game_state:
+            bank_inventory = game.game_state.get('bank_inventory', {})
             current_inventory = bank_inventory.get(required_resource, 0)
             
             if current_inventory < required_amount:
