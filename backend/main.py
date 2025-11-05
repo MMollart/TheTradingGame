@@ -39,6 +39,7 @@ from email_utils import send_registration_email
 from challenge_api import router as challenge_router_v2
 from trading_api import router as trading_router_v2
 from pricing_manager import PricingManager
+from osm_oauth_api import router as osm_oauth_router
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -79,6 +80,9 @@ app.include_router(challenge_router_v2)
 
 # Include v2 Trading API routes
 app.include_router(trading_router_v2)
+
+# Include OSM OAuth API routes
+app.include_router(osm_oauth_router)
 
 
 @app.get("/")
