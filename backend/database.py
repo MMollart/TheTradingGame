@@ -33,7 +33,9 @@ if DATABASE_URL.startswith("sqlite"):
     )
 else:
     # PostgreSQL (Azure)
-    engine = create_engine(DATABASE_URL, echo=True)  # echo=True for debugging
+    # Make SQL logging configurable via environment variable (default: False)
+    SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "False").lower() in ("1", "true", "yes")
+    engine = create_engine(DATABASE_URL, echo=SQLALCHEMY_ECHO)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
