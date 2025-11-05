@@ -44,7 +44,6 @@ def init_db():
     print("INFO: Initializing database tables...")
     try:
         # Import all models to ensure they are registered with Base
-        import models
         from models import Base, User, GameSession, Player, GameConfiguration
         
         # Create all tables
