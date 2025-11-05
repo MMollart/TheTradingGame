@@ -40,7 +40,6 @@ _oauth_states = {}
 
 @router.get("/authorize")
 async def initiate_oauth(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -50,22 +49,25 @@ async def initiate_oauth(
     user will be redirected back to /oauth/osm/callback with an authorization code.
     
     **Flow:**
-    1. User clicks "Connect to OnlineScoutManager"
+    1. User clicks "Login with Online Scout Manager"
     2. Redirect to this endpoint
     3. Redirect to OSM login page
     4. User logs in and authorizes
     5. OSM redirects to /oauth/osm/callback
     6. Exchange code for tokens
-    7. Store tokens and redirect to success page
+    7. Fetch user info from OSM
+    8. Create or update user account
+    9. Generate JWT token and redirect to dashboard
     
     **Security:**
     Uses state parameter for CSRF protection.
+    No authentication required - this is the entry point for OSM login.
     """
     # Generate random state for CSRF protection
     state = secrets.token_urlsafe(32)
     
-    # Store state associated with user
-    _oauth_states[state] = current_user.id
+    # Store state (no user ID yet, user will be created in callback)
+    _oauth_states[state] = None
     
     # Initialize OAuth client
     oauth_client = OSMOAuthClient(db)
@@ -90,8 +92,12 @@ async def oauth_callback(
     Handle OAuth2 callback from OSM.
     
     After user authorizes on OSM, they are redirected here with an authorization code.
-    This endpoint exchanges the code for access and refresh tokens, stores them,
-    and redirects to a success page.
+    This endpoint:
+    1. Exchanges the code for access tokens
+    2. Fetches user info from OSM /oauth/resource endpoint
+    3. Creates or updates user account with OSM data
+    4. Generates JWT token
+    5. Redirects to dashboard with token
     
     **Query Parameters:**
     - code: Authorization code from OSM
@@ -100,16 +106,15 @@ async def oauth_callback(
     - error_description: Human-readable error description
     
     **Returns:**
-    Redirect to success page or error page with appropriate message.
+    Redirect to dashboard with JWT token
     """
     # Check for OAuth errors
     if error:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "error": error,
-                "error_description": error_description or "OAuth authorization failed"
-            }
+        logger.error(f"OSM OAuth error: {error} - {error_description}")
+        # Redirect to login page with error message
+        return RedirectResponse(
+            url=f"/?error={error}&message={error_description or 'OAuth authorization failed'}",
+            status_code=status.HTTP_302_FOUND
         )
     
     # Validate required parameters
@@ -120,8 +125,7 @@ async def oauth_callback(
         )
     
     # Verify state (CSRF protection)
-    user_id = _oauth_states.get(state)
-    if not user_id:
+    if state not in _oauth_states:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid state parameter. Possible CSRF attack."
@@ -130,40 +134,117 @@ async def oauth_callback(
     # Remove used state
     del _oauth_states[state]
     
-    # Get user from database
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
     # Initialize OAuth client
     oauth_client = OSMOAuthClient(db)
     
     try:
-        # Exchange code for tokens
-        tokens = await oauth_client.exchange_code_for_token(code, user)
+        # Exchange code for tokens (without user, since we haven't created/found them yet)
+        logger.info("Exchanging authorization code for access token...")
+        import httpx
+        async with httpx.AsyncClient() as http_client:
+            token_response = await http_client.post(
+                "https://www.onlinescoutmanager.co.uk/oauth/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "client_id": oauth_client.config.CLIENT_ID,
+                    "client_secret": oauth_client.config.CLIENT_SECRET,
+                    "redirect_uri": oauth_client.config.REDIRECT_URI,
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+            token_response.raise_for_status()
+            tokens = token_response.json()
+            access_token = tokens["access_token"]
         
-        # Return success response
-        # In production, redirect to a success page in your frontend
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "message": "Successfully connected to OnlineScoutManager",
-                "user_id": user.id,
-                "username": user.username,
-                "scopes": tokens.get("scope", ""),
-                "expires_in": tokens.get("expires_in"),
-            }
-        )
+        # Fetch user info from OSM resource endpoint
+        logger.info("Fetching user info from OSM /oauth/resource endpoint...")
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get(
+                "https://www.onlinescoutmanager.co.uk/oauth/resource",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            response.raise_for_status()
+            user_info = response.json()
+        
+        # Extract user data
+        osm_data = user_info.get("data", {})
+        full_name = osm_data.get("full_name", "OSM User")
+        email = osm_data.get("email")
+        osm_user_id = osm_data.get("user_id")
+        
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OSM account has no email address"
+            )
+        
+        logger.info(f"OSM user info: name={full_name}, email={email}, osm_id={osm_user_id}")
+        
+        # Check if user already exists by email
+        user = db.query(User).filter(User.email == email).first()
+        
+        if user:
+            logger.info(f"Existing user found: {user.username} (id={user.id})")
+        else:
+            # Create new user account
+            logger.info(f"Creating new user account for {full_name} ({email})")
+            
+            # Ensure username is unique (use full_name, append number if needed)
+            username = full_name
+            counter = 1
+            while db.query(User).filter(User.username == username).first():
+                username = f"{full_name}_{counter}"
+                counter += 1
+            
+            user = User(
+                username=username,
+                email=email,
+                hashed_password="",  # OSM users don't need password
+                is_active=True,  # Auto-approve OSM users
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            logger.info(f"Created new user: {user.username} (id={user.id})")
+        
+        # Store OAuth tokens for this user
+        oauth_client._store_token(user, tokens)
+        
+        # Generate JWT token for authentication
+        from auth import create_access_token
+        jwt_token = create_access_token(data={"sub": user.username})
+        
+        # Return HTML page that stores token in localStorage and redirects to index
+        logger.info(f"Redirecting user {user.username} to main page")
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Login Successful</title>
+        </head>
+        <body>
+            <h2>Login successful! Redirecting...</h2>
+            <script>
+                // Store authentication token and username
+                localStorage.setItem('authToken', '{jwt_token}');
+                localStorage.setItem('username', '{user.username}');
+                
+                // Redirect to main page
+                window.location.href = '/';
+            </script>
+        </body>
+        </html>
+        """
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=html_content, status_code=200)
     
     except Exception as e:
-        # Log error and return user-friendly message
+        # Log error and redirect to login with error message
         logger.error(f"OAuth callback error: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to exchange authorization code: {str(e)}"
+        return RedirectResponse(
+            url=f"/?error=callback_failed&message={str(e)}",
+            status_code=status.HTTP_302_FOUND
         )
 
 

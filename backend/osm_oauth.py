@@ -487,3 +487,40 @@ class OSMAPIClient:
             "/ext/events/summary/",
             params={"sectionid": section_id}
         )
+    
+    async def get_user_info(self, access_token: str) -> Dict[str, Any]:
+        """
+        Get user information from OSM resource endpoint.
+        
+        This endpoint returns the authenticated user's details including
+        full name, email, user ID, and section memberships.
+        
+        Args:
+            access_token: Valid OAuth access token
+            
+        Returns:
+            User data dictionary with structure:
+            {
+                "data": {
+                    "full_name": "First Last",
+                    "email": "user@example.com",
+                    "user_id": 12345,
+                    "sections": [...]
+                }
+            }
+            
+        Raises:
+            httpx.HTTPError: If request fails
+        """
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.base_url}/oauth/resource",
+                headers=headers
+            )
+            response.raise_for_status()
+            return response.json()
