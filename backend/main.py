@@ -1560,7 +1560,7 @@ async def complete_challenge_with_bank_transfer(
     
     # Initialize bank inventory in game_state if it doesn't exist
     if 'bank_inventory' not in game.game_state:
-        num_teams = len(set(p.group_number for p in game.players if p.role.value == "player" and p.group_number))
+        num_teams = len(set(p.group_number for p in game.players if p.role.value == "player" and p.group_number is not None))
         banker_state = GameLogic.initialize_banker(num_teams=num_teams)
         game.game_state['bank_inventory'] = banker_state['bank_inventory']
         flag_modified(game, 'game_state')
