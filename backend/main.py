@@ -88,17 +88,6 @@ def read_root():
         "docs": "/docs"
     }
 
-@app.get("/{filename:path}")
-def serve_static_files(filename: str):
-    """Serve static files (JS, CSS, HTML) from root path for backwards compatibility"""
-    # Only serve files with common static extensions
-    if filename.endswith(('.js', '.css', '.html', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico')):
-        file_path = Path(__file__).parent / "static" / filename
-        if file_path.exists() and file_path.is_file():
-            return FileResponse(str(file_path))
-    # If not a static file or doesn't exist, return 404
-    raise HTTPException(status_code=404, detail="Not found")
-
 @app.get("/api")
 def api_root():
     """API root endpoint"""
@@ -1957,6 +1946,20 @@ def delete_challenge(
     db.commit()
     
     return {"message": "Challenge deleted"}
+
+
+# ==================== Static File Serving (Catch-All - Must Be Last) ====================
+
+@app.get("/{filename:path}")
+def serve_static_files(filename: str):
+    """Serve static files (JS, CSS, HTML) from root path for backwards compatibility"""
+    # Only serve files with common static extensions
+    if filename.endswith(('.js', '.css', '.html', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico')):
+        file_path = Path(__file__).parent / "static" / filename
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(str(file_path))
+    # If not a static file or doesn't exist, return 404
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 if __name__ == "__main__":
