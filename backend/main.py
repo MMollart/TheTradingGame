@@ -1948,6 +1948,22 @@ def delete_challenge(
     return {"message": "Challenge deleted"}
 
 
+# ==================== Static File Serving (Catch-All - Must Be Last) ====================
+
+@app.get("/{filename:path}")
+def serve_static_files(filename: str):
+    """Serve static files (JS, CSS, HTML) from root path for backwards compatibility"""
+    # Only serve files with common static extensions
+    if filename.endswith(('.js', '.css', '.html', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico')):
+        static_dir = (Path(__file__).parent / "static").resolve()
+        file_path = (static_dir / filename).resolve()
+        # Prevent path traversal: ensure file_path is within static_dir
+        if file_path.is_file() and file_path.is_relative_to(static_dir):
+            return FileResponse(str(file_path))
+    # If not a static file or doesn't exist, return 404
+    raise HTTPException(status_code=404, detail="Not found")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
