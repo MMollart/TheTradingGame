@@ -4521,16 +4521,22 @@ function handleGameEvent(data) {
                 challengeManager.handleChallengeCompleted(eventData);
             }
             
+            // Clear challenge from allActiveChallenges (all possible key formats)
+            delete allActiveChallenges[eventData.building_type];
+            delete allActiveChallenges[`${eventData.player_id}-${eventData.building_type}`];
+            if (eventData.team_number) {
+                delete allActiveChallenges[`team${eventData.team_number}-${eventData.building_type}`];
+            }
+            
             // Refresh banker view if this is the banker/host
             if (currentPlayer.role === 'banker' || currentPlayer.role === 'host') {
                 (async () => {
-                    // Refresh player data to get updated bank inventory
-                    const players = await gameAPI.getPlayers(currentGameCode);
-                    const bankerPlayer = players.find(p => p.role === 'banker');
-                    if (bankerPlayer && bankerPlayer.player_state) {
-                        playerState = bankerPlayer.player_state;
+                    // Refresh game state to get updated bank inventory
+                    const game = await gameAPI.getGame(currentGameCode);
+                    if (game.game_state) {
+                        gameState = game.game_state;
                         loadHostBankerView();
-                        // console.log('[challenge_completed] Refreshed banker view, new inventory:', playerState.bank_inventory);
+                        // console.log('[challenge_completed] Refreshed banker view, new inventory:', gameState.bank_inventory);
                     }
                 })();
             }
@@ -4583,6 +4589,13 @@ function handleGameEvent(data) {
                 challengeManager.handleChallengeCancelled(eventData);
             }
             
+            // Clear challenge from allActiveChallenges (all possible key formats)
+            delete allActiveChallenges[eventData.building_type];
+            delete allActiveChallenges[`${eventData.player_id}-${eventData.building_type}`];
+            if (eventData.team_number) {
+                delete allActiveChallenges[`team${eventData.team_number}-${eventData.building_type}`];
+            }
+            
             // Challenge was cancelled by host/banker
             if (eventData.player_id === currentPlayer.id) {
                 updateAllBuildingButtons();
@@ -4597,6 +4610,13 @@ function handleGameEvent(data) {
             // Use challenge manager to handle expiration
             if (challengeManager) {
                 challengeManager.handleChallengeCancelled(eventData);  // Expired uses same logic as cancelled
+            }
+            
+            // Clear challenge from allActiveChallenges (all possible key formats)
+            delete allActiveChallenges[eventData.building_type];
+            delete allActiveChallenges[`${eventData.player_id}-${eventData.building_type}`];
+            if (eventData.team_number) {
+                delete allActiveChallenges[`team${eventData.team_number}-${eventData.building_type}`];
             }
             
             // Challenge expired (10 minutes elapsed)
@@ -5955,16 +5975,18 @@ async function loadHostBankerView() {
         document.getElementById('host-price-medical-goods').value = playerState.bank_prices.medical_goods || 20;
     }
     
-    // Load bank inventory
+    // Load bank inventory from gameState (not playerState)
     const inventoryDiv = document.getElementById('host-bank-inventory');
-    if (playerState.bank_inventory) {
+    if (gameState.bank_inventory) {
         inventoryDiv.innerHTML = '';
-        Object.entries(playerState.bank_inventory).forEach(([resource, amount]) => {
+        Object.entries(gameState.bank_inventory).forEach(([resource, amount]) => {
             const item = document.createElement('div');
             item.className = 'resource-item';
             item.innerHTML = `<strong>${resource}:</strong> ${amount}`;
             inventoryDiv.appendChild(item);
         });
+    } else {
+        inventoryDiv.innerHTML = '<p>Bank inventory not initialized</p>';
     }
 }
 

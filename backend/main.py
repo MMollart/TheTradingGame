@@ -55,6 +55,7 @@ app.add_middleware(
     allow_origins=[
         "https://tg.pegasusesu.org.uk",
         "http://localhost:5173",  # For local development
+        "http://localhost:3000",  # Frontend server
     ],  # Update with specific origins in production
     allow_credentials=True,
     allow_methods=["*"],
@@ -1110,12 +1111,22 @@ async def start_game(
     # Mark game_state as modified so SQLAlchemy knows to persist the changes
     flag_modified(game, 'game_state')
     
-    # Initialize banker state (if needed for banker role)
-    # Bank gets 150 of each resource per team
+    # Initialize bank inventory in game_state (150 resources per team)
+    # Bank inventory should be stored at game level, not player level
     num_teams = len(team_numbers)
+    banker_state = GameLogic.initialize_banker(num_teams=num_teams)
+    game.game_state['bank_inventory'] = banker_state['bank_inventory']
+    
+    # Initialize banker player_state for other banker-specific data (if banker role exists)
     for player in game.players:
         if player.role.value == "banker":
-            player.player_state = GameLogic.initialize_banker(num_teams=num_teams)
+            # Initialize banker with other state data (currency reserve, etc) but not bank_inventory
+            player.player_state = {
+                "role": "banker",
+                "currency_reserve": banker_state.get('currency_reserve', 10000),
+                "price_history": [],
+                "events_triggered": []
+            }
             flag_modified(player, 'player_state')
     
     # Initialize dynamic pricing in game_state (works without banker role)
@@ -1547,17 +1558,18 @@ async def complete_challenge_with_bank_transfer(
     
     logger.debug(f"[complete_challenge] Bank manager ({bank_manager.role}) found: {bank_manager.id}, player_state type: {type(bank_manager.player_state)}")
     
-    # Check bank inventory
-    if not bank_manager.player_state:
-        bank_manager.player_state = {}
+    # Check bank inventory from game_state (not player_state)
+    if not game.game_state:
+        game.game_state = {}
     
-    # Initialize bank inventory if it doesn't exist (for hosts managing bank)
-    if 'bank_inventory' not in bank_manager.player_state:
-        banker_state = GameLogic.initialize_banker()
-        bank_manager.player_state['bank_inventory'] = banker_state['bank_inventory']
-        flag_modified(bank_manager, 'player_state')
+    # Initialize bank inventory in game_state if it doesn't exist
+    if 'bank_inventory' not in game.game_state:
+        num_teams = len(set(p.group_number for p in game.players if p.role.value == "player" and p.group_number is not None))
+        banker_state = GameLogic.initialize_banker(num_teams=num_teams)
+        game.game_state['bank_inventory'] = banker_state['bank_inventory']
+        flag_modified(game, 'game_state')
     
-    bank_inventory = bank_manager.player_state.get('bank_inventory', {})
+    bank_inventory = game.game_state.get('bank_inventory', {})
     current_inventory = bank_inventory.get(resource_type, 0)
     
     logger.debug(f"[complete_challenge] BEFORE - Bank inventory: {bank_inventory}")
@@ -1569,12 +1581,12 @@ async def complete_challenge_with_bank_transfer(
             detail=f"Bank does not have enough {resource_type}. Required: {amount}, Available: {int(current_inventory)}"
         )
     
-    # Deduct from bank inventory (bank_inventory is guaranteed to exist at this point)
-    bank_manager.player_state['bank_inventory'][resource_type] = current_inventory - amount
-    flag_modified(bank_manager, 'player_state')
+    # Deduct from bank inventory in game_state
+    game.game_state['bank_inventory'][resource_type] = current_inventory - amount
+    flag_modified(game, 'game_state')
     
-    logger.debug(f"[complete_challenge] AFTER - Bank inventory: {bank_manager.player_state['bank_inventory']}")
-    logger.debug(f"[complete_challenge] New {resource_type}: {bank_manager.player_state['bank_inventory'][resource_type]}")
+    logger.debug(f"[complete_challenge] AFTER - Bank inventory: {game.game_state['bank_inventory']}")
+    logger.debug(f"[complete_challenge] New {resource_type}: {game.game_state['bank_inventory'][resource_type]}")
     
     # Add to team resources
     team_key = str(team_number)
@@ -1614,7 +1626,7 @@ async def complete_challenge_with_bank_transfer(
     return {
         "success": True,
         "message": f"Transferred {amount} {resource_type} from bank to Team {team_number}",
-        "bank_remaining": int(bank_manager.player_state['bank_inventory'][resource_type]),
+        "bank_remaining": int(game.game_state['bank_inventory'][resource_type]),
         "team_total": int(team_state['resources'][resource_type])
     }
 
@@ -1670,20 +1682,9 @@ def create_challenge(
     # Use normal difficulty (1.0x) for calculation - actual difficulty applied at completion
     required_amount = base_amount * building_count * 1.0
     
-    # Check bank inventory (check banker first, then host)
-    bank_manager = db.query(Player).filter(
-        Player.game_session_id == game.id,
-        Player.role == "banker"
-    ).first()
-    
-    if not bank_manager:
-        bank_manager = db.query(Player).filter(
-            Player.game_session_id == game.id,
-            Player.role == "host"
-        ).first()
-    
-    if bank_manager and bank_manager.player_state:
-        bank_inventory = bank_manager.player_state.get('bank_inventory', {})
+    # Check bank inventory from game_state
+    if game.game_state and 'bank_inventory' in game.game_state:
+        bank_inventory = game.game_state.get('bank_inventory', {})
         current_inventory = bank_inventory.get(required_resource, 0)
         
         if current_inventory < required_amount:
@@ -1852,7 +1853,8 @@ async def update_challenge(
     db.commit()
     db.refresh(challenge)
     
-    return {
+    # Prepare response data
+    response_data = {
         "id": challenge.id,
         "player_id": challenge.player_id,
         "building_type": challenge.building_type,
@@ -1867,6 +1869,23 @@ async def update_challenge(
         "assigned_at": challenge.assigned_at.isoformat() if challenge.assigned_at else None,  # type: ignore
         "completed_at": challenge.completed_at.isoformat() if challenge.completed_at else None  # type: ignore
     }
+    
+    # Broadcast WebSocket events based on status change
+    if status:
+        if status == ChallengeStatus.CANCELLED.value:  # type: ignore
+            print(f"[update_challenge] Broadcasting challenge_cancelled event")
+            await manager.broadcast_challenge_cancelled(game_code.upper(), response_data)
+        elif status == ChallengeStatus.COMPLETED.value:  # type: ignore
+            print(f"[update_challenge] Broadcasting challenge_completed event")
+            await manager.broadcast_challenge_completed(game_code.upper(), response_data)
+        elif status == ChallengeStatus.ASSIGNED.value:  # type: ignore
+            print(f"[update_challenge] Broadcasting challenge_assigned event")
+            await manager.broadcast_challenge_assigned(game_code.upper(), response_data)
+        elif status == ChallengeStatus.REQUESTED.value:  # type: ignore
+            print(f"[update_challenge] Broadcasting challenge_requested event")
+            await manager.broadcast_challenge_requested(game_code.upper(), response_data)
+    
+    return response_data
 
 
 @app.post("/games/{game_code}/challenges/adjust-for-pause")
