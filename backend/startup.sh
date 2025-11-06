@@ -1,10 +1,20 @@
 #!/bin/bash
+set -e
 
-# Install dependencies
-pip install -r requirements.txt
+echo "Starting Trading Game deployment..."
 
-# Run database migrations (if using Alembic)
-# alembic upgrade head
+# Ensure we're in the right directory
+cd /home/site/wwwroot
+
+# Install dependencies with --user flag for Azure
+echo "Installing dependencies..."
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt --user
+
+# Initialize database
+echo "Initializing database..."
+python -c "from database import init_db; init_db()" || echo "Database initialization skipped"
 
 # Start the FastAPI app with Uvicorn
-uvicorn main:app --host 0.0.0.0 --port 8000
+echo "Starting FastAPI application..."
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
