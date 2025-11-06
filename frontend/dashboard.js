@@ -741,7 +741,7 @@ async function loadActiveChallenges(players = null) {
                     const elapsed = now - startTime;
                     const expiryTime = 10 * 60 * 1000; // 10 minutes in ms
                     
-                    // console.log(`[loadActiveChallenges] Challenge ${challenge.id}:`, {
+                    /* console.log(`[loadActiveChallenges] Challenge ${challenge.id}:`, {
                         assigned_at: challenge.assigned_at,
                         startTime: new Date(startTime).toISOString(),
                         now: new Date(now).toISOString(),
@@ -749,7 +749,7 @@ async function loadActiveChallenges(players = null) {
                         remaining_seconds: Math.floor((expiryTime - elapsed)/1000),
                         currentGameStatus: currentGameStatus,
                         will_check_expiry: currentGameStatus === 'in_progress'
-                    });
+                    }); */
                     
                     // Only check for expiry if game is actively running (not paused or waiting)
                     // When loading after resume, the database assigned_at has already been adjusted
@@ -3695,14 +3695,19 @@ function addOfferResource() {
     
     const resourceDiv = document.createElement('div');
     resourceDiv.className = 'resource-input-group';
+    
+    // Get initial resource volume for food (default selection)
+    const initialVolume = teamState.resources?.['food'] || 0;
+    
     resourceDiv.innerHTML = `
-        <select id="${id}-type">
+        <select id="${id}-type" onchange="updateResourceVolume('${id}', this.value)">
             <option value="food">🌾 Food</option>
             <option value="raw_materials">⚙️ Raw Materials</option>
             <option value="electrical_goods">⚡ Electrical Goods</option>
             <option value="medical_goods">🏥 Medical Goods</option>
             <option value="currency">💰 Currency</option>
         </select>
+        <span id="${id}-volume" style="font-size: 12px; color: #666; white-space: nowrap;">(Have: ${initialVolume})</span>
         <input type="number" id="${id}-qty" min="1" value="1" placeholder="Qty">
         <button class="btn btn-sm btn-danger" onclick="removeResource('${id}')">×</button>
     `;
@@ -3716,19 +3721,32 @@ function addRequestResource() {
     
     const resourceDiv = document.createElement('div');
     resourceDiv.className = 'resource-input-group';
+    
+    // Get initial resource volume for food (default selection)
+    const initialVolume = teamState.resources?.['food'] || 0;
+    
     resourceDiv.innerHTML = `
-        <select id="${id}-type">
+        <select id="${id}-type" onchange="updateResourceVolume('${id}', this.value)">
             <option value="food">🌾 Food</option>
             <option value="raw_materials">⚙️ Raw Materials</option>
             <option value="electrical_goods">⚡ Electrical Goods</option>
             <option value="medical_goods">🏥 Medical Goods</option>
             <option value="currency">💰 Currency</option>
         </select>
+        <span id="${id}-volume" style="font-size: 12px; color: #666; white-space: nowrap;">(Have: ${initialVolume})</span>
         <input type="number" id="${id}-qty" min="1" value="1" placeholder="Qty">
         <button class="btn btn-sm btn-danger" onclick="removeResource('${id}')">×</button>
     `;
     
     container.appendChild(resourceDiv);
+}
+
+function updateResourceVolume(id, resourceType) {
+    const volumeSpan = document.getElementById(`${id}-volume`);
+    if (volumeSpan) {
+        const volume = teamState.resources?.[resourceType] || 0;
+        volumeSpan.textContent = `(Have: ${volume})`;
+    }
 }
 
 function removeResource(id) {
