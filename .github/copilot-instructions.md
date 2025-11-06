@@ -43,7 +43,7 @@ Players request physical challenges (push-ups, burpees) → Host/Banker assigns 
 **Key files**:
 - Backend: `backend/challenge_manager.py`, `backend/challenge_api.py`, `backend/models.py` (Challenge, ChallengeStatus enum)
 - Frontend: `frontend/challenge-manager.js`, `frontend/dashboard.js` (WebSocket handlers)
-- Docs: `CHALLENGE_SYSTEM_README.md`, `FEATURE-LOBBY-AND-CHALLENGES.md`
+- Docs: `docs/CHALLENGE_SYSTEM_README.md`, `docs/FEATURE-LOBBY-AND-CHALLENGES.md`
 
 **4. WebSocket Event Protocol**
 Format: `{"type": "event", "event_type": "<specific_event>", "data": {...}}`
@@ -251,10 +251,13 @@ window.addEventListener('beforeunload', () => gameWS.disconnect());
 
 ## Feature Documentation
 
-- **CHALLENGE_SYSTEM_README.md**: Complete challenge architecture, API reference, testing guide
-- **FEATURE-LOBBY-AND-CHALLENGES.md**: Lobby state management, challenge request workflow
-- **FEATURE-GAME-DURATION.md**: Game timer implementation, pause/resume behavior
-- **QUICKSTART.md**: Server management, testing checklist
+All documentation files are now organized in the `docs/` directory. See [docs/README.md](../docs/README.md) for the complete documentation index.
+
+Key references:
+- **[CHALLENGE_SYSTEM_README.md](../docs/CHALLENGE_SYSTEM_README.md)**: Complete challenge architecture, API reference, testing guide
+- **[FEATURE-LOBBY-AND-CHALLENGES.md](../docs/FEATURE-LOBBY-AND-CHALLENGES.md)**: Lobby state management, challenge request workflow
+- **[FEATURE-GAME-DURATION.md](../docs/FEATURE-GAME-DURATION.md)**: Game timer implementation, pause/resume behavior
+- **[QUICKSTART.md](../docs/QUICKSTART.md)**: Server management, testing checklist
 
 ## When Modifying Code
 

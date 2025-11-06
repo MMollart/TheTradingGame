@@ -526,11 +526,12 @@ CMD ["python", "backend/main.py"]
 ## 📝 Documentation
 
 - **[README.md](README.md)**: This file - complete project overview
-- **[QUICKSTART.md](QUICKSTART.md)**: Quick reference for server management
-- **[OSM_OAUTH_SETUP.md](OSM_OAUTH_SETUP.md)**: OnlineScoutManager OAuth2 integration guide
-- **[CHALLENGE_SYSTEM_README.md](CHALLENGE_SYSTEM_README.md)**: Detailed challenge system architecture
-- **[FEATURE-GAME-DURATION.md](FEATURE-GAME-DURATION.md)**: Game duration feature documentation
-- **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)**: WebSocket event documentation
+- **[Documentation Index](docs/README.md)**: Complete documentation catalog
+- **[QUICKSTART.md](docs/QUICKSTART.md)**: Quick reference for server management
+- **[OSM_OAUTH_SETUP.md](docs/OSM_OAUTH_SETUP.md)**: OnlineScoutManager OAuth2 integration guide
+- **[CHALLENGE_SYSTEM_README.md](docs/CHALLENGE_SYSTEM_README.md)**: Detailed challenge system architecture
+- **[FEATURE-GAME-DURATION.md](docs/FEATURE-GAME-DURATION.md)**: Game duration feature documentation
+- **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](docs/CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)**: WebSocket event documentation
 - **API Docs**: http://localhost:8000/docs (interactive Swagger UI)
 
 ## 🐛 Troubleshooting
