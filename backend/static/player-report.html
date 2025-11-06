@@ -498,11 +498,50 @@
                 <button class="btn btn-primary" onclick="window.print()">
                     🖨️ Print Report
                 </button>
+                <button class="btn btn-secondary" id="logout-btn" style="display: none;" onclick="handleLogout()">
+                    🚪 Logout
+                </button>
             </div>
         </div>
     </div>
 
     <script src="game-api.js"></script>
     <script src="player-report.js"></script>
+    <script>
+        // Check if user is logged in and show logout button
+        window.addEventListener('DOMContentLoaded', () => {
+            const authToken = localStorage.getItem('authToken');
+            if (authToken) {
+                document.getElementById('logout-btn').style.display = 'inline-block';
+            }
+        });
+
+        // Handle logout
+        async function handleLogout() {
+            const gameAPI = new GameAPI();
+            const authToken = localStorage.getItem('authToken');
+            
+            if (authToken) {
+                gameAPI.setToken(authToken);
+                
+                try {
+                    // Call logout endpoint to clean up OAuth tokens
+                    const result = await gameAPI.logout();
+                    console.log('Logout result:', result);
+                } catch (error) {
+                    console.error('Logout API call failed:', error);
+                    // Continue with local cleanup even if API fails
+                }
+            }
+            
+            // Clear local storage
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('username');
+            
+            // Redirect to home page
+            window.location.href = 'index.html';
+        }
+    </script>
 </body>
 </html>
+

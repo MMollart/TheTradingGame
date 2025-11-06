@@ -13,30 +13,29 @@ from game_constants import BuildingType, ResourceType, BUILDING_COSTS
 def game_with_team(client, db):
     """Create a game with a team that has resources"""
     # Create game
-    response = client.post("/games/create")
-    assert response.status_code == 200
+    response = client.post("/games", json={"config_id": None, "config_data": {}})
+    assert response.status_code == 201
     game_code = response.json()["game_code"]
     
     # Set number of teams
-    response = client.post(f"/games/{game_code}/set-num-teams", json={"num_teams": 4})
+    response = client.post(f"/games/{game_code}/set-teams?num_teams=4")
     assert response.status_code == 200
     
     # Create a player
     response = client.post(
-        f"/games/{game_code}/join",
-        json={"player_name": "TestPlayer", "role": "player"}
+        "/api/join",
+        json={"game_code": game_code, "player_name": "TestPlayer", "role": "player"}
     )
     assert response.status_code == 200
-    player_id = response.json()["player_id"]
+    player_id = response.json()["id"]
     
     # Approve player
-    response = client.post(f"/games/{game_code}/players/{player_id}/approve")
+    response = client.put(f"/games/{game_code}/players/{player_id}/approve")
     assert response.status_code == 200
     
     # Assign to team 1
-    response = client.post(
-        f"/games/{game_code}/players/{player_id}/assign-group",
-        json={"group_number": 1}
+    response = client.put(
+        f"/games/{game_code}/players/{player_id}/assign-group?group_number=1"
     )
     assert response.status_code == 200
     

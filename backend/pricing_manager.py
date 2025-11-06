@@ -76,6 +76,8 @@ class PricingManager:
             Adjusted price with spread applied
         """
         spread = int(base_price * self.SPREAD_PERCENTAGE)
+        # Ensure minimum spread of 1 to create price differentiation
+        spread = max(1, spread)
         if is_buy:
             return base_price + spread  # Bank sells higher
         else:

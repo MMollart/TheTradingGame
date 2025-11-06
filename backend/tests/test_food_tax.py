@@ -233,7 +233,7 @@ class TestFamineHandling:
 class TestPauseAwareTimings:
     """Test pause-aware timing adjustments"""
     
-    def test_adjust_for_pause_adds_duration(self, db_session):
+    def test_adjust_for_pause_adds_duration(self, db):
         """Pause adjustment should add duration to next_tax_due"""
         # Create a mock game with food tax tracking
         game = GameSession(
@@ -254,12 +254,12 @@ class TestPauseAwareTimings:
                 }
             }
         )
-        db_session.add(game)
-        db_session.commit()
+        db.add(game)
+        db.commit()
         
         original_due = datetime.fromisoformat(game.game_state['food_tax']['1']['next_tax_due'])
         
-        manager = FoodTaxManager(db_session)
+        manager = FoodTaxManager(db)
         pause_duration_ms = 120000  # 2 minutes
         result = manager.adjust_for_pause("TEST01", pause_duration_ms)
         
@@ -267,14 +267,14 @@ class TestPauseAwareTimings:
         assert '1' in result['adjusted_teams']
         
         # Refresh game
-        db_session.refresh(game)
+        db.refresh(game)
         new_due = datetime.fromisoformat(game.game_state['food_tax']['1']['next_tax_due'])
         
         # New due time should be 2 minutes later
         time_diff = (new_due - original_due).total_seconds()
         assert abs(time_diff - 120) < 1  # Allow 1 second tolerance
     
-    def test_adjust_resets_warning_flag(self, db_session):
+    def test_adjust_resets_warning_flag(self, db):
         """Pause adjustment should reset warning_sent flag"""
         game = GameSession(
             game_code="TEST02",
@@ -290,20 +290,20 @@ class TestPauseAwareTimings:
                 }
             }
         )
-        db_session.add(game)
-        db_session.commit()
+        db.add(game)
+        db.commit()
         
-        manager = FoodTaxManager(db_session)
+        manager = FoodTaxManager(db)
         manager.adjust_for_pause("TEST02", 60000)
         
-        db_session.refresh(game)
+        db.refresh(game)
         assert not game.game_state['food_tax']['1']['warning_sent']
 
 
 class TestTaxInitialization:
     """Test food tax tracking initialization"""
     
-    def test_initialize_creates_tracking(self, db_session):
+    def test_initialize_creates_tracking(self, db):
         """Initialization should create food_tax tracking for all teams"""
         game = GameSession(
             game_code="TEST03",
@@ -317,13 +317,13 @@ class TestTaxInitialization:
                 }
             }
         )
-        db_session.add(game)
-        db_session.commit()
+        db.add(game)
+        db.commit()
         
-        manager = FoodTaxManager(db_session)
+        manager = FoodTaxManager(db)
         manager.initialize_food_tax_tracking(game)
         
-        db_session.refresh(game)
+        db.refresh(game)
         
         assert 'food_tax' in game.game_state
         assert '1' in game.game_state['food_tax']
@@ -338,7 +338,7 @@ class TestTaxInitialization:
             assert tax_data['total_taxes_paid'] == 0
             assert tax_data['total_famines'] == 0
     
-    def test_initialize_sets_correct_interval(self, db_session):
+    def test_initialize_sets_correct_interval(self, db):
         """Initialization should use correct tax interval based on difficulty"""
         for difficulty, expected_interval in [("easy", 20), ("medium", 15), ("hard", 10)]:
             game = GameSession(
@@ -348,20 +348,20 @@ class TestTaxInitialization:
                 game_duration_minutes=90,
                 game_state={'teams': {'1': {}}}
             )
-            db_session.add(game)
-            db_session.commit()
+            db.add(game)
+            db.commit()
             
-            manager = FoodTaxManager(db_session)
+            manager = FoodTaxManager(db)
             manager.initialize_food_tax_tracking(game)
             
-            db_session.refresh(game)
+            db.refresh(game)
             assert game.game_state['food_tax']['1']['tax_interval_minutes'] == expected_interval
 
 
 class TestWarningSystem:
     """Test 3-minute warning system"""
     
-    def test_warning_sent_before_tax_due(self, db_session):
+    def test_warning_sent_before_tax_due(self, db):
         """Warning should be sent 3 minutes before tax is due"""
         # Set next tax due in 2 minutes (within warning window)
         next_due = datetime.utcnow() + timedelta(minutes=2)
@@ -380,10 +380,10 @@ class TestWarningSystem:
                 }
             }
         )
-        db_session.add(game)
-        db_session.commit()
+        db.add(game)
+        db.commit()
         
-        manager = FoodTaxManager(db_session)
+        manager = FoodTaxManager(db)
         events = manager.check_and_process_taxes("TEST04")
         
         # Should get a warning event
@@ -392,10 +392,10 @@ class TestWarningSystem:
         assert events[0]['data']['team_number'] == '1'
         
         # Warning flag should be set
-        db_session.refresh(game)
+        db.refresh(game)
         assert game.game_state['food_tax']['1']['warning_sent']
     
-    def test_no_duplicate_warnings(self, db_session):
+    def test_no_duplicate_warnings(self, db):
         """Warning should not be sent twice"""
         next_due = datetime.utcnow() + timedelta(minutes=2)
         
@@ -413,10 +413,10 @@ class TestWarningSystem:
                 }
             }
         )
-        db_session.add(game)
-        db_session.commit()
+        db.add(game)
+        db.commit()
         
-        manager = FoodTaxManager(db_session)
+        manager = FoodTaxManager(db)
         events = manager.check_and_process_taxes("TEST05")
         
         # Should not get any events
@@ -426,7 +426,7 @@ class TestWarningSystem:
 class TestAutomatedTaxApplication:
     """Test automated tax application"""
     
-    def test_tax_applied_when_due(self, db_session):
+    def test_tax_applied_when_due(self, db):
         """Tax should be automatically applied when due time is reached"""
         # Set tax due in the past
         next_due = datetime.utcnow() - timedelta(minutes=1)
@@ -459,10 +459,10 @@ class TestAutomatedTaxApplication:
                 }
             }
         )
-        db_session.add(game)
-        db_session.commit()
+        db.add(game)
+        db.commit()
         
-        manager = FoodTaxManager(db_session)
+        manager = FoodTaxManager(db)
         events = manager.check_and_process_taxes("TEST06")
         
         # Should get tax applied event
@@ -472,7 +472,7 @@ class TestAutomatedTaxApplication:
         assert events[0]['data']['success']
         
         # Check team resources updated
-        db_session.refresh(game)
+        db.refresh(game)
         team_state = game.game_state['teams']['1']
         assert team_state['resources'][ResourceType.FOOD.value] == 50 - 15  # 35
         
@@ -487,7 +487,7 @@ class TestAutomatedTaxApplication:
         assert game.game_state['food_tax']['1']['last_tax_time'] is not None
         assert game.game_state['food_tax']['1']['warning_sent'] is False
     
-    def test_famine_event_when_insufficient_food(self, db_session):
+    def test_famine_event_when_insufficient_food(self, db):
         """Famine event should be sent when team can't pay food tax"""
         next_due = datetime.utcnow() - timedelta(minutes=1)
         
@@ -517,10 +517,10 @@ class TestAutomatedTaxApplication:
                 'bank_inventory': {ResourceType.FOOD.value: 0}
             }
         )
-        db_session.add(game)
-        db_session.commit()
+        db.add(game)
+        db.commit()
         
-        manager = FoodTaxManager(db_session)
+        manager = FoodTaxManager(db)
         events = manager.check_and_process_taxes("TEST07")
         
         # Should get famine event
@@ -529,7 +529,7 @@ class TestAutomatedTaxApplication:
         assert events[0]['data']['is_famine']
         
         # Check statistics updated
-        db_session.refresh(game)
+        db.refresh(game)
         assert game.game_state['food_tax']['1']['total_famines'] == 1
         assert game.game_state['food_tax']['1']['total_taxes_paid'] == 0
 
@@ -537,7 +537,7 @@ class TestAutomatedTaxApplication:
 class TestTaxStatusAPI:
     """Test tax status retrieval"""
     
-    def test_get_status_returns_all_teams(self, db_session):
+    def test_get_status_returns_all_teams(self, db):
         """Status should return information for all teams"""
         next_due = datetime.utcnow() + timedelta(minutes=10)
         
@@ -571,10 +571,10 @@ class TestTaxStatusAPI:
                 }
             }
         )
-        db_session.add(game)
-        db_session.commit()
+        db.add(game)
+        db.commit()
         
-        manager = FoodTaxManager(db_session)
+        manager = FoodTaxManager(db)
         status = manager.get_tax_status("TEST08")
         
         assert status['success']

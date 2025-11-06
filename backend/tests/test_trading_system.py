@@ -11,7 +11,7 @@ from game_constants import BANK_INITIAL_PRICES
 class TestPricingManager:
     """Test dynamic pricing system"""
     
-    def test_initialize_prices(self, client, sample_game, db):
+    def test_initialize_prices(self, client, sample_game, sample_players, db):
         """Test initializing bank prices for a game"""
         game_code = sample_game["game_code"]
         pricing_mgr = PricingManager(db)
@@ -43,7 +43,7 @@ class TestPricingManager:
         ).all()
         assert len(history_records) == 1
     
-    def test_price_spread_calculation(self, client, sample_game, db):
+    def test_price_spread_calculation(self, client, sample_game, sample_players, db):
         """Test that buy/sell spread is correctly applied through initialization"""
         game_code = sample_game["game_code"]
         pricing_mgr = PricingManager(db)
@@ -65,7 +65,7 @@ class TestPricingManager:
             spread_percent = (buy_price - sell_price) / baseline
             assert 0.18 <= spread_percent <= 0.22
     
-    def test_adjust_price_after_buy(self, client, sample_game, db):
+    def test_adjust_price_after_buy(self, client, sample_game, sample_players, db):
         """Test price increases when team buys from bank"""
         game_code = sample_game["game_code"]
         pricing_mgr = PricingManager(db)
@@ -90,7 +90,7 @@ class TestPricingManager:
         baseline = updated_prices['food']['baseline']
         assert updated_prices['food']['buy_price'] <= baseline * PricingManager.MAX_MULTIPLIER
     
-    def test_adjust_price_after_sell(self, client, sample_game, db):
+    def test_adjust_price_after_sell(self, client, sample_game, sample_players, db):
         """Test price decreases when team sells to bank"""
         game_code = sample_game["game_code"]
         pricing_mgr = PricingManager(db)
@@ -115,7 +115,7 @@ class TestPricingManager:
         baseline = updated_prices['food']['baseline']
         assert updated_prices['food']['sell_price'] >= baseline * PricingManager.MIN_MULTIPLIER
     
-    def test_price_bounds(self, client, sample_game, db):
+    def test_price_bounds(self, client, sample_game, sample_players, db):
         """Test prices stay within min/max bounds"""
         game_code = sample_game["game_code"]
         pricing_mgr = PricingManager(db)
@@ -140,7 +140,7 @@ class TestPricingManager:
         
         assert middle_price <= max_price
     
-    def test_calculate_trade_cost(self, client, sample_game, db):
+    def test_calculate_trade_cost(self, client, sample_game, sample_players, db):
         """Test trade cost calculation"""
         game_code = sample_game["game_code"]
         pricing_mgr = PricingManager(db)
@@ -160,7 +160,7 @@ class TestPricingManager:
         # Buy should cost more than sell returns
         assert buy_cost > sell_cost
     
-    def test_get_price_history(self, client, sample_game, db):
+    def test_get_price_history(self, client, sample_game, sample_players, db):
         """Test retrieving price history"""
         game_code = sample_game["game_code"]
         pricing_mgr = PricingManager(db)
@@ -181,21 +181,24 @@ class TestPricingManager:
 class TestTradeManager:
     """Test team-to-team trading"""
     
-    def test_create_trade_offer(self, client, sample_game, db):
+    def test_create_trade_offer(self, client, sample_game, sample_players, db):
         """Test creating a trade offer"""
         game_code = sample_game["game_code"]
         
         # Start game to initialize teams
         client.post(f"/games/{game_code}/start")
         
-        # Get game and players
+        # Get game and players (filter out host/banker, get regular players only)
         game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
-        players = db.query(Player).filter(Player.game_session_id == game.id).all()
+        players = db.query(Player).filter(
+            Player.game_session_id == game.id,
+            Player.role == "player"
+        ).all()
         
         # Assign players to teams
         player1 = players[0]
         player1.group_number = 1
-        player2 = players[1] if len(players) > 1 else player1
+        player2 = players[1]
         player2.group_number = 2
         db.commit()
         
@@ -217,7 +220,7 @@ class TestTradeManager:
         assert offer.offered_resources == {'food': 10, 'currency': 50}
         assert offer.requested_resources == {'raw_materials': 20}
     
-    def test_create_trade_offer_insufficient_resources(self, client, sample_game, db):
+    def test_create_trade_offer_insufficient_resources(self, client, sample_game, sample_players, db):
         """Test creating trade offer with insufficient resources"""
         game_code = sample_game["game_code"]
         
@@ -226,7 +229,7 @@ class TestTradeManager:
         
         # Get player
         game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
-        player = db.query(Player).filter(Player.game_session_id == game.id).first()
+        player = db.query(Player).filter(Player.game_session_id == game.id, Player.role == "player").first()
         player.group_number = 1
         db.commit()
         
@@ -243,18 +246,18 @@ class TestTradeManager:
                 requested_resources={'raw_materials': 1}
             )
     
-    def test_create_counter_offer(self, client, sample_game, db):
+    def test_create_counter_offer(self, client, sample_game, sample_players, db):
         """Test creating a counter-offer"""
         game_code = sample_game["game_code"]
         
         # Setup
         client.post(f"/games/{game_code}/start")
         game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
-        players = db.query(Player).filter(Player.game_session_id == game.id).all()
+        players = db.query(Player).filter(Player.game_session_id == game.id, Player.role == "player").all()
         
         player1 = players[0]
         player1.group_number = 1
-        player2 = players[1] if len(players) > 1 else players[0]
+        player2 = players[1]
         player2.group_number = 2
         db.commit()
         
@@ -277,18 +280,18 @@ class TestTradeManager:
         assert counter.counter_offered_resources == {'raw_materials': 15}
         assert counter.counter_requested_resources == {'food': 10}
     
-    def test_accept_trade_offer(self, client, sample_game, db):
+    def test_accept_trade_offer(self, client, sample_game, sample_players, db):
         """Test accepting a trade offer and executing the exchange"""
         game_code = sample_game["game_code"]
         
         # Setup
         client.post(f"/games/{game_code}/start")
         game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
-        players = db.query(Player).filter(Player.game_session_id == game.id).all()
+        players = db.query(Player).filter(Player.game_session_id == game.id, Player.role == "player").all()
         
         player1 = players[0]
         player1.group_number = 1
-        player2 = players[1] if len(players) > 1 else players[0]
+        player2 = players[1]
         player2.group_number = 2
         db.commit()
         
@@ -322,18 +325,18 @@ class TestTradeManager:
         assert new_team2_resources['raw_materials'] == team2_resources['raw_materials'] - 5
         assert new_team2_resources['food'] == team2_resources['food'] + 5
     
-    def test_reject_trade_offer(self, client, sample_game, db):
+    def test_reject_trade_offer(self, client, sample_game, sample_players, db):
         """Test rejecting a trade offer"""
         game_code = sample_game["game_code"]
         
         # Setup
         client.post(f"/games/{game_code}/start")
         game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
-        players = db.query(Player).filter(Player.game_session_id == game.id).all()
+        players = db.query(Player).filter(Player.game_session_id == game.id, Player.role == "player").all()
         
         player1 = players[0]
         player1.group_number = 1
-        player2 = players[1] if len(players) > 1 else players[0]
+        player2 = players[1]
         player2.group_number = 2
         db.commit()
         
@@ -348,14 +351,14 @@ class TestTradeManager:
         
         assert rejected.status == TradeOfferStatus.REJECTED
     
-    def test_cancel_trade_offer(self, client, sample_game, db):
+    def test_cancel_trade_offer(self, client, sample_game, sample_players, db):
         """Test cancelling a trade offer"""
         game_code = sample_game["game_code"]
         
         # Setup
         client.post(f"/games/{game_code}/start")
         game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
-        player = db.query(Player).filter(Player.game_session_id == game.id).first()
+        player = db.query(Player).filter(Player.game_session_id == game.id, Player.role == "player").first()
         player.group_number = 1
         db.commit()
         
@@ -370,14 +373,14 @@ class TestTradeManager:
         
         assert cancelled.status == TradeOfferStatus.CANCELLED
     
-    def test_get_team_trade_offers(self, client, sample_game, db):
+    def test_get_team_trade_offers(self, client, sample_game, sample_players, db):
         """Test retrieving trade offers for a team"""
         game_code = sample_game["game_code"]
         
         # Setup
         client.post(f"/games/{game_code}/start")
         game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
-        player = db.query(Player).filter(Player.game_session_id == game.id).first()
+        player = db.query(Player).filter(Player.game_session_id == game.id, Player.role == "player").first()
         player.group_number = 1
         db.commit()
         
@@ -416,7 +419,7 @@ class TestTradingAPI:
         assert 'prices' in data
         assert 'food' in data['prices']
     
-    def test_get_bank_prices_endpoint(self, client, sample_game, db):
+    def test_get_bank_prices_endpoint(self, client, sample_game, sample_players, db):
         """Test getting current bank prices"""
         game_code = sample_game["game_code"]
         
@@ -433,14 +436,14 @@ class TestTradingAPI:
         data = response.json()
         assert 'prices' in data
     
-    def test_create_team_trade_offer_endpoint(self, client, sample_game, db):
+    def test_create_team_trade_offer_endpoint(self, client, sample_game, sample_players, db):
         """Test creating trade offer via API"""
         game_code = sample_game["game_code"]
         
         # Setup
         client.post(f"/games/{game_code}/start")
         game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
-        player = db.query(Player).filter(Player.game_session_id == game.id).first()
+        player = db.query(Player).filter(Player.game_session_id == game.id, Player.role == "player").first()
         player.group_number = 1
         db.commit()
         

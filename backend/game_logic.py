@@ -368,7 +368,7 @@ class GameLogic:
             
             # Calculate medical goods needed after hospital reduction
             base_medical_needed = severity * 10
-            medical_needed = int(base_medical_needed * (1.0 - reduction))
+            medical_needed = round(base_medical_needed * (1.0 - reduction))
             
             if medical_needed > 0:
                 current_medical = new_state["resources"].get(ResourceType.MEDICAL_GOODS.value, 0)

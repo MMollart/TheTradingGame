@@ -313,6 +313,10 @@ class GameAPI {
             building_type: buildingType
         });
     }
+
+    async logout() {
+        return this.request('POST', '/auth/logout');
+    }
 }
 
 // Export for use in HTML
