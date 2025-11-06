@@ -5220,6 +5220,9 @@ function switchRoleView(role) {
                     gameWS.on('game_event', (data) => {
                         handleGameEvent(data);
                     });
+                    
+                    // Actually connect the WebSocket
+                    gameWS.connect();
                 }
             }
             
