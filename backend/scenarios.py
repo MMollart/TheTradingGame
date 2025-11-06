@@ -814,11 +814,16 @@ def get_nation_config_for_scenario(scenario_id: str, team_number: int) -> Dict[s
     
     nation_profile = scenario["nation_profiles"][team_key]
     
+    # Convert enum keys to string values for JSON serialization
+    def _enum_to_str(key):
+        """Helper to convert enum keys to string values"""
+        return key.value if hasattr(key, 'value') else key
+    
     return {
         "name": nation_profile["name"],
         "description": nation_profile["description"],
-        "resources": {k.value if hasattr(k, 'value') else k: v for k, v in nation_profile["starting_resources"].items()},
-        "buildings": {k.value if hasattr(k, 'value') else k: v for k, v in nation_profile["starting_buildings"].items()},
+        "resources": {_enum_to_str(k): v for k, v in nation_profile["starting_resources"].items()},
+        "buildings": {_enum_to_str(k): v for k, v in nation_profile["starting_buildings"].items()},
         "optional_buildings": {},
         "scenario_id": scenario_id,
         "team_number": team_number

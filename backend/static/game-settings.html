@@ -420,9 +420,10 @@
             try {
                 if (scenarioId) {
                     // Save scenario (this will auto-set teams, duration, and difficulty)
-                    const response = await fetch(`/games/${currentGameCode}/set-scenario?scenario_id=${scenarioId}`, {
+                    const response = await fetch(`/games/${currentGameCode}/set-scenario`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scenario_id: scenarioId })
                     });
                     
                     if (!response.ok) {

@@ -402,10 +402,14 @@ def get_scenario_details(scenario_id: str):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+class SetScenarioRequest(BaseModel):
+    scenario_id: str
+
+
 @app.post("/games/{game_code}/set-scenario")
 async def set_game_scenario(
     game_code: str,
-    scenario_id: str,
+    request: SetScenarioRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -426,12 +430,12 @@ async def set_game_scenario(
     
     # Validate scenario exists
     try:
-        scenario = get_scenario(scenario_id)
+        scenario = get_scenario(request.scenario_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     
     # Set scenario and configure game based on scenario
-    game.scenario_id = scenario_id
+    game.scenario_id = request.scenario_id
     game.num_teams = len(scenario["nation_profiles"])  # Set number of teams based on scenario
     game.game_duration_minutes = scenario["recommended_duration"]  # Set recommended duration
     game.difficulty = scenario["difficulty"]  # Set difficulty level
@@ -441,7 +445,7 @@ async def set_game_scenario(
         game.game_state = {}
     
     game.game_state["scenario"] = {
-        "id": scenario_id,
+        "id": request.scenario_id,
         "name": scenario["name"],
         "period": scenario["period"],
         "special_rules": scenario["special_rules"],
@@ -457,7 +461,7 @@ async def set_game_scenario(
         game_code.upper(),
         {
             "type": "scenario_changed",
-            "scenario_id": scenario_id,
+            "scenario_id": request.scenario_id,
             "scenario_name": scenario["name"],
             "num_teams": game.num_teams,
             "duration_minutes": game.game_duration_minutes,
@@ -468,7 +472,7 @@ async def set_game_scenario(
     return {
         "success": True,
         "message": f"Scenario set to '{scenario['name']}'",
-        "scenario_id": scenario_id,
+        "scenario_id": request.scenario_id,
         "scenario_name": scenario["name"],
         "num_teams": game.num_teams,
         "game_duration_minutes": game.game_duration_minutes,

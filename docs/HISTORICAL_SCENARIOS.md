@@ -162,17 +162,28 @@ Each scenario has unique starting resources and buildings for each nation. When 
 
 ### Special Rules Implementation
 
-**Note**: Special rules are documented for gameplay reference. Some rules require manual implementation by the Banker/Host during the game. Future updates will automate more of these mechanics.
+**Important**: Special rules provide thematic gameplay guidelines. The system currently automates setup but most special rules require Banker/Host implementation during gameplay.
 
-Currently automated:
-- Starting resources and buildings per nation
-- Team configuration (4 teams)
-- Game duration recommendations
+#### ✅ Fully Automated:
+- **Starting Resources**: Each nation automatically receives scenario-specific resources
+- **Starting Buildings**: Nations begin with historically appropriate buildings
+- **Team Configuration**: Automatically sets 4 teams for all scenarios
+- **Game Duration**: Auto-sets recommended duration (can be adjusted)
+- **Difficulty Level**: Auto-configures difficulty (Easy/Medium/Hard)
 
-Require manual implementation:
-- Periodic bonuses (Marshall Aid, Demand Shifts)
-- Triggered penalties (Food Crisis, Worker Strikes)
-- Special mechanics (Trading Caravans delay, Spy mechanics)
+#### ⚠️ Requires Manual Implementation by Banker/Host:
+- **Periodic Bonuses**: Marshall Aid distributions, Demand Shifts - Banker must track time and distribute
+- **Triggered Penalties**: Food Crisis, Worker Strikes, Bank Runs - Banker monitors conditions and applies
+- **Time-based Events**: Railway Boom, Moon Race cost increases - Banker announces at specified times
+- **Special Mechanics**: Trading Caravans delays, Spy actions, Discovery Voyages - Players/Banker coordinate
+- **Victory Tracking**: Monitor victory conditions throughout the game
+
+#### 🔮 Future Automation:
+Future updates will automate more mechanics:
+- Automatic periodic bonuses and penalties
+- Real-time victory condition tracking
+- Timer-based rule triggers
+- Automated resource loss/gain events
 
 ### Victory Conditions
 
