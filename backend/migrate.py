@@ -37,6 +37,37 @@ def run_migrations():
                     END IF;
                 END $$;
             """
+        },
+        {
+            "name": "002_add_cascade_delete_price_history",
+            "description": "Add CASCADE delete to price_history foreign key",
+            "sql": """
+                -- Drop and recreate the foreign key with CASCADE
+                DO $$ 
+                BEGIN
+                    -- Check if the constraint exists
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints 
+                        WHERE constraint_name='price_history_game_session_id_fkey' 
+                        AND table_name='price_history'
+                    ) THEN
+                        -- Drop the existing constraint
+                        ALTER TABLE price_history 
+                        DROP CONSTRAINT price_history_game_session_id_fkey;
+                        
+                        RAISE NOTICE 'Dropped old foreign key constraint';
+                    END IF;
+                    
+                    -- Add the constraint with CASCADE
+                    ALTER TABLE price_history 
+                    ADD CONSTRAINT price_history_game_session_id_fkey 
+                    FOREIGN KEY (game_session_id) 
+                    REFERENCES game_sessions(id) 
+                    ON DELETE CASCADE;
+                    
+                    RAISE NOTICE 'Added CASCADE delete to price_history foreign key';
+                END $$;
+            """
         }
     ]
     

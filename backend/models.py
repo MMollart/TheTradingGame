@@ -224,7 +224,7 @@ class PriceHistory(Base):
     __tablename__ = "price_history"
     
     id = Column(Integer, primary_key=True, index=True)
-    game_session_id = Column(Integer, ForeignKey("game_sessions.id"), nullable=False)
+    game_session_id = Column(Integer, ForeignKey("game_sessions.id", ondelete="CASCADE"), nullable=False)
     
     # Price snapshot
     resource_type = Column(String(50), nullable=False)  # food, raw_materials, etc.

@@ -17,7 +17,7 @@ import logging
 from pathlib import Path
 
 from database import get_db, init_db
-from models import User, GameSession, Player, GameConfiguration, GameStatus
+from models import User, GameSession, Player, GameConfiguration, GameStatus, PriceHistory
 from schemas import (
     UserCreate, UserResponse, Token,
     GameConfigCreate, GameConfigResponse,
@@ -894,6 +894,9 @@ async def delete_game(
     
     # SQLAlchemy will cascade delete players and challenges due to relationship configuration
     # But we'll be explicit for clarity
+    
+    # Delete price history
+    db.query(PriceHistory).filter(PriceHistory.game_session_id == game.id).delete()
     
     # Delete all players
     db.query(Player).filter(Player.game_session_id == game.id).delete()
