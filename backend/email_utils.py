@@ -19,6 +19,7 @@ SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+APP_URL = os.getenv("APP_URL", "http://localhost:8000")  # Production URL or localhost for dev
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", SMTP_USERNAME)
 SENDER_NAME = os.getenv("SENDER_NAME", "The Trading Game")
 
@@ -93,7 +94,7 @@ Your account has been successfully created. You can now:
 - Join existing games using a game code
 - Track your game history and statistics
 
-Get started by logging in at: http://localhost:3000
+Get started by logging in at: {APP_URL}
 
 Happy trading!
 
@@ -178,7 +179,7 @@ The Trading Game Team
         </div>
         
         <center>
-            <a href="http://localhost:3000" class="button">Get Started</a>
+            <a href="{APP_URL}" class="button">Get Started</a>
         </center>
         
         <p style="margin-top: 30px; color: #666; font-size: 14px;">

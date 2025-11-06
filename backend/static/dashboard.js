@@ -155,9 +155,9 @@ function updateTeamStateFromGameState(source) {
 function connectWebSocket() {
     const statusIndicator = document.getElementById('connection-status');
     
-    // Convert HTTP base URL to WebSocket URL (http://localhost:8000 -> ws://localhost:8000)
-    const wsBaseUrl = gameAPI.baseUrl.replace(/^http/, 'ws');
-    gameWS = new GameWebSocket(currentGameCode, currentPlayer.id, wsBaseUrl);
+    // Let GameWebSocket auto-detect the correct WebSocket URL
+    // It will use wss:// for HTTPS and ws:// for HTTP
+    gameWS = new GameWebSocket(currentGameCode, currentPlayer.id);
     
     gameWS.on('connected', () => {
         statusIndicator.classList.add('connected');
@@ -5210,8 +5210,8 @@ function switchRoleView(role) {
                 // Reconnect WebSocket with original player ID
                 if (gameWS) {
                     gameWS.disconnect();
-                    const wsBaseUrl = gameAPI.baseUrl.replace(/^http/, 'ws');
-                    gameWS = new GameWebSocket(currentGameCode, currentPlayer.id, wsBaseUrl);
+                    // Let GameWebSocket auto-detect the correct WebSocket URL
+                    gameWS = new GameWebSocket(currentGameCode, currentPlayer.id);
                     
                     gameWS.on('connected', () => {
                         // console.log(`[switchRoleView] WebSocket reconnected as original player ${currentPlayer.name}`);
