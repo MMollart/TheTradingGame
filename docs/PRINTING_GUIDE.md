@@ -2,10 +2,25 @@
 
 This guide explains how to convert the player instructions to a printable format.
 
+## 📋 Choose Your Version
+
+**Two versions available:**
+
+1. **PLAYER_INSTRUCTIONS_QUICK.md** (2 pages) - **RECOMMENDED for most players**
+   - Condensed quick reference with all essential information
+   - Fits on 2 pages when printed
+   - Perfect for distributing to all players
+   - Tables and bullet points for quick scanning
+
+2. **PLAYER_INSTRUCTIONS.md** (15-20 pages) - For game hosts or detailed study
+   - Comprehensive guide with examples and strategies
+   - Better as a reference document or host guide
+   - Include detailed explanations and troubleshooting
+
 ## Quick Print Options
 
 ### Option 1: GitHub Markdown Preview (Easiest)
-1. View `PLAYER_INSTRUCTIONS.md` on GitHub
+1. View `PLAYER_INSTRUCTIONS_QUICK.md` (or `PLAYER_INSTRUCTIONS.md`) on GitHub
 2. Click the "Print" button in your browser
 3. Save as PDF or print directly
 
@@ -20,14 +35,19 @@ brew install pandoc
 # Ubuntu/Debian:
 sudo apt-get install pandoc
 
-# Convert to PDF
+# Convert Quick Guide (2 pages)
+pandoc docs/PLAYER_INSTRUCTIONS_QUICK.md -o player-quick-guide.pdf \
+  --pdf-engine=xelatex \
+  -V geometry:margin=0.75in
+
+# Or convert Complete Guide (15-20 pages)
 pandoc docs/PLAYER_INSTRUCTIONS.md -o player-instructions.pdf \
   --pdf-engine=xelatex \
   --toc \
   -V geometry:margin=1in
 
 # Or convert to HTML first for better formatting
-pandoc docs/PLAYER_INSTRUCTIONS.md -o player-instructions.html \
+pandoc docs/PLAYER_INSTRUCTIONS_QUICK.md -o player-quick-guide.html \
   -s --toc \
   --css=https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css
 

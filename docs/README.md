@@ -5,7 +5,8 @@ Complete documentation for The Trading Game - a real-time multiplayer resource t
 ## 📖 Documentation Index
 
 ### 🚀 Getting Started
-- **[PLAYER_INSTRUCTIONS.md](PLAYER_INSTRUCTIONS.md)** - 📋 **Complete player guide for gameplay (printable)**
+- **[PLAYER_INSTRUCTIONS_QUICK.md](PLAYER_INSTRUCTIONS_QUICK.md)** - 📄 **2-page quick reference for players (print and distribute!)**
+- **[PLAYER_INSTRUCTIONS.md](PLAYER_INSTRUCTIONS.md)** - 📋 Complete player guide for gameplay (detailed, 15-20 pages)
 - **[PRINTING_GUIDE.md](PRINTING_GUIDE.md)** - 🖨️ Guide for printing player instructions
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick reference for server management and common commands
 - **[OSM_OAUTH_SETUP.md](OSM_OAUTH_SETUP.md)** - OnlineScoutManager OAuth2 integration guide
@@ -42,9 +43,10 @@ Complete documentation for The Trading Game - a real-time multiplayer resource t
 
 ### For Players
 Learn how to play the game:
-1. **[PLAYER_INSTRUCTIONS.md](PLAYER_INSTRUCTIONS.md)** - 📋 Complete gameplay guide (print and distribute!)
-2. [FEATURE-LOBBY-AND-CHALLENGES.md](FEATURE-LOBBY-AND-CHALLENGES.md) - Challenge mechanics deep-dive
-3. [TRADING_FEATURE_README.md](TRADING_FEATURE_README.md) - Trading system details
+1. **[PLAYER_INSTRUCTIONS_QUICK.md](PLAYER_INSTRUCTIONS_QUICK.md)** - 📄 **2-page quick reference (BEST for printing!)**
+2. **[PLAYER_INSTRUCTIONS.md](PLAYER_INSTRUCTIONS.md)** - 📋 Complete gameplay guide (detailed reference)
+3. [FEATURE-LOBBY-AND-CHALLENGES.md](FEATURE-LOBBY-AND-CHALLENGES.md) - Challenge mechanics deep-dive
+4. [TRADING_FEATURE_README.md](TRADING_FEATURE_README.md) - Trading system details
 
 ### For Game Hosts
 Start here to run games:
