@@ -43,7 +43,7 @@ Players request physical challenges (push-ups, burpees) → Host/Banker assigns 
 **Key files**:
 - Backend: `backend/challenge_manager.py`, `backend/challenge_api.py`, `backend/models.py` (Challenge, ChallengeStatus enum)
 - Frontend: `frontend/challenge-manager.js`, `frontend/dashboard.js` (WebSocket handlers)
-- Docs: `CHALLENGE_SYSTEM_README.md`, `FEATURE-LOBBY-AND-CHALLENGES.md`
+- Docs: `docs/CHALLENGE_SYSTEM_README.md`, `docs/FEATURE-LOBBY-AND-CHALLENGES.md`
 
 **4. WebSocket Event Protocol**
 Format: `{"type": "event", "event_type": "<specific_event>", "data": {...}}`
@@ -251,10 +251,37 @@ window.addEventListener('beforeunload', () => gameWS.disconnect());
 
 ## Feature Documentation
 
-- **CHALLENGE_SYSTEM_README.md**: Complete challenge architecture, API reference, testing guide
-- **FEATURE-LOBBY-AND-CHALLENGES.md**: Lobby state management, challenge request workflow
-- **FEATURE-GAME-DURATION.md**: Game timer implementation, pause/resume behavior
-- **QUICKSTART.md**: Server management, testing checklist
+All documentation files are now organized in the `docs/` directory. See [docs/README.md](../docs/README.md) for the complete documentation index.
+
+### Getting Started Documentation
+- **[QUICKSTART.md](../docs/QUICKSTART.md)**: Server management scripts, development workflow, testing
+- **[OSM_OAUTH_SETUP.md](../docs/OSM_OAUTH_SETUP.md)**: OnlineScoutManager OAuth2 integration setup
+
+### Core Feature Documentation
+- **[CHALLENGE_SYSTEM_README.md](../docs/CHALLENGE_SYSTEM_README.md)**: Complete challenge architecture, multi-user support, pause-aware timing, API reference, testing guide
+- **[FEATURE-LOBBY-AND-CHALLENGES.md](../docs/FEATURE-LOBBY-AND-CHALLENGES.md)**: Lobby state management, challenge request workflow, player approval system
+- **[FEATURE-GAME-DURATION.md](../docs/FEATURE-GAME-DURATION.md)**: Configurable game duration (1-4 hours), game timer implementation, pause/resume behavior
+- **[FEATURE-FOOD-TAX-AUTOMATION.md](../docs/FEATURE-FOOD-TAX-AUTOMATION.md)**: Automated food tax system, banker controls, penalty mechanics
+- **[FOOD-TAX-QUICKSTART.md](../docs/FOOD-TAX-QUICKSTART.md)**: Quick guide for using food tax feature
+- **[TRADING_FEATURE_README.md](../docs/TRADING_FEATURE_README.md)**: Resource trading system, team-to-team trading, World Bank trading
+- **[BUILDING-CONSTRUCTION-SYSTEM.md](../docs/BUILDING-CONSTRUCTION-SYSTEM.md)**: Building types, construction costs, production multipliers
+
+### Architecture & Implementation
+- **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](../docs/CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)**: WebSocket event handling, real-time synchronization, event types
+- **[CHALLENGE-WEBSOCKET-TESTING.md](../docs/CHALLENGE-WEBSOCKET-TESTING.md)**: WebSocket testing methodology and test cases
+- **[FLOW_DIAGRAM.md](../docs/FLOW_DIAGRAM.md)**: Game flow diagrams, state transitions, gameplay sequences
+- **[DOCS.md](../docs/DOCS.md)**: Technical API documentation, database schema, endpoints
+- **[IMPLEMENTATION_SUMMARY.md](../docs/IMPLEMENTATION_SUMMARY.md)**: General implementation patterns and conventions
+- **[IMPLEMENTATION_SUMMARY_FOOD_TAX.md](../docs/IMPLEMENTATION_SUMMARY_FOOD_TAX.md)**: Food tax implementation details
+- **[TRADING_IMPLEMENTATION_SUMMARY.md](../docs/TRADING_IMPLEMENTATION_SUMMARY.md)**: Trading system implementation guide
+- **[TRADING_SYSTEM_TESTING.md](../docs/TRADING_SYSTEM_TESTING.md)**: Trading system test suite and validation
+
+### Troubleshooting & Fixes
+- **[DASHBOARD_REFRESH_FIX.md](../docs/DASHBOARD_REFRESH_FIX.md)**: Dashboard refresh issues, WebSocket reconnection fixes
+- **[FIX_BANKER_NOT_FOUND.md](../docs/FIX_BANKER_NOT_FOUND.md)**: Banker role detection bug fix
+
+### UI/UX Design
+- **[SCOUT_COLORS.md](../docs/SCOUT_COLORS.md)**: Scout-themed color palette, design system guidelines
 
 ## When Modifying Code
 

@@ -40,6 +40,11 @@ from challenge_api import router as challenge_router_v2
 from trading_api import router as trading_router_v2
 from pricing_manager import PricingManager
 from osm_oauth_api import router as osm_oauth_router
+from food_tax_api import router as food_tax_router_v2
+from food_tax_scheduler import (
+    start_food_tax_scheduler, stop_food_tax_scheduler,
+    on_game_started, on_game_paused, on_game_resumed, on_game_ended
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -70,9 +75,16 @@ if static_dir.exists():
 
 
 @app.on_event("startup")
-def on_startup():
-    """Initialize database on startup"""
+async def on_startup():
+    """Initialize database and background tasks on startup"""
     init_db()
+    start_food_tax_scheduler()
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    """Clean up background tasks on shutdown"""
+    stop_food_tax_scheduler()
 
 
 # Include v2 Challenge API routes
@@ -83,6 +95,9 @@ app.include_router(trading_router_v2)
 
 # Include OSM OAuth API routes
 app.include_router(osm_oauth_router)
+
+# Include Food Tax API routes
+app.include_router(food_tax_router_v2)
 
 
 @app.get("/")
@@ -1201,6 +1216,9 @@ async def start_game(
     game.started_at = datetime.utcnow()
     db.commit()
     
+    # Initialize food tax tracking
+    await on_game_started(game_code)
+    
     # Broadcast game status change to all players
     await manager.broadcast_to_game(
         game_code.upper(),
@@ -1231,6 +1249,9 @@ async def pause_game(
     
     game.status = GameStatus.PAUSED
     db.commit()
+    
+    # Notify food tax scheduler
+    await on_game_paused(game_code)
     
     # Broadcast game status change to all players
     await manager.broadcast_to_game(
@@ -1314,6 +1335,9 @@ async def end_game(
     game.status = GameStatus.COMPLETED
     game.game_state = {"final_scores": scores}
     db.commit()
+    
+    # Notify food tax scheduler that game has ended
+    await on_game_ended(game_code)
     
     # Broadcast game status change to all players
     await manager.broadcast_to_game(
