@@ -495,6 +495,9 @@ async function loadGameData() {
         // console.log('[loadGameData] gameState:', gameState);
         // console.log('[loadGameData] gameState.teams:', gameState.teams);
         
+        // Update scenario display if scenario is active
+        updateScenarioDisplay(game);
+        
         // Update game status display
         updateGameStatusDisplay();
         
@@ -1549,6 +1552,25 @@ function updateControlButtons() {
             resumeBtn.disabled = true;
             endBtn.disabled = true;
             break;
+    }
+}
+
+function updateScenarioDisplay(game) {
+    const scenarioInfo = document.getElementById('scenario-info');
+    const scenarioNameDisplay = document.getElementById('scenario-name-display');
+    const scenarioPeriodDisplay = document.getElementById('scenario-period-display');
+    
+    if (!scenarioInfo || !scenarioNameDisplay || !scenarioPeriodDisplay) {
+        return;
+    }
+    
+    // Check if a scenario is set
+    if (game.scenario_id && gameState.scenario) {
+        scenarioInfo.style.display = 'block';
+        scenarioNameDisplay.textContent = gameState.scenario.name || game.scenario_id;
+        scenarioPeriodDisplay.textContent = gameState.scenario.period || '';
+    } else {
+        scenarioInfo.style.display = 'none';
     }
 }
 

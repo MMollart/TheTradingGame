@@ -72,6 +72,7 @@ class GameSession(Base):
     num_teams = Column(Integer, nullable=True)  # Number of teams configured by host
     game_duration_minutes = Column(Integer, nullable=True)  # Game duration in minutes (60, 90, 120, 150, 180, 210, 240)
     difficulty = Column(String(10), default="medium", nullable=False)  # Game difficulty: easy, medium, hard
+    scenario_id = Column(String(50), nullable=True)  # Historical scenario identifier (e.g., 'marshall_plan')
     
     created_at = Column(DateTime, default=datetime.utcnow)
     started_at = Column(DateTime, nullable=True)

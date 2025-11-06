@@ -264,6 +264,29 @@
             </div>
         </div>
 
+        <!-- Scenario Selection -->
+        <div class="settings-section">
+            <h2>🎭 Historical Scenario (Optional)</h2>
+            
+            <div class="setting-item">
+                <label for="scenario-select">Choose a Scenario</label>
+                <select id="scenario-select" onchange="onScenarioChange()">
+                    <option value="">None - Classic Trading Game</option>
+                </select>
+                <div class="setting-description" id="scenario-description">
+                    Select a historical scenario to apply themed rules, nations, and victory conditions.
+                </div>
+            </div>
+            
+            <div id="scenario-details" style="display: none; margin-top: 15px; padding: 15px; background: #fff; border-radius: 8px; border: 2px solid #667eea;">
+                <h3 style="margin-bottom: 10px; color: #667eea;" id="scenario-name"></h3>
+                <p style="margin-bottom: 10px;"><strong>Period:</strong> <span id="scenario-period"></span></p>
+                <p style="margin-bottom: 10px;"><strong>Difficulty:</strong> <span id="scenario-difficulty"></span></p>
+                <p style="margin-bottom: 10px;"><strong>Recommended Duration:</strong> <span id="scenario-duration"></span></p>
+                <p style="margin-bottom: 0;"><span id="scenario-desc"></span></p>
+            </div>
+        </div>
+
         <!-- Game Rules -->
         <div class="settings-section">
             <h2>📜 Game Rules</h2>
@@ -295,9 +318,11 @@
         const gameAPI = new GameAPI();
         let currentGameCode = null;
         let currentPlayer = null;
+        let availableScenarios = [];
+        let selectedScenario = null;
 
         // Get game info from URL
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             const params = new URLSearchParams(window.location.search);
             currentGameCode = params.get('gameCode');
             const playerId = params.get('playerId');
@@ -321,7 +346,54 @@
             if (authToken) {
                 gameAPI.setToken(authToken);
             }
+
+            // Load available scenarios
+            await loadScenarios();
         });
+
+        async function loadScenarios() {
+            try {
+                const response = await fetch('/scenarios');
+                const data = await response.json();
+                availableScenarios = data.scenarios;
+                
+                const select = document.getElementById('scenario-select');
+                availableScenarios.forEach(scenario => {
+                    const option = document.createElement('option');
+                    option.value = scenario.id;
+                    option.textContent = `${scenario.name} (${scenario.period}) - ${scenario.difficulty.toUpperCase()}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading scenarios:', error);
+            }
+        }
+
+        function onScenarioChange() {
+            const select = document.getElementById('scenario-select');
+            const scenarioId = select.value;
+            
+            if (!scenarioId) {
+                document.getElementById('scenario-details').style.display = 'none';
+                selectedScenario = null;
+                return;
+            }
+
+            const scenario = availableScenarios.find(s => s.id === scenarioId);
+            if (scenario) {
+                selectedScenario = scenario;
+                document.getElementById('scenario-name').textContent = scenario.name;
+                document.getElementById('scenario-period').textContent = scenario.period;
+                document.getElementById('scenario-difficulty').textContent = scenario.difficulty.toUpperCase();
+                document.getElementById('scenario-duration').textContent = `${scenario.recommended_duration} minutes`;
+                document.getElementById('scenario-desc').textContent = scenario.description;
+                document.getElementById('scenario-details').style.display = 'block';
+                
+                // Auto-set duration to scenario recommendation
+                document.getElementById('game-duration').value = scenario.recommended_duration;
+                updateDurationDisplay(scenario.recommended_duration);
+            }
+        }
 
         function updateDurationDisplay(minutes) {
             const hours = Math.floor(minutes / 60);
@@ -340,22 +412,40 @@
         }
 
         async function saveSettingsAndContinue() {
+            const scenarioSelect = document.getElementById('scenario-select');
+            const scenarioId = scenarioSelect.value;
             const numTeams = parseInt(document.getElementById('num-teams').value);
             const gameDuration = parseInt(document.getElementById('game-duration').value);
 
-            if (!numTeams || numTeams < 1 || numTeams > 20) {
-                showStatus('Please enter a valid number of teams (1-20)', 'error');
-                return;
-            }
-
             try {
-                // Save number of teams
-                await gameAPI.setNumberOfTeams(currentGameCode, numTeams);
-                
-                // Save game duration
-                await gameAPI.setGameDuration(currentGameCode, gameDuration);
+                if (scenarioId) {
+                    // Save scenario (this will auto-set teams, duration, and difficulty)
+                    const response = await fetch(`/games/${currentGameCode}/set-scenario`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scenario_id: scenarioId })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to set scenario');
+                    }
+                    
+                    showStatus('Scenario and settings saved successfully!', 'success');
+                } else {
+                    // Manual configuration without scenario
+                    if (!numTeams || numTeams < 1 || numTeams > 20) {
+                        showStatus('Please enter a valid number of teams (1-20)', 'error');
+                        return;
+                    }
 
-                showStatus('Settings saved successfully!', 'success');
+                    // Save number of teams
+                    await gameAPI.setNumberOfTeams(currentGameCode, numTeams);
+                    
+                    // Save game duration
+                    await gameAPI.setGameDuration(currentGameCode, gameDuration);
+
+                    showStatus('Settings saved successfully!', 'success');
+                }
                 
                 // Redirect to dashboard after short delay
                 setTimeout(() => {
