@@ -187,6 +187,34 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+@app.post("/auth/logout")
+def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Logout user and clean up OAuth tokens if they logged in via OAuth.
+    For regular username/password users, this just confirms logout.
+    For OAuth users (OSM), this deletes their stored access/refresh tokens via disconnect_oauth.
+    """
+    from osm_oauth import OSMOAuthClient
+    
+    # Initialize OAuth client to check for tokens
+    oauth_client = OSMOAuthClient(db)
+    oauth_token = oauth_client.get_stored_token(current_user)
+    
+    if oauth_token:
+        # Delete OAuth token using the existing disconnect logic
+        db.delete(oauth_token)
+        db.commit()
+        return {
+            "success": True,
+            "message": "Logged out successfully and disconnected from OnlineScoutManager"
+        }
+    
+    return {
+        "success": True,
+        "message": "Logged out successfully"
+    }
+
+
 # ==================== Game Configuration Endpoints ====================
 
 @app.post("/configs", response_model=GameConfigResponse, status_code=status.HTTP_201_CREATED)
