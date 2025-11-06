@@ -3679,11 +3679,9 @@ async function populateTeamSelector() {
     
     Object.keys(teams).forEach(teamNum => {
         if (parseInt(teamNum) !== currentTeam) {
-            const teamData = teams[teamNum];
-            const teamName = teamData.name || `Team ${teamNum}`;
             const option = document.createElement('option');
             option.value = teamNum;
-            option.textContent = teamName;
+            option.textContent = `Team ${teamNum}`;
             selector.appendChild(option);
         }
     });
