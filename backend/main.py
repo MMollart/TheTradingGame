@@ -2019,10 +2019,15 @@ async def update_challenge(
     db.commit()
     db.refresh(challenge)
     
+    # Get player name for WebSocket broadcasts
+    player = db.query(Player).filter(Player.id == challenge.player_id).first()
+    player_name = player.player_name if player else "Unknown Player"
+    
     # Prepare response data
     response_data = {
         "id": challenge.id,
         "player_id": challenge.player_id,
+        "player_name": player_name,
         "building_type": challenge.building_type,
         "building_name": challenge.building_name,
         "team_number": challenge.team_number,

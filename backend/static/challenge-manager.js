@@ -501,7 +501,7 @@ class ChallengeManager {
         const challenge = {
             db_id: eventData.db_id || null, // Database ID from HTTP response
             player_id: eventData.player_id,
-            player_name: eventData.player_name,
+            player_name: eventData.player_name || 'Unknown Player',
             team_number: eventData.team_number,
             building_type: eventData.building_type,
             building_name: eventData.building_name,
