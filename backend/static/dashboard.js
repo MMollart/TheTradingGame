@@ -5204,13 +5204,14 @@ function toggleTestMode(enabled) {
         const viewAsRole = document.getElementById('view-as-role');
         if (viewAsRole) {
             viewAsRole.value = 'host';
-            switchRoleView('host');
+            // Don't await here - let it run async to avoid blocking
+            switchRoleView('host').catch(err => console.error('Error switching to host view:', err));
         }
     }
 }
 
 // Switch the dashboard view to simulate different roles
-function switchRoleView(role) {
+async function switchRoleView(role) {
     // console.log('Switching view to role:', role);
     
     // Hide all role dashboards
@@ -5232,6 +5233,10 @@ function switchRoleView(role) {
                 // Reconnect WebSocket with original player ID
                 if (gameWS) {
                     gameWS.disconnect();
+                    
+                    // Wait a moment for clean disconnect before reconnecting
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
                     // Let GameWebSocket auto-detect the correct WebSocket URL
                     gameWS = new GameWebSocket(currentGameCode, currentPlayer.id);
                     
@@ -5243,8 +5248,8 @@ function switchRoleView(role) {
                         handleGameEvent(data);
                     });
                     
-                    // Actually connect the WebSocket
-                    gameWS.connect();
+                    // Actually connect the WebSocket and wait for it
+                    await gameWS.connect();
                 }
             }
             
