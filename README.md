@@ -88,19 +88,17 @@ TheTradingGame/
 │       ├── test_game_management.py
 │       ├── test_player_management.py
 │       └── test_team_assignment.py
-├── frontend/
-│   ├── index.html               # Landing page
-│   ├── login.html               # Authentication page
-│   ├── dashboard.html           # Main game interface
-│   ├── host-dashboard.html      # Host control panel
-│   ├── game-settings.html       # Game configuration
-│   ├── styles.css               # Global styles
-│   ├── dashboard-styles.css     # Game interface styles
-│   ├── game-api.js              # API client wrapper
-│   ├── dashboard.js             # Main game logic
-│   ├── challenge-manager.js     # Frontend challenge state management
-│   └── websocket-client.js      # WebSocket event handling
 ├── backend/
+│   ├── static/                  # Frontend files (HTML, JS, CSS)
+│   │   ├── index.html           # Landing page
+│   │   ├── dashboard.html       # Main game interface
+│   │   ├── game-settings.html   # Game configuration
+│   │   ├── dashboard-styles.css # Game interface styles
+│   │   ├── game-api.js          # API client wrapper
+│   │   ├── dashboard.js         # Main game logic
+│   │   ├── challenge-manager.js # Frontend challenge state management
+│   │   ├── food-tax-manager.js  # Food tax frontend logic
+│   │   └── trading-manager.js   # Trading system frontend
 │   ├── requirements.txt         # Production dependencies
 │   └── requirements-test.txt    # Test dependencies
 ├── .env.example                 # Environment template
@@ -176,24 +174,20 @@ tail -f /tmp/trading-game-frontend.log  # Frontend logs
 ```
 
 **URLs:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
+- Application: http://localhost:8000 (frontend + backend unified)
 - API Docs (Swagger): http://localhost:8000/docs
 - API Docs (ReDoc): http://localhost:8000/redoc
 
 #### Manual Start (Development)
 
-**Terminal 1 - Backend:**
+**Single Terminal:**
 ```bash
 cd backend
 python main.py
 ```
 
-**Terminal 2 - Frontend:**
-```bash
-cd frontend
-python3 -m http.server 3000
-```
+The backend serves frontend files from `backend/static/` automatically.
+Access the app at: http://localhost:8000
 
 #### Running Tests
 
@@ -577,8 +571,7 @@ CMD ["python", "backend/main.py"]
 
 ### Port Already in Use
 ```bash
-lsof -ti:8000 | xargs kill -9  # Kill backend
-lsof -ti:3000 | xargs kill -9  # Kill frontend
+lsof -ti:8000 | xargs kill -9  # Kill server
 ./restart-servers.sh
 ```
 

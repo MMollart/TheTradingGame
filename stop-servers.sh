@@ -1,22 +1,21 @@
 #!/bin/bash
 
 # Trading Game - Server Stop Script
-# This script kills both backend and frontend servers
+# Stops the unified FastAPI server
 
-echo "🛑 Stopping Trading Game servers..."
+echo "🛑 Stopping Trading Game server..."
 
-# Kill backend
+# Kill backend (which serves frontend too)
 pkill -f "python main.py" 2>/dev/null
-BACKEND_KILLED=$?
+SERVER_KILLED=$?
 
-# Kill frontend
+# Clean up any old frontend servers
 pkill -f "python3 -m http.server 3000" 2>/dev/null
-FRONTEND_KILLED=$?
 
 sleep 1
 
-if [ $BACKEND_KILLED -eq 0 ] || [ $FRONTEND_KILLED -eq 0 ]; then
-    echo "✅ Servers stopped successfully"
+if [ $SERVER_KILLED -eq 0 ]; then
+    echo "✅ Server stopped successfully"
 else
-    echo "ℹ️  No servers were running"
+    echo "ℹ️  No server was running"
 fi
