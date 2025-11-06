@@ -34,6 +34,10 @@ async def check_all_games_for_taxes():
     db = next(get_db())
     
     try:
+        # Expire all objects to ensure we get fresh data from database
+        # This prevents stale data issues when game status changes in other sessions
+        db.expire_all()
+        
         # Get all active games
         games = db.query(GameSession).filter(
             GameSession.status == GameStatus.IN_PROGRESS

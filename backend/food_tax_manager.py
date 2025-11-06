@@ -212,7 +212,15 @@ class FoodTaxManager:
             GameSession.game_code == game_code.upper()
         ).first()
         
-        if not game or game.status != GameStatus.IN_PROGRESS:
+        if not game:
+            return []
+        
+        # Refresh the game object to ensure we have the latest status from the database
+        # This is critical to avoid processing games that have ended or been paused
+        self.db.refresh(game)
+        
+        # Only process games that are IN_PROGRESS (not WAITING, PAUSED, or COMPLETED)
+        if game.status != GameStatus.IN_PROGRESS:
             return []
         
         if 'food_tax' not in game.game_state:

@@ -593,3 +593,180 @@ class TestTaxStatusAPI:
         assert team2['tax_amount'] == 5  # Developing nation
         assert team2['total_taxes_paid'] == 1
         assert team2['total_famines'] == 1
+
+
+class TestGameStatusHandling:
+    """Test that scheduler properly handles different game statuses"""
+    
+    def test_no_tax_processing_for_completed_games(self, db):
+        """Completed games should not have taxes processed"""
+        next_due = datetime.utcnow() - timedelta(minutes=1)  # Tax is due
+        
+        game = GameSession(
+            game_code="COMPLETED1",
+            status=GameStatus.COMPLETED,  # Game has ended
+            game_state={
+                'teams': {
+                    '1': {
+                        'is_developed': True,
+                        'resources': {
+                            ResourceType.FOOD.value: 50,
+                            ResourceType.CURRENCY.value: 100
+                        },
+                        'buildings': {}
+                    }
+                },
+                'food_tax': {
+                    '1': {
+                        'next_tax_due': next_due.isoformat(),
+                        'warning_sent': False,
+                        'tax_interval_minutes': 15,
+                        'total_taxes_paid': 0,
+                        'total_famines': 0
+                    }
+                }
+            }
+        )
+        db.add(game)
+        db.commit()
+        
+        manager = FoodTaxManager(db)
+        events = manager.check_and_process_taxes("COMPLETED1")
+        
+        # Should NOT process any taxes for completed game
+        assert len(events) == 0
+        
+        # Verify resources were not touched
+        db.refresh(game)
+        assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 50
+    
+    def test_no_tax_processing_for_paused_games(self, db):
+        """Paused games should not have taxes processed"""
+        next_due = datetime.utcnow() - timedelta(minutes=1)  # Tax is due
+        
+        game = GameSession(
+            game_code="PAUSED1",
+            status=GameStatus.PAUSED,  # Game is paused
+            game_state={
+                'teams': {
+                    '1': {
+                        'is_developed': True,
+                        'resources': {
+                            ResourceType.FOOD.value: 50,
+                            ResourceType.CURRENCY.value: 100
+                        },
+                        'buildings': {}
+                    }
+                },
+                'food_tax': {
+                    '1': {
+                        'next_tax_due': next_due.isoformat(),
+                        'warning_sent': False,
+                        'tax_interval_minutes': 15,
+                        'total_taxes_paid': 0,
+                        'total_famines': 0
+                    }
+                }
+            }
+        )
+        db.add(game)
+        db.commit()
+        
+        manager = FoodTaxManager(db)
+        events = manager.check_and_process_taxes("PAUSED1")
+        
+        # Should NOT process any taxes for paused game
+        assert len(events) == 0
+        
+        # Verify resources were not touched
+        db.refresh(game)
+        assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 50
+    
+    def test_no_tax_processing_for_waiting_games(self, db):
+        """Waiting games should not have taxes processed"""
+        next_due = datetime.utcnow() - timedelta(minutes=1)  # Tax is due
+        
+        game = GameSession(
+            game_code="WAITING1",
+            status=GameStatus.WAITING,  # Game hasn't started
+            game_state={
+                'teams': {
+                    '1': {
+                        'is_developed': True,
+                        'resources': {
+                            ResourceType.FOOD.value: 50,
+                            ResourceType.CURRENCY.value: 100
+                        },
+                        'buildings': {}
+                    }
+                },
+                'food_tax': {
+                    '1': {
+                        'next_tax_due': next_due.isoformat(),
+                        'warning_sent': False,
+                        'tax_interval_minutes': 15,
+                        'total_taxes_paid': 0,
+                        'total_famines': 0
+                    }
+                }
+            }
+        )
+        db.add(game)
+        db.commit()
+        
+        manager = FoodTaxManager(db)
+        events = manager.check_and_process_taxes("WAITING1")
+        
+        # Should NOT process any taxes for waiting game
+        assert len(events) == 0
+        
+        # Verify resources were not touched
+        db.refresh(game)
+        assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 50
+    
+    def test_game_status_change_prevents_processing(self, db):
+        """Test that changing game status to COMPLETED prevents further tax processing"""
+        next_due = datetime.utcnow() - timedelta(minutes=1)  # Tax is due
+        
+        game = GameSession(
+            game_code="STATUSCHANGE1",
+            status=GameStatus.IN_PROGRESS,  # Initially in progress
+            game_state={
+                'teams': {
+                    '1': {
+                        'is_developed': True,
+                        'resources': {
+                            ResourceType.FOOD.value: 50,
+                            ResourceType.CURRENCY.value: 100
+                        },
+                        'buildings': {}
+                    }
+                },
+                'food_tax': {
+                    '1': {
+                        'next_tax_due': next_due.isoformat(),
+                        'warning_sent': False,
+                        'tax_interval_minutes': 15,
+                        'total_taxes_paid': 0,
+                        'total_famines': 0
+                    }
+                }
+            }
+        )
+        db.add(game)
+        db.commit()
+        
+        # Change status to COMPLETED
+        game.status = GameStatus.COMPLETED
+        db.commit()
+        
+        # Try to process taxes
+        manager = FoodTaxManager(db)
+        events = manager.check_and_process_taxes("STATUSCHANGE1")
+        
+        # Should NOT process any taxes because game is now completed
+        assert len(events) == 0
+        
+        # Verify resources were not touched
+        db.refresh(game)
+        assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 50
