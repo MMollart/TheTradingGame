@@ -80,12 +80,20 @@ async def on_startup():
     """Initialize database and background tasks on startup"""
     init_db()
     start_food_tax_scheduler()
+    
+    # Start scenario event scheduler
+    from scenario_event_scheduler import start_scenario_event_scheduler
+    start_scenario_event_scheduler()
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
     """Clean up background tasks on shutdown"""
     stop_food_tax_scheduler()
+    
+    # Stop scenario event scheduler
+    from scenario_event_scheduler import stop_scenario_event_scheduler
+    stop_scenario_event_scheduler()
 
 
 # Include v2 Challenge API routes
@@ -1348,6 +1356,11 @@ async def start_game(
     # Initialize food tax tracking
     await on_game_started(game_code)
     
+    # Initialize scenario event tracking
+    if game.scenario_id:
+        from scenario_event_scheduler import on_game_started as scenario_on_game_started
+        await scenario_on_game_started(game_code)
+    
     # Broadcast game status change to all players
     await manager.broadcast_to_game(
         game_code.upper(),
@@ -1467,6 +1480,11 @@ async def end_game(
     
     # Notify food tax scheduler that game has ended
     await on_game_ended(game_code)
+    
+    # Notify scenario event scheduler that game has ended
+    if game.scenario_id:
+        from scenario_event_scheduler import on_game_ended as scenario_on_game_ended
+        await scenario_on_game_ended(game_code)
     
     # Broadcast game status change to all players
     await manager.broadcast_to_game(
