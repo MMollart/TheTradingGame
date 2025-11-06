@@ -712,15 +712,20 @@
             // Auto-detect WebSocket URL
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const WS_URL = isLocalhost ? 'ws://localhost:8000' : `${protocol}//${window.location.host}`;
-            const ws = new WebSocket(`${WS_URL}/ws/${gameCode}/${playerId}`);
+            const wsUrl = `${WS_URL}/ws/${gameCode}/${playerId}`;
+            
+            console.log('[WaitingScreen] Attempting WebSocket connection to:', wsUrl);
+            console.log('[WaitingScreen] Game Code:', gameCode, 'Player ID:', playerId);
+            
+            const ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {
-                console.log('[WaitingScreen] WebSocket connected');
+                console.log('[WaitingScreen] ✅ WebSocket connected successfully');
             };
             
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                console.log('[WaitingScreen] Received message:', data);
+                console.log('[WaitingScreen] 📨 Received message:', data);
                 
                 // Listen for approval notification
                 if (data.type === 'player_approved' && data.player_id === playerId) {
@@ -747,11 +752,15 @@
             };
             
             ws.onerror = (error) => {
-                console.error('[WaitingScreen] WebSocket error:', error);
+                console.error('[WaitingScreen] ❌ WebSocket error:', error);
+                console.error('[WaitingScreen] Connection failed. Check if backend is running and game/player exist.');
             };
             
-            ws.onclose = () => {
-                console.log('[WaitingScreen] WebSocket disconnected');
+            ws.onclose = (event) => {
+                console.log('[WaitingScreen] 🔌 WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
+                if (event.code !== 1000) {
+                    console.error('[WaitingScreen] Abnormal closure. Code:', event.code);
+                }
             };
         }
     </script>
