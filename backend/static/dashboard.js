@@ -106,7 +106,7 @@ async function initDashboard() {
     showDashboard(role);
     
     // Connect WebSocket
-    connectWebSocket();
+    await connectWebSocket();
     
     // Load initial data
     loadGameData();
@@ -152,7 +152,7 @@ function updateTeamStateFromGameState(source) {
     }
 }
 
-function connectWebSocket() {
+async function connectWebSocket() {
     const statusIndicator = document.getElementById('connection-status');
     
     // Let GameWebSocket auto-detect the correct WebSocket URL
@@ -487,7 +487,7 @@ function connectWebSocket() {
         window.location.href = 'index.html';
     });
     
-    gameWS.connect();
+    await gameWS.connect();
 }
 
 async function loadGameData() {

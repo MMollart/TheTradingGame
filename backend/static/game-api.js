@@ -24,33 +24,37 @@ class GameWebSocket {
     }
 
     connect() {
-        const wsUrl = `${this.baseUrl}/ws/${this.gameCode}/${this.playerId}`;
-        this.ws = new WebSocket(wsUrl);
+        return new Promise((resolve, reject) => {
+            const wsUrl = `${this.baseUrl}/ws/${this.gameCode}/${this.playerId}`;
+            this.ws = new WebSocket(wsUrl);
 
-        this.ws.onopen = () => {
-            // console.log('WebSocket connected');
-            this.reconnectAttempts = 0;
-            this.trigger('connected');
-        };
+            this.ws.onopen = () => {
+                // console.log('WebSocket connected');
+                this.reconnectAttempts = 0;
+                this.trigger('connected');
+                resolve(); // Resolve the promise when connected
+            };
 
-        this.ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            // console.log('[WebSocket] Received message:', data);
-            // console.log('[WebSocket] Message type:', data.type);
-            this.trigger(data.type, data);
-            // console.log('[WebSocket] Triggered event handler for type:', data.type);
-        };
+            this.ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                // console.log('[WebSocket] Received message:', data);
+                // console.log('[WebSocket] Message type:', data.type);
+                this.trigger(data.type, data);
+                // console.log('[WebSocket] Triggered event handler for type:', data.type);
+            };
 
-        this.ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            this.trigger('error', error);
-        };
+            this.ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                this.trigger('error', error);
+                reject(error); // Reject the promise on error
+            };
 
-        this.ws.onclose = () => {
-            // console.log('WebSocket disconnected');
-            this.trigger('disconnected');
-            this.attemptReconnect();
-        };
+            this.ws.onclose = () => {
+                // console.log('WebSocket disconnected');
+                this.trigger('disconnected');
+                this.attemptReconnect();
+            };
+        });
     }
 
     attemptReconnect() {
