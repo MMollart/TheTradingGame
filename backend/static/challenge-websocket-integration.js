@@ -5,6 +5,26 @@
  * into your React/Vue/vanilla JS frontend.
  */
 
+/**
+ * Get API base URL (auto-detect production vs development)
+ */
+function getApiBaseUrl() {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  return isLocalhost ? 'http://localhost:8000' : window.location.origin;
+}
+
+/**
+ * Get WebSocket base URL (auto-detect production vs development)
+ */
+function getWsBaseUrl() {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  if (isLocalhost) {
+    return 'ws://localhost:8000';
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}`;
+}
+
 class ChallengeWebSocketClient {
   constructor(gameCode, playerId) {
     this.gameCode = gameCode;
@@ -27,7 +47,7 @@ class ChallengeWebSocketClient {
    * Connect to the WebSocket server
    */
   connect() {
-    const wsUrl = `ws://localhost:8000/ws/${this.gameCode}/${this.playerId}`;
+    const wsUrl = `${getWsBaseUrl()}/ws/${this.gameCode}/${this.playerId}`;
     
     // console.log(`[ChallengeWS] Connecting to ${wsUrl}`);
     this.ws = new WebSocket(wsUrl);
@@ -343,7 +363,7 @@ async function assignChallenge(challengeId) {
   const challengeType = await selectChallengeType();
   
   const response = await fetch(
-    `http://localhost:8000/api/v2/challenges/${gameCode}/${challengeId}/assign`,
+    `${getApiBaseUrl()}/api/v2/challenges/${gameCode}/${challengeId}/assign`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -367,7 +387,7 @@ async function completeChallenge(challengeId) {
   const gameCode = 'ABC123';
   
   const response = await fetch(
-    `http://localhost:8000/api/v2/challenges/${gameCode}/${challengeId}/complete`,
+    `${getApiBaseUrl()}/api/v2/challenges/${gameCode}/${challengeId}/complete`,
     { method: 'POST' }
   );
   
@@ -383,7 +403,7 @@ async function cancelChallenge(challengeId) {
   const gameCode = 'ABC123';
   
   const response = await fetch(
-    `http://localhost:8000/api/v2/challenges/${gameCode}/${challengeId}/cancel`,
+    `${getApiBaseUrl()}/api/v2/challenges/${gameCode}/${challengeId}/cancel`,
     { method: 'POST' }
   );
   

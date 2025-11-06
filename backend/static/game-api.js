@@ -3,9 +3,19 @@
  */
 
 class GameWebSocket {
-    constructor(gameCode, playerId, baseUrl = 'ws://localhost:8000') {
+    constructor(gameCode, playerId, baseUrl = null) {
         this.gameCode = gameCode;
         this.playerId = playerId;
+        // Auto-detect WebSocket URL: use localhost in dev, current origin in production
+        if (!baseUrl) {
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            if (isLocalhost) {
+                baseUrl = 'ws://localhost:8000';
+            } else {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                baseUrl = `${protocol}//${window.location.host}`;
+            }
+        }
         this.baseUrl = baseUrl;
         this.ws = null;
         this.listeners = {};
@@ -83,7 +93,12 @@ class GameWebSocket {
  * Game API client
  */
 class GameAPI {
-    constructor(baseUrl = 'http://localhost:8000') {
+    constructor(baseUrl = null) {
+        // Auto-detect API URL: use localhost in dev, current origin in production
+        if (!baseUrl) {
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            baseUrl = isLocalhost ? 'http://localhost:8000' : window.location.origin;
+        }
         this.baseUrl = baseUrl;
         this.token = null;
     }
