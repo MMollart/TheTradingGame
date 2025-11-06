@@ -61,6 +61,8 @@ class GameSessionResponse(BaseModel):
     game_state: Optional[Dict[str, Any]]
     num_teams: Optional[int]  # Number of teams configured by host
     game_duration_minutes: Optional[int]  # Game duration in minutes (60-240 in 30min intervals)
+    difficulty: Optional[str] = None  # Game difficulty level (easy/medium/hard)
+    scenario_id: Optional[str] = None  # Historical scenario identifier
     created_at: datetime
     started_at: Optional[datetime]
     ended_at: Optional[datetime]

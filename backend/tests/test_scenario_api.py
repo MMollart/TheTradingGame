@@ -3,19 +3,13 @@ Integration tests for scenario API endpoints
 """
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from main import app
-from database import get_db
 from models import GameSession, Player, GameStatus
 from scenarios import ScenarioType
 
 
-@pytest.fixture
-def client():
-    """Create test client"""
-    return TestClient(app)
+# Remove the duplicate client fixture - use the one from conftest.py
 
 
 @pytest.fixture
@@ -72,8 +66,11 @@ class TestScenarioAPI:
         """Test POST /games/{game_code}/set-scenario endpoint"""
         response = client.post(
             f"/games/{test_game}/set-scenario",
-            params={"scenario_id": ScenarioType.SILK_ROAD}
+            json={"scenario_id": ScenarioType.SILK_ROAD}
         )
+        # Debug: Print response if it fails
+        if response.status_code != 200:
+            print(f"\nAPI Error Response: {response.json()}")
         assert response.status_code == 200
         
         data = response.json()
@@ -88,7 +85,7 @@ class TestScenarioAPI:
         """Test setting scenario on non-existent game"""
         response = client.post(
             "/games/NOTEXIST/set-scenario",
-            params={"scenario_id": ScenarioType.MARSHALL_PLAN}
+            json={"scenario_id": ScenarioType.MARSHALL_PLAN}
         )
         assert response.status_code == 404
     
@@ -96,7 +93,7 @@ class TestScenarioAPI:
         """Test setting invalid scenario"""
         response = client.post(
             f"/games/{test_game}/set-scenario",
-            params={"scenario_id": "invalid_scenario"}
+            json={"scenario_id": "invalid_scenario"}
         )
         assert response.status_code == 404
     
@@ -117,7 +114,7 @@ class TestScenarioAPI:
         # Try to set scenario after game started
         response = client.post(
             f"/games/{game_code}/set-scenario",
-            params={"scenario_id": ScenarioType.MARSHALL_PLAN}
+            json={"scenario_id": ScenarioType.MARSHALL_PLAN}
         )
         assert response.status_code == 400
         assert "Cannot change scenario after game has started" in response.json()["detail"]
@@ -126,7 +123,7 @@ class TestScenarioAPI:
         """Test that setting scenario properly configures the game"""
         response = client.post(
             f"/games/{test_game}/set-scenario",
-            params={"scenario_id": ScenarioType.INDUSTRIAL_REVOLUTION}
+            json={"scenario_id": ScenarioType.INDUSTRIAL_REVOLUTION}
         )
         assert response.status_code == 200
         
@@ -169,7 +166,7 @@ class TestScenarioAPI:
             # Set scenario
             response = client.post(
                 f"/games/{game_code}/set-scenario",
-                params={"scenario_id": scenario_id}
+                json={"scenario_id": scenario_id}
             )
             assert response.status_code == 200, f"Failed to set {scenario_id}"
             assert response.json()["scenario_id"] == scenario_id

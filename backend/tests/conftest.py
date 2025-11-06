@@ -15,7 +15,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from main import app
 from database import get_db
-from models import Base
+# Import all models to ensure they are registered with Base
+from models import Base, User, GameSession, Player, GameConfiguration, Challenge, TradeOffer, PriceHistory, OAuthToken
 
 # Use in-memory SQLite for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"

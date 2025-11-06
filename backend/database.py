@@ -58,7 +58,10 @@ def init_db():
     logger.info("Initializing database tables...")
     try:
         # Import all models to ensure they are registered with Base
-        from models import Base, User, GameSession, Player, GameConfiguration
+        from models import (
+            Base, User, GameSession, Player, GameConfiguration,
+            Challenge, TradeOffer, PriceHistory, OAuthToken
+        )
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
