@@ -613,7 +613,21 @@ async def join_game(
     ).first()
     
     if existing_player:
-        raise HTTPException(status_code=400, detail="Player name already taken in this game")
+        # If the player exists but was rejected or disconnected, allow them to rejoin
+        if not existing_player.is_approved and not existing_player.is_connected:
+            # Remove the old rejected/disconnected player record
+            db.delete(existing_player)
+            db.commit()
+        else:
+            # Player is still active in the game
+            logger.info(f"Duplicate player name attempt: '{player_join.player_name}' in game {game.game_code}. "
+                       f"Existing player: approved={existing_player.is_approved}, connected={existing_player.is_connected}, "
+                       f"role={existing_player.role}, id={existing_player.id}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Player name '{player_join.player_name}' is already taken in this game. "
+                      f"Please choose a different name."
+            )
     
     # Determine if user is authenticated and should be auto-approved
     is_authenticated = current_user is not None

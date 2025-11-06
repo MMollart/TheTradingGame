@@ -367,6 +367,7 @@ class GameLogic:
             reduction = min(hospital_count * BUILDING_BENEFITS[BuildingType.HOSPITAL]["disease_reduction_per_building"], 1.0)
             
             # Calculate medical goods needed after hospital reduction
+            # Use round() to avoid floating point precision issues with int()
             base_medical_needed = severity * 10
             medical_needed = round(base_medical_needed * (1.0 - reduction))
             

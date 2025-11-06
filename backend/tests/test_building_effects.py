@@ -72,11 +72,13 @@ def test_hospital_effect_on_disease():
     
     # Apply disease with severity 5
     # Base medical needed: 5 * 10 = 50
-    # With 3 hospitals: 50 * (1 - 0.6) = 20 medical goods needed
+    # With 3 hospitals: reduction = 60%, so 40% of base needed
+    # medical_needed = round(50 * 0.4) = round(20.0) = 20
     success, message, new_state = GameLogic.apply_disaster(nation_state, "disease", severity=5)
     
     assert success == True
-    assert new_state["resources"]["medical_goods"] == 50 - 20  # 30 remaining
+    medical_needed = round(50 * (1.0 - 0.6))  # Use same calculation as code
+    assert new_state["resources"]["medical_goods"] == 50 - medical_needed
     assert "reduced impact by 60%" in message
 
 
@@ -221,10 +223,10 @@ def test_multiple_hospitals_scaling():
         
         assert success == True
         
-        # Calculate expected medical goods used
+        # Calculate expected medical goods used (use round to match code)
         base_medical = 50  # 5 * 10
         reduction = min(num_hospitals * 0.2, 1.0)  # 20% per hospital, max 100%
-        medical_needed = int(base_medical * (1.0 - reduction))
+        medical_needed = round(base_medical * (1.0 - reduction))
         
         if num_hospitals >= 5:
             # Complete protection

@@ -83,55 +83,91 @@ class TestGameRetrieval:
 class TestGameStatus:
     """Test game status management"""
     
-    @pytest.mark.skip(reason="Game status endpoints not yet implemented")
     def test_start_game(self, client, sample_game):
         """Test starting a game"""
         game_code = sample_game["game_code"]
-        response = client.put(f"/games/{game_code}/start")
+        
+        # Need to assign at least one player to a team before starting
+        # Create and approve a player
+        join_response = client.post("/api/join", json={
+            "game_code": game_code,
+            "player_name": "TestPlayer",
+            "role": "player"
+        })
+        player_id = join_response.json()["id"]
+        
+        # Approve and assign to team
+        client.put(f"/games/{game_code}/players/{player_id}/approve")
+        client.put(f"/games/{game_code}/players/{player_id}/assign-group?group_number=1")
+        
+        # Now start the game
+        response = client.post(f"/games/{game_code}/start")
         
         assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "in_progress"
+        assert "started" in response.json()["message"].lower()
     
-    @pytest.mark.skip(reason="Game status endpoints not yet implemented")
     def test_pause_game(self, client, sample_game):
         """Test pausing a game"""
         game_code = sample_game["game_code"]
         
-        # First start the game
-        client.put(f"/games/{game_code}/start")
+        # First start the game (need a player assigned)
+        join_response = client.post("/api/join", json={
+            "game_code": game_code,
+            "player_name": "TestPlayer",
+            "role": "player"
+        })
+        player_id = join_response.json()["id"]
+        client.put(f"/games/{game_code}/players/{player_id}/approve")
+        client.put(f"/games/{game_code}/players/{player_id}/assign-group?group_number=1")
+        client.post(f"/games/{game_code}/start")
         
         # Then pause it
-        response = client.put(f"/games/{game_code}/pause")
+        response = client.post(f"/games/{game_code}/pause")
         assert response.status_code == 200
-        assert response.json()["status"] == "paused"
+        assert "paused" in response.json()["message"].lower()
     
-    @pytest.mark.skip(reason="Game status endpoints not yet implemented")
     def test_resume_game(self, client, sample_game):
         """Test resuming a paused game"""
         game_code = sample_game["game_code"]
         
-        # Start and pause
-        client.put(f"/games/{game_code}/start")
-        client.put(f"/games/{game_code}/pause")
+        # Start game (need a player assigned)
+        join_response = client.post("/api/join", json={
+            "game_code": game_code,
+            "player_name": "TestPlayer",
+            "role": "player"
+        })
+        player_id = join_response.json()["id"]
+        client.put(f"/games/{game_code}/players/{player_id}/approve")
+        client.put(f"/games/{game_code}/players/{player_id}/assign-group?group_number=1")
+        client.post(f"/games/{game_code}/start")
+        
+        # Pause
+        client.post(f"/games/{game_code}/pause")
         
         # Resume
-        response = client.put(f"/games/{game_code}/resume")
+        response = client.post(f"/games/{game_code}/resume")
         assert response.status_code == 200
-        assert response.json()["status"] == "in_progress"
+        assert "resumed" in response.json()["message"].lower()
     
-    @pytest.mark.skip(reason="Game status endpoints not yet implemented")
     def test_end_game(self, client, sample_game):
         """Test ending a game"""
         game_code = sample_game["game_code"]
         
-        # Start the game first
-        client.put(f"/games/{game_code}/start")
+        # Start the game first (need a player assigned)
+        join_response = client.post("/api/join", json={
+            "game_code": game_code,
+            "player_name": "TestPlayer",
+            "role": "player"
+        })
+        player_id = join_response.json()["id"]
+        client.put(f"/games/{game_code}/players/{player_id}/approve")
+        client.put(f"/games/{game_code}/players/{player_id}/assign-group?group_number=1")
+        client.post(f"/games/{game_code}/start")
         
         # End it
-        response = client.put(f"/games/{game_code}/end")
+        response = client.post(f"/games/{game_code}/end")
         assert response.status_code == 200
-        assert response.json()["status"] == "completed"
+        assert "ended" in response.json()["message"].lower() or "completed" in response.json()["message"].lower()
 
 
 class TestTeamConfiguration:

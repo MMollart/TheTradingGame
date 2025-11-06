@@ -2,7 +2,7 @@
 Pydantic schemas for request/response validation
 """
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from models import PlayerRole, GameStatus
@@ -16,14 +16,13 @@ class UserCreate(BaseModel):
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     username: str
     email: str
     created_at: datetime
     is_active: bool
-    
-    class Config:
-        from_attributes = True
 
 
 # Game Configuration schemas
@@ -34,6 +33,8 @@ class GameConfigCreate(BaseModel):
 
 
 class GameConfigResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     owner_id: int
     name: str
@@ -41,9 +42,6 @@ class GameConfigResponse(BaseModel):
     config_data: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 # Game Session schemas
@@ -53,6 +51,8 @@ class GameSessionCreate(BaseModel):
 
 
 class GameSessionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     game_code: str
     host_user_id: Optional[int]  # Allow None for anonymous game creation
@@ -64,9 +64,6 @@ class GameSessionResponse(BaseModel):
     created_at: datetime
     started_at: Optional[datetime]
     ended_at: Optional[datetime]
-    
-    class Config:
-        from_attributes = True
 
 
 # Player schemas
@@ -78,6 +75,8 @@ class PlayerJoin(BaseModel):
 
 
 class PlayerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     game_session_id: int
     user_id: Optional[int]
@@ -89,9 +88,6 @@ class PlayerResponse(BaseModel):
     player_state: Optional[Dict[str, Any]]
     joined_at: datetime
     needs_approval: Optional[bool] = None  # Client-side field
-    
-    class Config:
-        from_attributes = True
 
 
 # Token schemas
@@ -112,12 +108,11 @@ class GameEventCreate(BaseModel):
 
 
 class GameEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     game_session_id: int
     player_id: Optional[int]
     event_type: str
     event_data: Dict[str, Any]
     timestamp: datetime
-    
-    class Config:
-        from_attributes = True
