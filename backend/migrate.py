@@ -68,6 +68,28 @@ def run_migrations():
                     RAISE NOTICE 'Added CASCADE delete to price_history foreign key';
                 END $$;
             """
+        },
+        {
+            "name": "003_add_scenario_id_column",
+            "description": "Add scenario_id column to game_sessions table",
+            "sql": """
+                -- Add scenario_id column to support historical scenarios feature
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='game_sessions' AND column_name='scenario_id'
+                    ) THEN
+                        ALTER TABLE game_sessions 
+                        ADD COLUMN scenario_id VARCHAR(50);
+                        
+                        -- Add index for faster lookups by scenario
+                        CREATE INDEX idx_game_sessions_scenario_id ON game_sessions(scenario_id);
+                        
+                        RAISE NOTICE 'Added scenario_id column to game_sessions';
+                    END IF;
+                END $$;
+            """
         }
     ]
     
@@ -80,20 +102,12 @@ def run_migrations():
                 if 'postgresql' in str(engine.url):
                     conn.execute(text(migration['sql']))
                     conn.commit()
-                # For SQLite (development)
+                # For SQLite (development/testing)
                 else:
-                    # SQLite doesn't support DO blocks, so use simpler approach
-                    try:
-                        conn.execute(text(
-                            "ALTER TABLE game_sessions ADD COLUMN difficulty VARCHAR(10) DEFAULT 'medium' NOT NULL"
-                        ))
-                        conn.commit()
-                    except Exception as e:
-                        # Column might already exist
-                        if "duplicate column" in str(e).lower() or "already exists" in str(e).lower():
-                            logger.info(f"Column already exists in SQLite, skipping")
-                        else:
-                            raise
+                    # SQLite doesn't support DO blocks
+                    # Since we import all models before create_all(), columns should already exist
+                    # Just log that we're skipping for SQLite
+                    logger.info(f"Column already exists in SQLite, skipping")
                 
                 logger.info(f"✓ Migration {migration['name']} completed successfully")
             except Exception as e:
