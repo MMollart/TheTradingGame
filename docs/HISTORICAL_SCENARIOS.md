@@ -4,6 +4,53 @@
 
 The Trading Game now includes 6 historical scenarios that hosts can choose when creating a game. Each scenario provides themed nations, starting resources, special rules, and victory conditions based on real historical events.
 
+## Dynamic Resources and Buildings
+
+**Each scenario now features custom resources and buildings themed to its historical period!**
+
+### What This Means
+
+- **Scenario Games**: When a historical scenario is selected, resources and buildings are automatically renamed and re-themed to match the period. For example:
+  - **Space Race**: Instead of "Food" and "Raw Materials", teams work with "📚 Knowledge" and "🛢️ Liquid Fuels"
+  - **Silk Road**: Resources become "🧵 Raw Silk" and "💎 Luxury Goods"
+  
+- **Default Games**: Games without a scenario continue to use the standard resources (🌾 Food, ⛏️ Raw Materials, ⚡ Electrical Goods, 🏥 Medical Goods)
+
+### Resource Characteristics
+
+Each resource has:
+- **Themed Name & Icon**: Matches the historical period (e.g., "🔩 Metals" in Space Race)
+- **Description**: Context about what the resource represents
+- **Base Price**: Determined by rarity (common: 2-5, uncommon: 15-20, rare: 20-25)
+- **Difficulty Adjustment**: Prices are 20% lower in Easy mode, 30% higher in Hard mode
+
+### Example: Space Race Resources
+
+When playing the Space Race scenario, teams work with:
+
+| Resource | Icon | Description | Rarity | Base Price (Medium) |
+|----------|------|-------------|--------|---------------------|
+| Knowledge | 📚 | Scientific research and expertise | Common | 3 |
+| Liquid Fuels | 🛢️ | Rocket propellants and fuel | Uncommon | 5 |
+| Metals | 🔩 | Titanium, aluminum, and steel | Rare | 20 |
+| Electronics | 💻 | Silicon chips and computing components | Rare | 25 |
+
+And buildings become:
+- **Research Library** (📖) - Produces Knowledge
+- **Fuel Refinery** (🏭) - Produces Liquid Fuels
+- **Metalworks** (🔨) - Produces Metals from Liquid Fuels
+- **Electronics Lab** (🔬) - Produces Electronics from Knowledge
+
+### Technical Details
+
+Under the hood:
+- Custom resources "map" to the standard resource slots (e.g., Knowledge → Food slot, Metals → Electrical Goods slot)
+- Game mechanics remain identical (production, trading, costs all work the same way)
+- Frontend dynamically displays the correct names/icons based on the selected scenario
+- Database stores standard resource keys, but UI shows themed names
+
+This system allows for rich thematic immersion while maintaining code simplicity and backward compatibility.
+
 ## Available Scenarios
 
 ### 1. Post-WWII Marshall Plan (1948-1952)
@@ -77,6 +124,18 @@ The Trading Game now includes 6 historical scenarios that hosts can choose when 
 - **Duration**: 90 minutes
 - **Description**: Four space agencies compete to achieve milestones. Technology, infrastructure, and international cooperation determine success.
 
+**Custom Resources** (replaces default resources):
+- 📚 **Knowledge** (Common, price: 3) - Scientific research and expertise
+- 🛢️ **Liquid Fuels** (Uncommon, price: 5) - Rocket propellants and fuel
+- 🔩 **Metals** (Rare, price: 20) - Titanium, aluminum, and steel
+- 💻 **Electronics** (Rare, price: 25) - Silicon chips and computing components
+
+**Custom Buildings**:
+- 📖 **Research Library** - Produces Knowledge
+- 🏭 **Fuel Refinery** - Produces Liquid Fuels
+- 🔨 **Metalworks** - Produces Metals (requires Liquid Fuels)
+- 🔬 **Electronics Lab** - Produces Electronics (requires Knowledge)
+
 **Nations**:
 - **USA**: High starting currency, balanced production
 - **USSR**: Strong raw materials, infrastructure focus
@@ -89,7 +148,7 @@ The Trading Game now includes 6 historical scenarios that hosts can choose when 
 - Moon Race: Final 20 minutes, all building costs increase 50%
 
 **Victory Conditions**:
-- First to build 3 Medical Factories (advanced technology)
+- First to build 3 Electronics Labs (advanced technology)
 - Most diverse portfolio (all 8 building types) at time limit
 
 ---
@@ -598,6 +657,124 @@ Run tests:
 cd backend
 pytest tests/test_scenarios.py -v
 ```
+
+## Creating Custom Scenarios with Resources
+
+Want to add a new historical scenario with custom resources and buildings? Here's how:
+
+### Step 1: Define Resources in `backend/scenarios.py`
+
+Add your scenario to the `SCENARIO_RESOURCES` dictionary:
+
+```python
+SCENARIO_RESOURCES = {
+    # ... existing scenarios ...
+    
+    ScenarioType.YOUR_SCENARIO: {
+        "resource_1": {
+            "id": "your_resource_1",
+            "name": "Resource Display Name",
+            "icon": "🎯",  # Choose an emoji icon
+            "description": "What this resource represents",
+            "base_price": 3,  # 2-5 for common, 15-20 for uncommon, 20-25 for rare
+            "rarity": "common",  # common, uncommon, or rare
+            "maps_to": ResourceType.FOOD  # Which default resource slot to use
+        },
+        # Add 3 more resources mapping to RAW_MATERIALS, ELECTRICAL_GOODS, MEDICAL_GOODS
+    }
+}
+```
+
+### Step 2: Define Buildings (Optional)
+
+If you want custom building names, add to `SCENARIO_BUILDINGS`:
+
+```python
+SCENARIO_BUILDINGS = {
+    ScenarioType.YOUR_SCENARIO: {
+        "building_1": {
+            "id": "your_building_1",
+            "name": "Building Display Name",
+            "icon": "🏛️",
+            "description": "What this building does",
+            "produces": "your_resource_1",  # Must match a resource id
+            "maps_to": BuildingType.FARM
+        },
+        # Add 3 more buildings
+    }
+}
+```
+
+If you don't define custom buildings, the default building names will be used with your custom resources.
+
+### Step 3: Add Scenario Details
+
+Add your scenario to the main `SCENARIOS` dictionary with nations, special rules, etc. (see existing scenarios for examples).
+
+### Step 4: Test Your Scenario
+
+Run the test suite to verify your scenario is properly configured:
+
+```bash
+cd backend
+pytest tests/test_scenarios.py::TestScenarioResources -v
+```
+
+### Resource Pricing Guidelines
+
+- **Common Resources** (base price 2-5): Basic inputs like food, knowledge, raw materials
+- **Uncommon Resources** (base price 15-20): Intermediate goods requiring some processing
+- **Rare Resources** (base price 20-25): Advanced or luxury goods requiring significant input
+
+Prices automatically adjust based on game difficulty:
+- **Easy Mode**: -20% (multiplier 0.8)
+- **Medium Mode**: No change (multiplier 1.0)
+- **Hard Mode**: +30% (multiplier 1.3)
+
+### Example: Adding a "Wild West" Scenario
+
+```python
+ScenarioType.WILD_WEST: {
+    "resource_1": {
+        "id": "cattle",
+        "name": "Cattle",
+        "icon": "🐄",
+        "description": "Livestock for food and trade",
+        "base_price": 3,
+        "rarity": "common",
+        "maps_to": ResourceType.FOOD
+    },
+    "resource_2": {
+        "id": "timber",
+        "name": "Timber",
+        "icon": "🪵",
+        "description": "Wood for construction",
+        "base_price": 4,
+        "rarity": "common",
+        "maps_to": ResourceType.RAW_MATERIALS
+    },
+    "resource_3": {
+        "id": "gold",
+        "name": "Gold",
+        "icon": "⚜️",
+        "description": "Precious metal from mines",
+        "base_price": 22,
+        "rarity": "rare",
+        "maps_to": ResourceType.ELECTRICAL_GOODS
+    },
+    "resource_4": {
+        "id": "medicine",
+        "name": "Medicine",
+        "icon": "⚕️",
+        "description": "Medical supplies",
+        "base_price": 20,
+        "rarity": "rare",
+        "maps_to": ResourceType.MEDICAL_GOODS
+    }
+}
+```
+
+The resources will automatically appear in the game UI with their custom names and icons when the Wild West scenario is selected!
 
 ## Credits
 

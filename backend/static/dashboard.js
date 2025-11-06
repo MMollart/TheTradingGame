@@ -11,6 +11,8 @@ let originalPlayer = null; // Store the original player for when switching back 
 let playerState = {};
 let teamState = { resources: {}, buildings: {} }; // Team-level resources and buildings
 let gameState = {};
+let resourceMetadata = null; // Dynamic resource definitions from scenario
+let buildingMetadata = null; // Dynamic building definitions from scenario
 let currentGameStatus = 'waiting'; // Track game status (waiting, in_progress, paused, completed)
 let challengeManager = null; // New challenge management system
 let tradingManager = null; // Trading management system
@@ -174,6 +176,10 @@ async function connectWebSocket() {
     gameWS.on('game_state', (data) => {
         gameState = data.state;
         
+        // Load resource and building metadata for dynamic display
+        resourceMetadata = gameState.resource_metadata || null;
+        buildingMetadata = gameState.building_metadata || null;
+        
         // Extract player's group number from the players array if available
         if (data.players && Array.isArray(data.players)) {
             const playerData = data.players.find(p => p.id === currentPlayer.id);
@@ -191,6 +197,10 @@ async function connectWebSocket() {
     
     gameWS.on('state_updated', (data) => {
         gameState = data.state;
+        
+        // Load resource and building metadata for dynamic display
+        resourceMetadata = gameState.resource_metadata || null;
+        buildingMetadata = gameState.building_metadata || null;
         
         // Update teamState for players
         updateTeamStateFromGameState('state_updated');
@@ -498,9 +508,14 @@ async function loadGameData() {
         gameState = game.game_state || {};
         currentGameStatus = game.status || 'waiting';
         
+        // Load resource and building metadata for dynamic display
+        resourceMetadata = gameState.resource_metadata || null;
+        buildingMetadata = gameState.building_metadata || null;
+        
         // Debug: Log gameState structure
         // console.log('[loadGameData] gameState:', gameState);
         // console.log('[loadGameData] gameState.teams:', gameState.teams);
+        // console.log('[loadGameData] resourceMetadata:', resourceMetadata);
         
         // Update scenario display if scenario is active
         updateScenarioDisplay(game);
@@ -2831,6 +2846,21 @@ const BUILDING_DESCRIPTIONS = {
     'infrastructure': 'Reduces drought impact by 20% per infrastructure. Max 5.'
 };
 
+// Get building description (dynamic or fallback to default)
+function getBuildingDescription(buildingType) {
+    // Use dynamic building metadata if available
+    if (buildingMetadata) {
+        for (const bldKey in buildingMetadata) {
+            const bldMeta = buildingMetadata[bldKey];
+            if (bldMeta.maps_to === buildingType || bldMeta.id === buildingType) {
+                return bldMeta.description;
+            }
+        }
+    }
+    // Fallback to default
+    return BUILDING_DESCRIPTIONS[buildingType] || 'Building';
+}
+
 // Update build buildings section
 function updateBuildBuildingsSection() {
     const buildControls = document.getElementById('build-controls');
@@ -2848,7 +2878,7 @@ function updateBuildBuildingsSection() {
         const currentCount = teamState.buildings?.[buildingType] || 0;
         const cost = BUILDING_COSTS[buildingType];
         const limit = BUILDING_LIMITS[buildingType];
-        const description = BUILDING_DESCRIPTIONS[buildingType];
+        const description = getBuildingDescription(buildingType);
         
         // Check if limit reached
         const limitReached = limit && currentCount >= limit;
@@ -3949,6 +3979,19 @@ function closeTradeModal() {
 // ==================== UTILITY FUNCTIONS ====================
 
 function formatResourceName(resource) {
+    // Use dynamic resource metadata if available
+    if (resourceMetadata) {
+        for (const resKey in resourceMetadata) {
+            const resMeta = resourceMetadata[resKey];
+            // Handle both enum objects (with .value) and string values
+            const mapsToValue = resMeta.maps_to?.value || resMeta.maps_to;
+            if (mapsToValue === resource || resMeta.id === resource) {
+                return `${resMeta.icon} ${resMeta.name}`;
+            }
+        }
+    }
+    
+    // Fallback to default names
     const names = {
         'food': '🌾 Food',
         'raw_materials': '⚙️ Raw Materials',
@@ -3960,6 +4003,19 @@ function formatResourceName(resource) {
 }
 
 function formatBuildingName(building) {
+    // Use dynamic building metadata if available
+    if (buildingMetadata) {
+        for (const bldKey in buildingMetadata) {
+            const bldMeta = buildingMetadata[bldKey];
+            // Handle both enum objects (with .value) and string values
+            const mapsToValue = bldMeta.maps_to?.value || bldMeta.maps_to;
+            if (mapsToValue === building || bldMeta.id === building) {
+                return `${bldMeta.icon} ${bldMeta.name}`;
+            }
+        }
+    }
+    
+    // Fallback to default names
     const names = {
         'farm': '🌾 Farm',
         'mine': '⛏️ Mine',
