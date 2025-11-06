@@ -3675,15 +3675,13 @@ async function populateTeamSelector() {
     
     // Get all teams from game state
     const teams = gameState.teams || {};
-    const currentTeam = playerState.group_number;
+    const currentTeam = currentPlayer.groupNumber;
     
     Object.keys(teams).forEach(teamNum => {
         if (parseInt(teamNum) !== currentTeam) {
-            const teamData = teams[teamNum];
-            const teamName = teamData.name || `Team ${teamNum}`;
             const option = document.createElement('option');
             option.value = teamNum;
-            option.textContent = teamName;
+            option.textContent = `Team ${teamNum}`;
             selector.appendChild(option);
         }
     });
