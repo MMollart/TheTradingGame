@@ -56,6 +56,7 @@ TAX_INTERVALS = {
 }
 
 WARNING_BEFORE_TAX_MINUTES = 3  # Warn teams 3 minutes before tax is due
+SCHEDULER_CHECK_INTERVAL_SECONDS = 30  # How often to check for tax processing
 
 
 class FoodTaxManager:
@@ -106,7 +107,8 @@ class FoodTaxManager:
         
         if school_count > 0:
             # School increases food tax by 50%
-            tax_amount = int(base_tax * 1.5)
+            SCHOOL_TAX_MULTIPLIER = 1.5
+            tax_amount = int(base_tax * SCHOOL_TAX_MULTIPLIER)
         else:
             tax_amount = base_tax
         

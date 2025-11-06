@@ -4521,7 +4521,7 @@ function handleGameEvent(data) {
             addEventLog(`✅ Food tax paid by Team ${eventData.team_number}: ${eventData.tax_amount} food`, 'info');
             
             // Update team resources if this is the player's team
-            if (currentPlayer.role === 'player' && String(currentPlayer.groupNumber) === String(eventData.team_number)) {
+            if (currentPlayer.role === 'player' && String(currentPlayer.group_number) === String(eventData.team_number)) {
                 teamState.resources = eventData.new_resources;
                 updateResourceDisplay();
             }
@@ -4535,7 +4535,7 @@ function handleGameEvent(data) {
             addEventLog(`🚨 FAMINE for Team ${eventData.team_number}: ${eventData.message}`, 'error');
             
             // Update team resources if this is the player's team
-            if (currentPlayer.role === 'player' && String(currentPlayer.groupNumber) === String(eventData.team_number)) {
+            if (currentPlayer.role === 'player' && String(currentPlayer.group_number) === String(eventData.team_number)) {
                 teamState.resources = eventData.new_resources;
                 updateResourceDisplay();
             }

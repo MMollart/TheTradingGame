@@ -84,8 +84,9 @@ async def food_tax_scheduler():
         while scheduler_running:
             await check_all_games_for_taxes()
             
-            # Wait 30 seconds before next check
-            await asyncio.sleep(30)
+            # Wait before next check (configurable interval)
+            from food_tax_manager import SCHEDULER_CHECK_INTERVAL_SECONDS
+            await asyncio.sleep(SCHEDULER_CHECK_INTERVAL_SECONDS)
     
     except asyncio.CancelledError:
         logger.info("Food tax scheduler cancelled")

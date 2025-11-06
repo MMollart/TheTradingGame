@@ -111,9 +111,10 @@ class FoodTaxManager {
             clearInterval(this.timerInterval);
         }
         
+        const UI_UPDATE_INTERVAL_MS = 1000;  // Update every second
         this.timerInterval = setInterval(() => {
             this.updateUI();
-        }, 1000);  // Update every second
+        }, UI_UPDATE_INTERVAL_MS);
     }
     
     /**
