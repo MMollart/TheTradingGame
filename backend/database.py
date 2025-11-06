@@ -54,7 +54,7 @@ else:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
-    """Initialize database tables"""
+    """Initialize database tables and run migrations"""
     logger.info("Initializing database tables...")
     try:
         # Import all models to ensure they are registered with Base
@@ -66,6 +66,15 @@ def init_db():
         
         # List created tables for verification
         logger.info(f"Created tables: {list(Base.metadata.tables.keys())}")
+        
+        # Run migrations to add any new columns to existing tables
+        try:
+            from migrate import run_migrations
+            run_migrations()
+        except Exception as migration_error:
+            logger.warning(f"Migration warning (non-fatal): {migration_error}")
+            # Don't fail initialization if migrations have issues
+            
     except Exception as e:
         logger.error(f"Failed to create database tables: {e}")
         import traceback
