@@ -593,3 +593,101 @@ class TestTaxStatusAPI:
         assert team2['tax_amount'] == 5  # Developing nation
         assert team2['total_taxes_paid'] == 1
         assert team2['total_famines'] == 1
+
+
+class TestGameStatusHandling:
+    """Test that scheduler properly handles different game statuses"""
+    
+    def _create_test_game_with_pending_tax(self, db, game_code: str, status: GameStatus):
+        """Helper to create a game with tax due in various statuses"""
+        next_due = datetime.utcnow() - timedelta(minutes=1)  # Tax is overdue by 1 minute
+        
+        game = GameSession(
+            game_code=game_code,
+            status=status,
+            game_state={
+                'teams': {
+                    '1': {
+                        'is_developed': True,
+                        'resources': {
+                            ResourceType.FOOD.value: 50,
+                            ResourceType.CURRENCY.value: 100
+                        },
+                        'buildings': {}
+                    }
+                },
+                'food_tax': {
+                    '1': {
+                        'next_tax_due': next_due.isoformat(),
+                        'warning_sent': False,
+                        'tax_interval_minutes': 15,
+                        'total_taxes_paid': 0,
+                        'total_famines': 0
+                    }
+                }
+            }
+        )
+        db.add(game)
+        db.commit()
+        return game
+    
+    def test_no_tax_processing_for_completed_games(self, db):
+        """Completed games should not have taxes processed"""
+        game = self._create_test_game_with_pending_tax(db, "COMPLETED1", GameStatus.COMPLETED)
+        
+        manager = FoodTaxManager(db)
+        events = manager.check_and_process_taxes("COMPLETED1")
+        
+        # Should NOT process any taxes for completed game
+        assert len(events) == 0
+        
+        # Verify resources were not touched
+        db.refresh(game)
+        assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 50
+    
+    def test_no_tax_processing_for_paused_games(self, db):
+        """Paused games should not have taxes processed"""
+        game = self._create_test_game_with_pending_tax(db, "PAUSED1", GameStatus.PAUSED)
+        
+        manager = FoodTaxManager(db)
+        events = manager.check_and_process_taxes("PAUSED1")
+        
+        # Should NOT process any taxes for paused game
+        assert len(events) == 0
+        
+        # Verify resources were not touched
+        db.refresh(game)
+        assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 50
+    
+    def test_no_tax_processing_for_waiting_games(self, db):
+        """Waiting games should not have taxes processed"""
+        game = self._create_test_game_with_pending_tax(db, "WAITING1", GameStatus.WAITING)
+        
+        manager = FoodTaxManager(db)
+        events = manager.check_and_process_taxes("WAITING1")
+        
+        # Should NOT process any taxes for waiting game
+        assert len(events) == 0
+        
+        # Verify resources were not touched
+        db.refresh(game)
+        assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 50
+    
+    def test_game_status_change_prevents_processing(self, db):
+        """Test that changing game status to COMPLETED prevents further tax processing"""
+        game = self._create_test_game_with_pending_tax(db, "STATUSCHANGE1", GameStatus.IN_PROGRESS)
+        
+        # Change status to COMPLETED
+        game.status = GameStatus.COMPLETED
+        db.commit()
+        
+        # Try to process taxes
+        manager = FoodTaxManager(db)
+        events = manager.check_and_process_taxes("STATUSCHANGE1")
+        
+        # Should NOT process any taxes because game is now completed
+        assert len(events) == 0
+        
+        # Verify resources were not touched
+        db.refresh(game)
+        assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 50
