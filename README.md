@@ -10,11 +10,13 @@ The Trading Game is an interactive multiplayer experience where teams compete to
 
 ### 🎯 Core Gameplay
 
-- **Resource Management**: Four resource types (Food, Raw Materials, Electrical Goods, Medical Goods)
-- **Building System**: Six building types (Farm, Mine, Factory, Hospital, School, Restaurant) with production bonuses
-- **Physical Challenges**: Players complete real-world exercises (push-ups, burpees, planks) to earn production rights
-- **Challenge Request System**: Banker assigns custom challenges with configurable targets
+- **Resource Management**: Four resource types (Food, Raw Materials, Electrical Goods, Medical Goods) plus currency
+- **Building System**: Eight building types (Farm, Mine, Electrical Factory, Medical Factory, School, Hospital, Restaurant, Infrastructure) with production bonuses
+- **Physical Challenges**: Players complete real-world exercises (push-ups, burpees, planks, sit-ups, squats, lunges, star jumps, jumping jacks) to earn production rights
+- **Challenge Request System**: Banker/Host assigns custom challenges with configurable targets and types
 - **Trading System**: Teams trade resources with each other and the World Bank
+- **Automated Food Tax**: Configurable automated taxation system with banker controls and penalty mechanics
+- **Game Difficulty Modes**: Three difficulty levels (Easy: +25% resources, Medium: baseline, Hard: -25% resources) affecting starting resources only
 - **Pause-Aware Timing**: Challenge timers freeze during game pauses, extending deadlines fairly
 - **Challenge Locking**: School buildings enable simultaneous challenges for team members
 - **External Integrations**: OAuth2 framework for OnlineScoutManager API integration
@@ -22,11 +24,13 @@ The Trading Game is an interactive multiplayer experience where teams compete to
 ### 🎮 Game Management
 
 - **Unique 6-Digit Game Codes**: Easy-to-share game codes for quick joining
-- **Configurable Duration**: Set game length from 1-4 hours in 30-minute intervals
-- **Real-Time Synchronization**: WebSocket updates for all players instantly
+- **Configurable Duration**: Set game length from 1-4 hours in 30-minute intervals (60, 90, 120, 150, 180, 210, 240 minutes)
+- **Difficulty Settings**: Choose from Easy, Medium, or Hard difficulty modes with resource modifiers
+- **Real-Time Synchronization**: WebSocket updates for all players instantly across all connected clients
 - **Game Controls**: Start, pause, resume, and end games with proper state management
-- **Guest Approval System**: Host approves players before they join
-- **Drag-and-Drop Team Assignment**: Visual interface for organizing players into teams
+- **Guest Approval System**: Host approves players before they join the game
+- **Drag-and-Drop Team Assignment**: Visual interface for organizing players into teams (1-4 nations)
+- **Food Tax Automation**: Scheduled automated food tax collection with configurable rates and banker controls
 
 ### 👥 Player Roles
 
@@ -45,6 +49,7 @@ The Trading Game is an interactive multiplayer experience where teams compete to
    - Processes trading requests
    - Views all active challenges
    - Monitors game economy
+   - Controls food tax automation (enable/disable, adjust rates)
    - Same challenge assignment powers as host
 
 3. **Players (Team Members)**
@@ -68,11 +73,13 @@ TheTradingGame/
 │   ├── auth.py                  # JWT authentication
 │   ├── challenge_manager.py     # Challenge business logic
 │   ├── challenge_api.py         # Challenge API endpoints (v2)
+│   ├── food_tax_api.py          # Food tax automation API
+│   ├── food_tax_scheduler.py    # Automated tax scheduling
 │   ├── websocket_manager.py     # WebSocket connection management
 │   ├── game_logic.py            # Game rules and mechanics
-│   ├── game_constants.py        # Building types, resources, etc.
+│   ├── game_constants.py        # Building types, resources, difficulty
 │   ├── utils.py                 # Helper functions
-│   └── tests/                   # Pytest test suite (82 tests)
+│   └── tests/                   # Pytest test suite (90+ tests)
 │       ├── conftest.py
 │       ├── test_authentication.py
 │       ├── test_challenge_manager.py
@@ -110,8 +117,9 @@ TheTradingGame/
 - **Authentication**: JWT tokens with OAuth2 password flow
 - **WebSocket**: Starlette WebSocket with custom connection manager
 - **Validation**: Pydantic v2 models
-- **Testing**: Pytest with 82 tests (95.3% pass rate)
-- **Async Support**: Full async/await throughout challenge system
+- **Testing**: Pytest with 90+ tests (comprehensive coverage)
+- **Async Support**: Full async/await throughout challenge and food tax systems
+- **Scheduling**: APScheduler for automated game events (food tax collection)
 
 ### Frontend
 - **Pure Vanilla JavaScript**: No frameworks, lightweight and fast
@@ -204,14 +212,15 @@ pytest --cov=. --cov-report=html
 pytest -k "test_challenge" -v
 ```
 
-**Test Results:** 82 tests passing, 4 skipped (intentional)
+**Test Results:** 90+ tests passing with comprehensive coverage
 
 ## 🔌 API Endpoints
 
 ### Game Management
 - `POST /games` - Create new game with unique code
 - `GET /games/{game_code}` - Get game details
-- `POST /games/{game_code}/set-duration` - Set game duration (60-240 minutes)
+- `POST /games/{game_code}/set-duration` - Set game duration (60, 90, 120, 150, 180, 210, 240 minutes)
+- `POST /games/{game_code}/set-difficulty` - Set game difficulty (easy, medium, hard)
 - `POST /games/{game_code}/start` - Start game
 - `POST /games/{game_code}/pause` - Pause game
 - `POST /games/{game_code}/resume` - Resume game
@@ -241,6 +250,14 @@ pytest -k "test_challenge" -v
 - `POST /games/{game_code}/build` - Build structure
 - `POST /games/{game_code}/trade` - Execute trade
 
+### Food Tax System (v2)
+- `POST /api/v2/food-tax/{game_code}/enable` - Enable automated food tax
+- `POST /api/v2/food-tax/{game_code}/disable` - Disable automated food tax
+- `POST /api/v2/food-tax/{game_code}/set-rate` - Set tax rate (percentage)
+- `POST /api/v2/food-tax/{game_code}/set-interval` - Set collection interval (minutes)
+- `POST /api/v2/food-tax/{game_code}/collect-now` - Manually trigger tax collection
+- `GET /api/v2/food-tax/{game_code}/status` - Get current tax configuration and status
+
 ### WebSocket
 - `WS /ws/{game_code}/{player_id}` - Real-time game events connection
 
@@ -252,8 +269,9 @@ pytest -k "test_challenge" -v
 - `game_code` (unique 6-digit code)
 - `status` (waiting/in_progress/paused/completed)
 - `game_duration_minutes` (60-240 in 30-min intervals)
+- `difficulty` (easy/medium/hard) - affects starting resources
 - `started_at`, `paused_at`, `ended_at` timestamps
-- `game_state` (JSON: bank inventory, prices, etc.)
+- `game_state` (JSON: bank inventory, prices, food tax settings, team states)
 
 ### Player
 - `player_name`, `role` (host/banker/player)
@@ -280,10 +298,12 @@ pytest -k "test_challenge" -v
 
 ### 1. Game Setup (Host)
 1. Create game → receives unique 6-digit code
-2. Configure game duration (1-4 hours)
+2. Configure game settings:
+   - Game duration (1-4 hours in 30-minute intervals)
+   - Difficulty level (Easy: +25% resources, Medium: baseline, Hard: -25% resources)
 3. Share game code with players
 4. Approve joining players (guest approval)
-5. Assign players to teams via drag-and-drop
+5. Assign players to teams via drag-and-drop (1-4 nations)
 6. Start game
 
 ### 2. Resource Production (Players)
@@ -308,10 +328,11 @@ pytest -k "test_challenge" -v
 3. School buildings enable simultaneous challenges for teammates
 4. Strategic building placement affects team economy
 
-### 5. Game Control (Host)
-- **Pause**: Freezes all challenge timers, extends deadlines
-- **Resume**: Adjusts all active challenge deadlines by pause duration
+### 5. Game Control (Host/Banker)
+- **Pause**: Freezes all challenge timers, extends deadlines, pauses food tax collection
+- **Resume**: Adjusts all active challenge deadlines by pause duration, resumes tax collection
 - **End**: Finalizes game, shows statistics
+- **Food Tax Control** (Banker): Enable/disable automated tax, adjust rate and collection interval
 
 ## 🧪 Challenge System Details
 
@@ -401,6 +422,10 @@ flake8 backend/ --max-line-length=120
 
 # Type checking (if using mypy)
 mypy backend/
+
+# Run specific test suites
+pytest tests/test_food_tax.py -v              # Food tax system
+pytest tests/test_game_difficulty.py -v       # Difficulty system
 ```
 
 ### Database Management
@@ -453,10 +478,13 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
 ```
 
 ### Game Constants (`backend/game_constants.py`)
-- Resource types and initial quantities
+- Resource types and initial quantities per nation type
 - Building types, costs, and production multipliers
 - Challenge duration (10 minutes)
+- Challenge types with default targets
+- Difficulty modifiers (Easy: 1.25x, Medium: 1.0x, Hard: 0.75x)
 - Trading rules and bank pricing
+- Food tax default settings (rate, interval, penalty multipliers)
 
 ## 🔒 Security Notes
 
@@ -499,17 +527,22 @@ CMD ["python", "backend/main.py"]
 - [x] Challenge request/assignment system
 - [x] Pause-aware challenge timing
 - [x] Challenge locking with school buildings
-- [x] Configurable game duration
+- [x] Configurable game duration (1-4 hours in 30-min intervals)
+- [x] Game difficulty modes (Easy/Medium/Hard with resource modifiers)
+- [x] Automated food tax system with banker controls
 - [x] Real-time WebSocket synchronization
 - [x] Multi-user support (host + banker)
 - [x] Guest approval system
 - [x] Drag-and-drop team assignment
-- [x] Comprehensive test suite (82 tests)
+- [x] Comprehensive test suite (90+ tests)
+- [x] Four nation types with distinct starting resources
+- [x] Eight building types with production multipliers
 
 ### In Progress 🚧
-- [ ] Trading system refinement
-- [ ] Advanced game statistics
+- [ ] Trading system UI improvements
+- [ ] Advanced game statistics dashboard
 - [ ] Game event audit log UI
+- [ ] Food tax penalty escalation system
 
 ### Planned 📋
 - [ ] Challenge history and analytics
@@ -526,12 +559,18 @@ CMD ["python", "backend/main.py"]
 ## 📝 Documentation
 
 - **[README.md](README.md)**: This file - complete project overview
-- **[Documentation Index](docs/README.md)**: Complete documentation catalog
-- **[QUICKSTART.md](docs/QUICKSTART.md)**: Quick reference for server management
-- **[OSM_OAUTH_SETUP.md](docs/OSM_OAUTH_SETUP.md)**: OnlineScoutManager OAuth2 integration guide
-- **[CHALLENGE_SYSTEM_README.md](docs/CHALLENGE_SYSTEM_README.md)**: Detailed challenge system architecture
-- **[FEATURE-GAME-DURATION.md](docs/FEATURE-GAME-DURATION.md)**: Game duration feature documentation
-- **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](docs/CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)**: WebSocket event documentation
+- **[Documentation Index](docs/README.md)**: Complete documentation catalog with 20+ technical documents
+
+### Quick Access to Key Documentation:
+- **[QUICKSTART.md](docs/QUICKSTART.md)**: Server management and development workflow
+- **[CHALLENGE_SYSTEM_README.md](docs/CHALLENGE_SYSTEM_README.md)**: Challenge architecture and API reference
+- **[FEATURE-GAME-DURATION.md](docs/FEATURE-GAME-DURATION.md)**: Configurable game duration feature
+- **[FEATURE-FOOD-TAX-AUTOMATION.md](docs/FEATURE-FOOD-TAX-AUTOMATION.md)**: Automated food tax system
+- **[FOOD-TAX-QUICKSTART.md](docs/FOOD-TAX-QUICKSTART.md)**: Quick guide to food tax feature
+- **[TRADING_FEATURE_README.md](docs/TRADING_FEATURE_README.md)**: Resource trading system
+- **[BUILDING-CONSTRUCTION-SYSTEM.md](docs/BUILDING-CONSTRUCTION-SYSTEM.md)**: Building mechanics
+- **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](docs/CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)**: WebSocket events
+- **[OSM_OAUTH_SETUP.md](docs/OSM_OAUTH_SETUP.md)**: OAuth2 integration guide
 - **API Docs**: http://localhost:8000/docs (interactive Swagger UI)
 
 ## 🐛 Troubleshooting
