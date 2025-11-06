@@ -316,6 +316,54 @@ def set_game_duration(
     }
 
 
+@app.post("/games/{game_code}/set-difficulty")
+def set_game_difficulty(
+    game_code: str,
+    difficulty: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Set the game difficulty level.
+    Valid values: easy, medium, hard
+    This affects starting resources: easy (+25%), medium (0%), hard (-25%)
+    Must be set before game starts.
+    """
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Can't change difficulty after game has started
+    if game.status != GameStatus.WAITING:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot change difficulty after game has started"
+        )
+    
+    # Validate difficulty
+    valid_difficulties = ["easy", "medium", "hard"]
+    if difficulty not in valid_difficulties:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Difficulty must be one of {valid_difficulties}"
+        )
+    
+    game.difficulty = difficulty
+    db.commit()
+    db.refresh(game)
+    
+    difficulty_descriptions = {
+        "easy": "Easy - 25% more starting resources, fewer disasters",
+        "medium": "Medium - Balanced gameplay",
+        "hard": "Hard - 25% fewer starting resources, frequent disasters"
+    }
+    
+    return {
+        "success": True,
+        "message": f"Game difficulty set to {difficulty_descriptions[difficulty]}",
+        "difficulty": difficulty
+    }
+
+
 @app.post("/games/{game_code}/teams/{team_number}/set-name")
 async def set_team_name(
     game_code: str,
@@ -1105,13 +1153,16 @@ async def start_game(
     nation_types = [nation_type.value for nation_type in NationType]
     num_nation_types = len(nation_types)
     
+    # Get difficulty setting from game model (defaults to "medium")
+    difficulty = game.difficulty if hasattr(game, 'difficulty') and game.difficulty else "medium"
+    
     for team_number in team_numbers:
         # Cycle through nation types using modulo (team 5+ get same types as 1-4, etc.)
         nation_index = (team_number - 1) % num_nation_types
         nation_type = nation_types[nation_index]
         
-        # Initialize team state with nation-specific resources
-        team_state = GameLogic.initialize_nation(nation_type)
+        # Initialize team state with nation-specific resources and difficulty modifier
+        team_state = GameLogic.initialize_nation(nation_type, difficulty=difficulty)
         game.game_state['teams'][str(team_number)] = {
             'resources': team_state['resources'],
             'buildings': team_state['buildings'],

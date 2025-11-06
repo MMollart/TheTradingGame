@@ -5,6 +5,25 @@ Game constants and rules based on Trading Game Rules and Setup
 from enum import Enum
 from typing import Dict, List
 
+# ==================== Game Difficulty ====================
+
+class GameDifficulty(str, Enum):
+    """Game difficulty levels"""
+    EASY = "easy"
+    MEDIUM = "medium"
+    HARD = "hard"
+
+
+# Difficulty modifiers for starting resources
+# Easy: +25% resources, Medium: 0% (baseline), Hard: -25% resources
+# Buildings are NOT affected by difficulty
+DIFFICULTY_MODIFIERS = {
+    GameDifficulty.EASY: 1.25,      # 25% more starting resources
+    GameDifficulty.MEDIUM: 1.0,     # Normal baseline
+    GameDifficulty.HARD: 0.75       # 25% fewer starting resources
+}
+
+
 # ==================== Resources ====================
 
 class ResourceType(str, Enum):
