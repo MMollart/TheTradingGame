@@ -3,15 +3,9 @@
  */
 
 class GameWebSocket {
-    constructor(gameCode, playerId, baseUrl = null) {
+    constructor(gameCode, playerId, baseUrl = 'ws://localhost:8000') {
         this.gameCode = gameCode;
         this.playerId = playerId;
-        // Auto-detect WebSocket URL based on current page protocol
-        if (!baseUrl) {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.host;
-            baseUrl = `${protocol}//${host}`;
-        }
         this.baseUrl = baseUrl;
         this.ws = null;
         this.listeners = {};
@@ -89,11 +83,7 @@ class GameWebSocket {
  * Game API client
  */
 class GameAPI {
-    constructor(baseUrl = null) {
-        // Auto-detect API URL based on current page origin
-        if (!baseUrl) {
-            baseUrl = window.location.origin;
-        }
+    constructor(baseUrl = 'http://localhost:8000') {
         this.baseUrl = baseUrl;
         this.token = null;
     }

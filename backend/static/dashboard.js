@@ -2,6 +2,9 @@
  * Dashboard JavaScript - Handles all dashboard interactions
  */
 
+// Debug logging flag - set to false to reduce console output
+const DEBUG_LOGGING = false;
+
 // Global variables
 let gameAPI = new GameAPI();
 let gameWS = null;
@@ -14,6 +17,7 @@ let gameState = {};
 let currentGameStatus = 'waiting'; // Track game status (waiting, in_progress, paused, completed)
 let challengeManager = null; // New challenge management system
 let tradingManager = null; // Trading management system
+let foodTaxManager = null; // Food tax management system
 let tradeNotifications = []; // Store trade notifications
 
 // Countdown timer variables
@@ -60,7 +64,6 @@ async function initDashboard() {
     const authToken = localStorage.getItem('authToken');
     if (authToken) {
         gameAPI.setToken(authToken);
-        // console.log('Auth token loaded from localStorage');
     }
     
     // Fetch actual player data from backend to get the real role
@@ -69,7 +72,6 @@ async function initDashboard() {
         const playerData = players.find(p => p.id === parseInt(playerId));
         if (playerData && playerData.role) {
             role = playerData.role; // Use role from database, not URL
-            // console.log(`[initDashboard] Using role from database: ${role}`);
         }
     } catch (error) {
         console.error('[initDashboard] Failed to fetch player data, using URL role:', error);
@@ -740,7 +742,7 @@ async function loadActiveChallenges(players = null) {
                     const elapsed = now - startTime;
                     const expiryTime = 10 * 60 * 1000; // 10 minutes in ms
                     
-                    // console.log(`[loadActiveChallenges] Challenge ${challenge.id}:`, {
+                    /* console.log(`[loadActiveChallenges] Challenge ${challenge.id}:`, {
                         assigned_at: challenge.assigned_at,
                         startTime: new Date(startTime).toISOString(),
                         now: new Date(now).toISOString(),
@@ -748,7 +750,7 @@ async function loadActiveChallenges(players = null) {
                         remaining_seconds: Math.floor((expiryTime - elapsed)/1000),
                         currentGameStatus: currentGameStatus,
                         will_check_expiry: currentGameStatus === 'in_progress'
-                    });
+                    }); */
                     
                     // Only check for expiry if game is actively running (not paused or waiting)
                     // When loading after resume, the database assigned_at has already been adjusted
@@ -2450,6 +2452,14 @@ async function initializeChallengeManager() {
             // console.log('[initializeChallengeManager] Trading manager initialized');
         }
         
+        // Initialize food tax manager
+        if (foodTaxManager) {
+            foodTaxManager.destroy();
+        }
+        foodTaxManager = new FoodTaxManager(currentGameCode, currentPlayer, gameAPI, gameWS);
+        await foodTaxManager.initialize();
+        console.log('[initializeChallengeManager] Food tax manager initialized');
+        
         // Register update callback
         challengeManager.onChallengesUpdated(() => {
             // console.log('[ChallengeManager] Challenges updated, refreshing UI');
@@ -2502,6 +2512,17 @@ async function resumeGame() {
                 // console.log('[resumeGame] Database adjusted successfully');
             } catch (error) {
                 console.error('[resumeGame] Challenge manager adjustment failed:', error);
+            }
+        }
+        
+        // Use food tax manager to adjust for pause in database
+        if (foodTaxManager && pauseDuration > 0) {
+            try {
+                console.log('[resumeGame] Adjusting food tax timings for pause...');
+                await foodTaxManager.adjustForPause(pauseDuration);
+                console.log('[resumeGame] Food tax adjusted successfully');
+            } catch (error) {
+                console.error('[resumeGame] Food tax manager adjustment failed:', error);
             }
         }
         
@@ -3674,15 +3695,13 @@ async function populateTeamSelector() {
     
     // Get all teams from game state
     const teams = gameState.teams || {};
-    const currentTeam = playerState.group_number;
+    const currentTeam = currentPlayer.groupNumber;
     
     Object.keys(teams).forEach(teamNum => {
         if (parseInt(teamNum) !== currentTeam) {
-            const teamData = teams[teamNum];
-            const teamName = teamData.name || `Team ${teamNum}`;
             const option = document.createElement('option');
             option.value = teamNum;
-            option.textContent = teamName;
+            option.textContent = `Team ${teamNum}`;
             selector.appendChild(option);
         }
     });
@@ -3694,14 +3713,19 @@ function addOfferResource() {
     
     const resourceDiv = document.createElement('div');
     resourceDiv.className = 'resource-input-group';
+    
+    // Get initial resource volume for food (default selection)
+    const initialVolume = teamState.resources?.['food'] || 0;
+    
     resourceDiv.innerHTML = `
-        <select id="${id}-type">
+        <select id="${id}-type" onchange="updateResourceVolume('${id}', this.value)">
             <option value="food">🌾 Food</option>
             <option value="raw_materials">⚙️ Raw Materials</option>
             <option value="electrical_goods">⚡ Electrical Goods</option>
             <option value="medical_goods">🏥 Medical Goods</option>
             <option value="currency">💰 Currency</option>
         </select>
+        <span id="${id}-volume" style="font-size: 12px; color: #666; white-space: nowrap;">(Have: ${initialVolume})</span>
         <input type="number" id="${id}-qty" min="1" value="1" placeholder="Qty">
         <button class="btn btn-sm btn-danger" onclick="removeResource('${id}')">×</button>
     `;
@@ -3715,19 +3739,32 @@ function addRequestResource() {
     
     const resourceDiv = document.createElement('div');
     resourceDiv.className = 'resource-input-group';
+    
+    // Get initial resource volume for food (default selection)
+    const initialVolume = teamState.resources?.['food'] || 0;
+    
     resourceDiv.innerHTML = `
-        <select id="${id}-type">
+        <select id="${id}-type" onchange="updateResourceVolume('${id}', this.value)">
             <option value="food">🌾 Food</option>
             <option value="raw_materials">⚙️ Raw Materials</option>
             <option value="electrical_goods">⚡ Electrical Goods</option>
             <option value="medical_goods">🏥 Medical Goods</option>
             <option value="currency">💰 Currency</option>
         </select>
+        <span id="${id}-volume" style="font-size: 12px; color: #666; white-space: nowrap;">(Have: ${initialVolume})</span>
         <input type="number" id="${id}-qty" min="1" value="1" placeholder="Qty">
         <button class="btn btn-sm btn-danger" onclick="removeResource('${id}')">×</button>
     `;
     
     container.appendChild(resourceDiv);
+}
+
+function updateResourceVolume(id, resourceType) {
+    const volumeSpan = document.getElementById(`${id}-volume`);
+    if (volumeSpan) {
+        const volume = teamState.resources?.[resourceType] || 0;
+        volumeSpan.textContent = `(Have: ${volume})`;
+    }
 }
 
 function removeResource(id) {
@@ -4468,7 +4505,44 @@ function handleGameEvent(data) {
     }
     
     switch (event_type) {
+        case 'food_tax_warning':
+            // Use food tax manager to handle warning
+            if (foodTaxManager) {
+                foodTaxManager.handleFoodTaxWarning(eventData);
+            }
+            addEventLog(`⚠️ Food tax warning for Team ${eventData.team_number}: Due in ${Math.round(eventData.minutes_remaining)} minutes`, 'warning');
+            break;
+        
+        case 'food_tax_applied':
+            // Use food tax manager to handle application
+            if (foodTaxManager) {
+                foodTaxManager.handleFoodTaxApplied(eventData);
+            }
+            addEventLog(`✅ Food tax paid by Team ${eventData.team_number}: ${eventData.tax_amount} food`, 'info');
+            
+            // Update team resources if this is the player's team
+            if (currentPlayer.role === 'player' && String(currentPlayer.group_number) === String(eventData.team_number)) {
+                teamState.resources = eventData.new_resources;
+                updateResourceDisplay();
+            }
+            break;
+        
+        case 'food_tax_famine':
+            // Use food tax manager to handle famine
+            if (foodTaxManager) {
+                foodTaxManager.handleFoodTaxFamine(eventData);
+            }
+            addEventLog(`🚨 FAMINE for Team ${eventData.team_number}: ${eventData.message}`, 'error');
+            
+            // Update team resources if this is the player's team
+            if (currentPlayer.role === 'player' && String(currentPlayer.group_number) === String(eventData.team_number)) {
+                teamState.resources = eventData.new_resources;
+                updateResourceDisplay();
+            }
+            break;
+        
         case 'food_tax':
+            // Legacy event (keep for backward compatibility)
             addEventLog('Food tax has been applied!', 'warning');
             break;
         case 'natural_disaster':
@@ -4518,6 +4592,13 @@ function handleGameEvent(data) {
             // Use challenge manager to handle completion
             if (challengeManager) {
                 challengeManager.handleChallengeCompleted(eventData);
+            }
+            
+            // Clear challenge from allActiveChallenges (all possible key formats)
+            delete allActiveChallenges[eventData.building_type];
+            delete allActiveChallenges[`${eventData.player_id}-${eventData.building_type}`];
+            if (eventData.team_number) {
+                delete allActiveChallenges[`team${eventData.team_number}-${eventData.building_type}`];
             }
             
             // Refresh banker view if this is the banker/host
@@ -4581,6 +4662,13 @@ function handleGameEvent(data) {
                 challengeManager.handleChallengeCancelled(eventData);
             }
             
+            // Clear challenge from allActiveChallenges (all possible key formats)
+            delete allActiveChallenges[eventData.building_type];
+            delete allActiveChallenges[`${eventData.player_id}-${eventData.building_type}`];
+            if (eventData.team_number) {
+                delete allActiveChallenges[`team${eventData.team_number}-${eventData.building_type}`];
+            }
+            
             // Challenge was cancelled by host/banker
             if (eventData.player_id === currentPlayer.id) {
                 updateAllBuildingButtons();
@@ -4595,6 +4683,13 @@ function handleGameEvent(data) {
             // Use challenge manager to handle expiration
             if (challengeManager) {
                 challengeManager.handleChallengeCancelled(eventData);  // Expired uses same logic as cancelled
+            }
+            
+            // Clear challenge from allActiveChallenges (all possible key formats)
+            delete allActiveChallenges[eventData.building_type];
+            delete allActiveChallenges[`${eventData.player_id}-${eventData.building_type}`];
+            if (eventData.team_number) {
+                delete allActiveChallenges[`team${eventData.team_number}-${eventData.building_type}`];
             }
             
             // Challenge expired (10 minutes elapsed)

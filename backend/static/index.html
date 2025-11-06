@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Trading Game</title>
-    <!-- Version: 2025-11-05 OSM Login -->
     <style>
         * {
             margin: 0;
@@ -207,7 +206,7 @@
         <p class="subtitle">Multiplayer Trading Simulation</p>
         
         <div style="text-align: center; margin-bottom: 20px;">
-            <a href="/static/help.html" target="_blank" style="color: #667eea; text-decoration: none; font-size: 1.1em; font-weight: 600;">
+            <a href="help.html" target="_blank" style="color: #667eea; text-decoration: none; font-size: 1.1em; font-weight: 600;">
                 ❓ How to Play
             </a>
         </div>
@@ -231,8 +230,7 @@
                     <input type="password" id="login-password" placeholder="Enter your password" required>
                 </div>
                 
-                <button onclick="performLogin()" style="margin-top: 10px; background: #007bff;">🔐 Login</button>
-                <button onclick="loginWithOSM()" style="margin-top: 10px; background: #411f62;">🔗 Login with Online Scout Manager</button>
+                <button onclick="performLogin()">🔐 Login</button>
                 <button onclick="skipAuth()" style="margin-top: 10px; background: #6c757d;">⚡ Quick Start (No Account)</button>
             </div>
             
@@ -265,7 +263,7 @@
         <!-- Main Game Screen (shown after login or quick start) -->
         <div id="login-screen" class="hidden">
             <div class="tabs">
-                <button class="tab active" onclick="showTab('create')">Create New Game</button>
+                <button class="tab active" onclick="showTab('create')">Create Game</button>
                 <button class="tab" onclick="showTab('join')">Join Game</button>
             </div>
             
@@ -273,7 +271,7 @@
             <div id="create-tab" class="tab-content active">
                 <div class="info">
                     <strong>Host a new game:</strong><br>
-                    This will generate a unique 6-digit code that players can use to join your game.
+                    Generate a unique 6-digit code that players can use to join your game.
                 </div>
                 
                 <div class="input-group">
@@ -480,11 +478,6 @@
             authToken = null;
             showGameScreen();
         }
-
-        // Login with Online Scout Manager
-        function loginWithOSM() {
-            window.location.href = '/oauth/osm/authorize';
-        }
         
         // Logout
         function logout() {
@@ -502,12 +495,6 @@
         function showGameScreen() {
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
-            
-            // Set default value for host name input if logged in
-            const hostNameInput = document.getElementById('host-name');
-            if (hostNameInput && currentUser) {
-                hostNameInput.value = currentUser;
-            }
             
             if (currentUser) {
                 // Add welcome message and logout button
@@ -750,6 +737,6 @@
             };
         }
     </script>
-    <script src="/static/game-api.js?v=3"></script>
+    <script src="game-api.js?v=2"></script>
 </body>
 </html>
