@@ -606,6 +606,11 @@ async def join_game(
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     
+    # Debug: Log all current players in this game
+    all_players = db.query(Player).filter(Player.game_session_id == game.id).all()
+    logger.info(f"Join attempt by '{player_join.player_name}' to game {game.game_code}. "
+               f"Current players ({len(all_players)}): {[p.player_name for p in all_players]}")
+    
     # Check if player name already exists in this game
     existing_player = db.query(Player).filter(
         Player.game_session_id == game.id,
@@ -613,16 +618,43 @@ async def join_game(
     ).first()
     
     if existing_player:
+        logger.info(f"Found existing player '{player_join.player_name}' in game {game.game_code}: "
+                   f"id={existing_player.id}, approved={existing_player.is_approved}, "
+                   f"connected={existing_player.is_connected}, role={existing_player.role}")
+        
         # If the player exists but was rejected or disconnected, allow them to rejoin
         if not existing_player.is_approved and not existing_player.is_connected:
+            logger.info(f"Removing old rejected/disconnected player record for '{player_join.player_name}'")
             # Remove the old rejected/disconnected player record
             db.delete(existing_player)
             db.commit()
+        # If it's the same connection trying to rejoin (maybe page refresh/double-click), update instead of error
+        elif not existing_player.is_approved:
+            logger.info(f"Player '{player_join.player_name}' reconnecting (was awaiting approval)")
+            # Update the existing record instead of creating a duplicate
+            existing_player.is_connected = True
+            db.commit()
+            db.refresh(existing_player)
+            
+            # Broadcast reconnection
+            await manager.broadcast_to_game(
+                game.game_code,
+                {
+                    "type": "player_rejoined",
+                    "player": {
+                        "id": existing_player.id,
+                        "name": existing_player.player_name,
+                        "role": existing_player.role,
+                        "is_approved": existing_player.is_approved,
+                        "needs_approval": not existing_player.is_approved
+                    }
+                }
+            )
+            return PlayerResponse.model_validate(existing_player)
         else:
-            # Player is still active in the game
-            logger.info(f"Duplicate player name attempt: '{player_join.player_name}' in game {game.game_code}. "
-                       f"Existing player: approved={existing_player.is_approved}, connected={existing_player.is_connected}, "
-                       f"role={existing_player.role}, id={existing_player.id}")
+            # Player is already approved and connected - this is a true duplicate
+            logger.warning(f"Duplicate player name blocked: '{player_join.player_name}' in game {game.game_code}. "
+                          f"Existing player: approved={existing_player.is_approved}, connected={existing_player.is_connected}")
             raise HTTPException(
                 status_code=400, 
                 detail=f"Player name '{player_join.player_name}' is already taken in this game. "

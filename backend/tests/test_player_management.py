@@ -48,24 +48,41 @@ class TestPlayerJoining:
         assert response.status_code == 404
     
     def test_duplicate_player_name(self, client, sample_game):
-        """Test joining with duplicate player name"""
+        """Test that duplicate player names are handled correctly"""
         game_code = sample_game["game_code"]
         
-        # First player joins
-        client.post("/api/join", json={
+        # First player
+        response = client.post("/api/join", json={
             "game_code": game_code,
             "player_name": "SameName",
             "role": "player"
         })
+        assert response.status_code == 200
+        player_id = response.json()["id"]
         
-        # Second player with same name
+        # Second attempt with same name (before approval - simulates page refresh/reconnect)
         response = client.post("/api/join", json={
             "game_code": game_code,
             "player_name": "SameName",
             "role": "player"
         })
         
-        # Should reject duplicate names
+        # Should allow reconnection (not throw error) since player isn't approved yet
+        assert response.status_code == 200
+        assert response.json()["id"] == player_id  # Same player record
+        
+        # Now approve the player
+        approve_response = client.put(f"/games/{game_code}/players/{player_id}/approve")
+        assert approve_response.status_code == 200
+        
+        # Third attempt with same name AFTER approval - should reject
+        response = client.post("/api/join", json={
+            "game_code": game_code,
+            "player_name": "SameName",
+            "role": "player"
+        })
+        
+        # Should reject duplicate names for approved players
         assert response.status_code == 400
 
 
