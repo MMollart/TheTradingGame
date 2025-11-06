@@ -1223,6 +1223,42 @@ async def start_game(
     db: Session = Depends(get_db)
 ):
     """Start a game session (works for both authenticated and anonymous games)"""
+    
+    # Clean up old abandoned games before starting a new one
+    try:
+        current_time = datetime.utcnow()
+        
+        # Find games that should have ended but are still IN_PROGRESS
+        old_games = db.query(GameSession).filter(
+            GameSession.status == GameStatus.IN_PROGRESS,
+            GameSession.started_at.isnot(None)
+        ).all()
+        
+        for old_game in old_games:
+            if old_game.started_at:
+                # Calculate when the game should have ended
+                # game_duration_minutes + 2 hours buffer
+                game_duration = old_game.game_duration_minutes or 60  # Default 60 if not set
+                max_age_minutes = game_duration + (2 * 60)  # Add 2 hours buffer
+                game_age_minutes = (current_time - old_game.started_at).total_seconds() / 60
+                
+                if game_age_minutes > max_age_minutes:
+                    logger.info(
+                        f"Auto-ending abandoned game {old_game.game_code} "
+                        f"(age: {game_age_minutes:.0f}m, max: {max_age_minutes}m)"
+                    )
+                    old_game.status = GameStatus.COMPLETED
+                    old_game.ended_at = current_time
+                    
+                    # Notify the scheduler to stop processing this game
+                    await on_game_ended(old_game.game_code)
+        
+        db.commit()
+    except Exception as e:
+        logger.error(f"Error cleaning up old games: {str(e)}", exc_info=True)
+        # Don't fail the game start if cleanup fails
+        db.rollback()
+    
     game = db.query(GameSession).filter(
         GameSession.game_code == game_code.upper()
     ).first()
