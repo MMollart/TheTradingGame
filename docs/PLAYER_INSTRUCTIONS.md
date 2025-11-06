@@ -175,10 +175,12 @@ The game has four distinct nation types that rotate through teams:
 
 #### 🎓 School
 - **Cost**: 100 Currency + 30 Raw Materials
-- **Benefit**: Individual team members can operate Farms and Mines alone (without school, the entire team must work together)
-- **Trade-off**: Increases food tax
-- **Limit**: Unlimited
-- **Strategy**: Essential for efficient production!
+- **Benefit**: Individual team members can operate Farms and Mines alone
+  - Without school: Only one challenge can be active for your entire team at a time (team-wide lock)
+  - With school: Each team member can have their own active challenge simultaneously
+- **Trade-off**: Increases food tax by 50% (e.g., 15 food becomes 22 food for developed nations)
+- **Limit**: Unlimited (only need 1 school to unlock benefit)
+- **Strategy**: Essential for efficient production! The benefit far outweighs the tax increase.
 
 #### 🏥 Hospital (Maximum 5)
 - **Cost**: 300 Currency + 50 Raw Materials + 10 Electrical Goods + 10 Medical Goods
@@ -365,7 +367,10 @@ Every 15 minutes, nations must pay food tax to the World Bank:
 - **Developed Nations** (Nations 1 & 2): 15 Food
 - **Developing Nations** (Nations 3 & 4): 5 Food
 
-**Important**: Building a School increases your food tax! Plan accordingly.
+**Important**: Building a School increases your food tax by 50%! 
+- Developed nations: 15 food → 22 food (rounded down: 22.5 → 22)
+- Developing nations: 5 food → 7 food (rounded down: 7.5 → 7)
+- Plan accordingly, but the production benefit usually outweighs this cost.
 
 ### Paying Food Tax
 
