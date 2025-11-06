@@ -60,12 +60,15 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://tg.pegasusesu.org.uk",
+        "https://thetradinggame-haced5abf2e4bydf.uksouth-01.azurewebsites.net",
         "http://localhost:5173",  # For local development
         "http://localhost:3000",  # Frontend server
-    ],  # Update with specific origins in production
+        "http://localhost:8000",  # Local backend
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Mount static files (frontend)

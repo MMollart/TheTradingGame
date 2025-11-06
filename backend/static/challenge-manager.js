@@ -541,7 +541,13 @@ class ChallengeManager {
             challenge.challenge_description = eventData.challenge_description;
             challenge.target_number = eventData.target_number;
             challenge.start_time = eventData.start_time;
-            challenge.assigned_at = new Date(eventData.start_time).toISOString();
+            // Handle date conversion safely
+            if (eventData.start_time) {
+                const date = new Date(eventData.start_time);
+                challenge.assigned_at = isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+            } else {
+                challenge.assigned_at = new Date().toISOString();
+            }
             this.challenges.set(key, challenge);
             this._notifyUpdates();
         } else {
