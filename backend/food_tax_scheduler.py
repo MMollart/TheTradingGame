@@ -23,6 +23,10 @@ active_games: Set[str] = set()
 scheduler_task = None
 scheduler_running = False
 
+# Track consecutive failures per game
+game_failure_counts: Dict[str, int] = {}
+MAX_CONSECUTIVE_FAILURES = 5
+
 
 async def check_all_games_for_taxes():
     """
@@ -43,11 +47,49 @@ async def check_all_games_for_taxes():
             GameSession.status == GameStatus.IN_PROGRESS
         ).all()
         
+        # Filter out games older than 12 hours (likely abandoned)
+        current_time = datetime.utcnow()
+        MAX_GAME_AGE_HOURS = 12
+        
         for game in games:
             try:
+                # Skip games older than MAX_GAME_AGE_HOURS
+                if game.created_at:
+                    game_age_hours = (current_time - game.created_at).total_seconds() / 3600
+                    if game_age_hours > MAX_GAME_AGE_HOURS:
+                        logger.warning(
+                            f"Skipping old game {game.game_code} (age: {game_age_hours:.1f}h). "
+                            f"Consider ending this game manually."
+                        )
+                        continue
+                
+                # Skip games with too many consecutive failures
+                failure_count = game_failure_counts.get(game.game_code, 0)
+                if failure_count >= MAX_CONSECUTIVE_FAILURES:
+                    logger.warning(
+                        f"Skipping game {game.game_code} after {failure_count} consecutive failures. "
+                        f"Manual intervention required."
+                    )
+                    continue
+                
                 # Check and process taxes for this game
                 tax_manager = FoodTaxManager(db)
                 events = tax_manager.check_and_process_taxes(game.game_code)
+                
+                # Track if any failures occurred
+                has_failure = any(event.get('event_type') == 'food_tax_failed' for event in events)
+                
+                if has_failure:
+                    # Increment failure count
+                    game_failure_counts[game.game_code] = failure_count + 1
+                    logger.warning(
+                        f"Game {game.game_code} food tax failed "
+                        f"({game_failure_counts[game.game_code]}/{MAX_CONSECUTIVE_FAILURES})"
+                    )
+                else:
+                    # Reset failure count on success
+                    if game.game_code in game_failure_counts:
+                        del game_failure_counts[game.game_code]
                 
                 # Broadcast any events via WebSocket
                 for event in events:
@@ -61,8 +103,11 @@ async def check_all_games_for_taxes():
                     )
             
             except Exception as e:
+                # Increment failure count on exception
+                game_failure_counts[game.game_code] = game_failure_counts.get(game.game_code, 0) + 1
                 logger.error(
-                    f"Error processing food tax for game {game.game_code}: {str(e)}",
+                    f"Error processing food tax for game {game.game_code} "
+                    f"({game_failure_counts[game.game_code]}/{MAX_CONSECUTIVE_FAILURES}): {str(e)}",
                     exc_info=True
                 )
     
@@ -204,7 +249,13 @@ async def on_game_ended(game_code: str):
     """
     Called when a game ends.
     
-    Removes game from active monitoring.
+    Removes game from active monitoring and clears failure count.
     """
-    active_games.discard(game_code.upper())
+    game_code_upper = game_code.upper()
+    active_games.discard(game_code_upper)
+    
+    # Clear failure count
+    if game_code_upper in game_failure_counts:
+        del game_failure_counts[game_code_upper]
+    
     logger.info(f"Game {game_code} ended - removed from food tax monitoring")
