@@ -740,7 +740,7 @@ async function loadActiveChallenges(players = null) {
                     const elapsed = now - startTime;
                     const expiryTime = 10 * 60 * 1000; // 10 minutes in ms
                     
-                    // console.log(`[loadActiveChallenges] Challenge ${challenge.id}:`, {
+                    /* console.log(`[loadActiveChallenges] Challenge ${challenge.id}:`, {
                         assigned_at: challenge.assigned_at,
                         startTime: new Date(startTime).toISOString(),
                         now: new Date(now).toISOString(),
@@ -748,7 +748,7 @@ async function loadActiveChallenges(players = null) {
                         remaining_seconds: Math.floor((expiryTime - elapsed)/1000),
                         currentGameStatus: currentGameStatus,
                         will_check_expiry: currentGameStatus === 'in_progress'
-                    });
+                    }); */
                     
                     // Only check for expiry if game is actively running (not paused or waiting)
                     // When loading after resume, the database assigned_at has already been adjusted
