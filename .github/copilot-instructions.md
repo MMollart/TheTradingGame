@@ -57,6 +57,55 @@ Handler: `websocket_manager.py` broadcasts to `active_connections[game_code]`
 
 ## Development Workflows
 
+### Azure Deployment
+
+**Production Site**: https://tg.pegasusesu.org.uk
+
+**Deployment Trigger**: Git push to `main` branch triggers automatic Azure deployment
+
+**Deployment Configuration**:
+- `.deployment` file: Specifies `PROJECT=backend` subdirectory
+- Startup command: `python -m uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'`
+- Python version: 3.11
+- App Service Plan: Linux, UK South region
+- Database: Azure PostgreSQL Flexible Server
+
+**Critical Startup Flags**:
+- `--proxy-headers`: **Required** for Azure reverse proxy to route WebSocket connections correctly
+- `--forwarded-allow-ips='*'`: Trust Azure's proxy headers for proper client IP detection
+
+**Environment Variables** (set in Azure Portal):
+```bash
+WEBSITES_PORT=8000
+POSTGRES_HOST=<azure-postgres-server>
+POSTGRES_DB=trading_game
+POSTGRES_USER=<username>
+POSTGRES_PASSWORD=<password>
+```
+
+**CORS Configuration**:
+- Application-level: FastAPI middleware in `backend/main.py`
+- Platform-level: Azure CORS settings (configure via Azure Portal or `az webapp cors add`)
+- Allowed origins: https://tg.pegasusesu.org.uk + Azure default domain
+
+**Monitoring Deployment**:
+```bash
+# View live deployment logs
+az webapp log tail --name thetradinggame --resource-group TradingGame
+
+# Download application logs
+az webapp log download --name thetradinggame --resource-group TradingGame
+
+# Check deployment status
+az webapp show --name thetradinggame --resource-group TradingGame --query state
+```
+
+**Common Deployment Issues**:
+1. **"column does not exist" errors**: Migration not registered in `migrate.py`
+2. **WebSocket not connecting**: Missing `--proxy-headers` flag
+3. **CORS errors**: Check both application and platform-level CORS settings
+4. **Scheduler failing**: Old games need cleanup, check `food_tax_scheduler.py` logs
+
 ### Server Management
 ```bash
 # Start both servers (backend:8000, frontend:3000)
@@ -75,7 +124,7 @@ cd frontend && python3 -m http.server 3000  # Frontend
 
 ### Testing
 ```bash
-# Backend tests (pytest)
+# Backend tests (pytest) - 210+ tests total
 cd backend
 pytest -v                              # All tests
 pytest test_challenge_manager.py -v   # Specific module
@@ -84,12 +133,30 @@ pytest -m integration                  # Integration tests
 
 # Coverage
 pytest --cov=challenge_manager --cov-report=html
+
+# Quick validation before committing
+pytest -q --tb=line  # Quiet mode with line-level errors
 ```
 
 **Test markers** (defined in `backend/pytest.ini`):
 - `quick`: Fast unit tests
 - `integration`: API/database integration
 - `slow`, `websocket`: Performance/WebSocket tests
+
+**Critical Test Infrastructure Pattern**:
+SQLAlchemy only creates tables/columns for models that are **imported before** `Base.metadata.create_all()`. Always import ALL model classes in:
+- `backend/tests/conftest.py` (test fixtures)
+- `backend/database.py` (production initialization)
+
+Example:
+```python
+from models import (
+    Base, User, GameSession, Player, GameConfiguration,
+    Challenge, TradeOffer, PriceHistory, OAuthToken
+)
+```
+
+If you add a new model or column and tests fail with "no such column" errors, check that the model is imported in both locations above.
 
 ### Database Operations
 ```bash
@@ -101,6 +168,37 @@ python backend/main.py  # Auto-creates schema
 lsof -ti:8000 | xargs kill -9  # Backend
 lsof -ti:3000 | xargs kill -9  # Frontend
 ```
+
+**Database Migrations** (`backend/migrate.py`):
+Migrations run automatically on app startup via `run_migrations()`. When adding new columns:
+
+1. Add column to model in `backend/models.py`
+2. Import model in `backend/database.py` `init_db()` function
+3. Create migration entry in `backend/migrate.py`:
+```python
+{
+    "name": "00X_add_column_name",
+    "description": "Add column_name to table_name",
+    "sql": """
+        DO $$ 
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name='table_name' AND column_name='column_name'
+            ) THEN
+                ALTER TABLE table_name ADD COLUMN column_name VARCHAR(50);
+                RAISE NOTICE 'Added column_name column';
+            END IF;
+        END $$;
+    """
+}
+```
+4. Test locally with pytest (SQLite skips migrations, columns created via model imports)
+5. Deploy to production (PostgreSQL runs migration on startup)
+
+**PostgreSQL vs SQLite**:
+- **PostgreSQL** (production): Uses DO blocks with IF NOT EXISTS checks
+- **SQLite** (local/tests): Skips migrations, tables created with all columns via `Base.metadata.create_all()`
 
 ## Code Conventions
 
@@ -219,6 +317,45 @@ Starting resources defined in `backend/game_constants.py` (`NATION_STARTING_RESO
 - Pausing: Frontend tracks `totalPausedTime` and `lastPauseTime`
 - On resume: Call `/games/{game_code}/challenges/adjust-for-pause` with `pause_duration_ms`
 
+### Historical Scenarios System (NEW)
+
+**Purpose**: Add educational historical context and specialized game mechanics
+
+**Available Scenarios** (defined in `backend/scenarios.py`):
+1. **Silk Road Trade Routes** (easy, 90 min, 4 teams) - Ancient trade network simulation
+2. **Marshall Plan Recovery** (medium, 120 min, 4 teams) - Post-WWII European recovery with aid mechanics
+3. **Industrial Revolution Britain** (hard, 120 min, 4 teams) - Technological advancement and labor management
+4. **Space Race Economics** (medium, 90 min, 2 teams) - USA vs USSR space competition
+5. **Age of Exploration** (medium, 150 min, 5 teams) - Colonial trading and exploration
+6. **Great Depression Era** (hard, 180 min, 6 teams) - Economic crisis management
+
+**Setting a Scenario**:
+```javascript
+// API endpoint: POST /games/{game_code}/set-scenario
+// Request body: {"scenario_id": "silk_road"}
+```
+
+**Effects of setting scenario**:
+- Sets `game.scenario_id` (VARCHAR(50) column)
+- Auto-configures `num_teams` based on scenario nations
+- Sets `game_duration_minutes` to recommended duration
+- Sets `difficulty` level (easy/medium/hard)
+- Initializes `game_state.scenario` with special rules, victory conditions
+
+**Database Schema**:
+- `game_sessions.scenario_id` - Nullable VARCHAR(50), added via migration 003
+- `game_sessions.difficulty` - VARCHAR(10) with CHECK constraint (easy/medium/hard)
+- Index on `scenario_id` for faster queries
+
+**Constraints**:
+- Can only be set before game starts (`status = WAITING`)
+- Once game starts, scenario cannot be changed
+- Setting scenario returns: `scenario_id`, `scenario_name`, `num_teams`, `game_duration_minutes`, `difficulty`
+
+**Schedulers Aware of Scenarios**:
+- `food_tax_scheduler.py` - Queries games including scenario_id
+- `scenario_event_scheduler.py` - Triggers historical events based on scenario and game time
+
 ### WebSocket Connection Lifecycle
 ```javascript
 // Connect on dashboard load
@@ -237,6 +374,10 @@ window.addEventListener('beforeunload', () => gameWS.disconnect());
 4. **Missing flag_modified()**: SQLAlchemy won't persist nested JSON changes without it
 5. **Role string case**: Database stores lowercase (`'host'`, `'banker'`, `'player'`)
 6. **Cache busting**: Increment `?v=X` query params in dashboard.html script tags after JS changes
+7. **Model imports missing**: If tests fail with "no such column" error, ensure ALL models are imported in `conftest.py` and `database.py` before `Base.metadata.create_all()`
+8. **PostgreSQL migrations not registered**: New columns must have migration entry in `migrate.py` migrations list for production deployment
+9. **WebSocket in production**: Azure deployment requires `--proxy-headers` and `--forwarded-allow-ips='*'` flags in uvicorn startup command
+10. **Player name in broadcasts**: Always include `player_name` field in WebSocket events to avoid "undefined" in UI
 
 ## Key Files Reference
 
