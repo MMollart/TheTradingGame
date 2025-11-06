@@ -554,8 +554,12 @@ CMD ["python", "backend/main.py"]
 
 - **[README.md](README.md)**: This file - complete project overview
 - **[Documentation Index](docs/README.md)**: Complete documentation catalog with 20+ technical documents
+- **[PLAYER_INSTRUCTIONS_QUICK.md](docs/PLAYER_INSTRUCTIONS_QUICK.md)**: 📄 **2-page quick player guide - print this for your game sessions!**
+- **[PLAYER_INSTRUCTIONS.md](docs/PLAYER_INSTRUCTIONS.md)**: 📋 Complete player guide (detailed, 15-20 pages)
 
 ### Quick Access to Key Documentation:
+- **[PLAYER_INSTRUCTIONS_QUICK.md](docs/PLAYER_INSTRUCTIONS_QUICK.md)**: 2-page quick reference for players (BEST for printing!)
+- **[PLAYER_INSTRUCTIONS.md](docs/PLAYER_INSTRUCTIONS.md)**: Comprehensive gameplay guide for players (detailed reference)
 - **[QUICKSTART.md](docs/QUICKSTART.md)**: Server management and development workflow
 - **[CHALLENGE_SYSTEM_README.md](docs/CHALLENGE_SYSTEM_README.md)**: Challenge architecture and API reference
 - **[FEATURE-GAME-DURATION.md](docs/FEATURE-GAME-DURATION.md)**: Configurable game duration feature
