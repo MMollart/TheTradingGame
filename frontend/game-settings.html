@@ -277,39 +277,6 @@
                     How long the game will last (1 to 4 hours in 30-minute intervals).
                 </div>
             </div>
-
-            <div class="setting-item">
-                <label for="food-tax-minutes">Food Tax Timer (minutes)</label>
-                <input type="number" id="food-tax-minutes" min="5" max="60" value="15">
-                <div class="setting-description">
-                    How often teams must pay food tax to the bank.
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <label for="starting-resources">Starting Resource Level</label>
-                <select id="starting-resources">
-                    <option value="low">Low - Challenging Start</option>
-                    <option value="medium" selected>Medium - Balanced</option>
-                    <option value="high">High - Easy Start</option>
-                </select>
-                <div class="setting-description">
-                    How many resources each team starts with.
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <label for="disaster-frequency">Disaster Frequency</label>
-                <select id="disaster-frequency">
-                    <option value="none">None - No Disasters</option>
-                    <option value="low">Low - Occasional</option>
-                    <option value="medium" selected>Medium - Regular</option>
-                    <option value="high">High - Frequent</option>
-                </select>
-                <div class="setting-description">
-                    How often random disaster events occur.
-                </div>
-            </div>
         </div>
 
         <!-- Quick Start Option -->
@@ -375,9 +342,6 @@
         async function saveSettingsAndContinue() {
             const numTeams = parseInt(document.getElementById('num-teams').value);
             const gameDuration = parseInt(document.getElementById('game-duration').value);
-            const foodTaxMinutes = parseInt(document.getElementById('food-tax-minutes').value);
-            const startingResources = document.getElementById('starting-resources').value;
-            const disasterFrequency = document.getElementById('disaster-frequency').value;
 
             if (!numTeams || numTeams < 1 || numTeams > 20) {
                 showStatus('Please enter a valid number of teams (1-20)', 'error');
@@ -390,9 +354,6 @@
                 
                 // Save game duration
                 await gameAPI.setGameDuration(currentGameCode, gameDuration);
-                
-                // TODO: Save other settings to game_state when backend supports it
-                // For now, just save the teams configuration and duration
 
                 showStatus('Settings saved successfully!', 'success');
                 

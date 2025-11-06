@@ -677,7 +677,17 @@
                     </div>
                     <div class="setting-control">
                         <label for="food-tax-timer">Food Tax Timer (minutes):</label>
-                        <input type="number" id="food-tax-timer" min="1" max="60" value="15">
+                        <input type="number" id="food-tax-timer" min="5" max="60" value="15">
+                        <small style="color: #666;">How often teams must pay food tax to the bank</small>
+                    </div>
+                    <div class="setting-control">
+                        <label for="game-difficulty">Game Difficulty:</label>
+                        <select id="game-difficulty" style="padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px;">
+                            <option value="easy">Easy - More resources, fewer disasters</option>
+                            <option value="medium" selected>Medium - Balanced gameplay</option>
+                            <option value="hard">Hard - Limited resources, frequent disasters</option>
+                        </select>
+                        <small style="color: #666;">Affects starting resources and disaster frequency</small>
                     </div>
                     <div class="setting-control">
                         <label for="starting-resources">Starting Resources per Team:</label>
