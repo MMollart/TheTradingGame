@@ -17,6 +17,7 @@ let gameState = {};
 let currentGameStatus = 'waiting'; // Track game status (waiting, in_progress, paused, completed)
 let challengeManager = null; // New challenge management system
 let tradingManager = null; // Trading management system
+let foodTaxManager = null; // Food tax management system
 let tradeNotifications = []; // Store trade notifications
 
 // Countdown timer variables
@@ -2451,6 +2452,14 @@ async function initializeChallengeManager() {
             // console.log('[initializeChallengeManager] Trading manager initialized');
         }
         
+        // Initialize food tax manager
+        if (foodTaxManager) {
+            foodTaxManager.destroy();
+        }
+        foodTaxManager = new FoodTaxManager(currentGameCode, currentPlayer, gameAPI, gameWS);
+        await foodTaxManager.initialize();
+        console.log('[initializeChallengeManager] Food tax manager initialized');
+        
         // Register update callback
         challengeManager.onChallengesUpdated(() => {
             // console.log('[ChallengeManager] Challenges updated, refreshing UI');
@@ -2503,6 +2512,17 @@ async function resumeGame() {
                 // console.log('[resumeGame] Database adjusted successfully');
             } catch (error) {
                 console.error('[resumeGame] Challenge manager adjustment failed:', error);
+            }
+        }
+        
+        // Use food tax manager to adjust for pause in database
+        if (foodTaxManager && pauseDuration > 0) {
+            try {
+                console.log('[resumeGame] Adjusting food tax timings for pause...');
+                await foodTaxManager.adjustForPause(pauseDuration);
+                console.log('[resumeGame] Food tax adjusted successfully');
+            } catch (error) {
+                console.error('[resumeGame] Food tax manager adjustment failed:', error);
             }
         }
         
@@ -4485,7 +4505,44 @@ function handleGameEvent(data) {
     }
     
     switch (event_type) {
+        case 'food_tax_warning':
+            // Use food tax manager to handle warning
+            if (foodTaxManager) {
+                foodTaxManager.handleFoodTaxWarning(eventData);
+            }
+            addEventLog(`⚠️ Food tax warning for Team ${eventData.team_number}: Due in ${Math.round(eventData.minutes_remaining)} minutes`, 'warning');
+            break;
+        
+        case 'food_tax_applied':
+            // Use food tax manager to handle application
+            if (foodTaxManager) {
+                foodTaxManager.handleFoodTaxApplied(eventData);
+            }
+            addEventLog(`✅ Food tax paid by Team ${eventData.team_number}: ${eventData.tax_amount} food`, 'info');
+            
+            // Update team resources if this is the player's team
+            if (currentPlayer.role === 'player' && String(currentPlayer.groupNumber) === String(eventData.team_number)) {
+                teamState.resources = eventData.new_resources;
+                updateResourceDisplay();
+            }
+            break;
+        
+        case 'food_tax_famine':
+            // Use food tax manager to handle famine
+            if (foodTaxManager) {
+                foodTaxManager.handleFoodTaxFamine(eventData);
+            }
+            addEventLog(`🚨 FAMINE for Team ${eventData.team_number}: ${eventData.message}`, 'error');
+            
+            // Update team resources if this is the player's team
+            if (currentPlayer.role === 'player' && String(currentPlayer.groupNumber) === String(eventData.team_number)) {
+                teamState.resources = eventData.new_resources;
+                updateResourceDisplay();
+            }
+            break;
+        
         case 'food_tax':
+            // Legacy event (keep for backward compatibility)
             addEventLog('Food tax has been applied!', 'warning');
             break;
         case 'natural_disaster':
