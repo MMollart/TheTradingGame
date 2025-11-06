@@ -245,6 +245,10 @@ class GameAPI {
         return this.request('POST', `/games/${gameCode}/set-duration?duration_minutes=${durationMinutes}`);
     }
 
+    async setGameDifficulty(gameCode, difficulty) {
+        return this.request('POST', `/games/${gameCode}/set-difficulty?difficulty=${difficulty}`);
+    }
+
     async updateTeamName(gameCode, teamNumber, teamName) {
         return this.request('POST', `/games/${gameCode}/teams/${teamNumber}/set-name?name=${encodeURIComponent(teamName)}`);
     }

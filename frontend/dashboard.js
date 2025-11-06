@@ -5013,6 +5013,12 @@ async function loadGameSettings() {
             updateDurationDisplayModal(game.game_duration_minutes);
         }
         
+        // Update game difficulty dropdown
+        const difficultySelect = document.getElementById('game-difficulty');
+        if (difficultySelect && game.difficulty) {
+            difficultySelect.value = game.difficulty;
+        }
+        
         // Load challenge defaults from global config
         Object.keys(challengeTypes).forEach(key => {
             const input = document.getElementById(`challenge-${key}`);
@@ -5061,6 +5067,28 @@ async function applyTeamConfiguration() {
         });
         const errorMessage = error.message || error.detail || 'Unknown error occurred';
         alert('Failed to save team configuration: ' + errorMessage);
+    }
+}
+
+async function applyGameDifficulty() {
+    const difficulty = document.getElementById('game-difficulty').value;
+    
+    const difficultyDescriptions = {
+        'easy': 'Easy - 25% more starting resources',
+        'medium': 'Medium - Balanced gameplay',
+        'hard': 'Hard - 25% fewer starting resources'
+    };
+    
+    try {
+        const response = await gameAPI.setGameDifficulty(currentGameCode, difficulty);
+        console.log('Game difficulty set:', response);
+        addEventLog(`Game difficulty set to: ${difficultyDescriptions[difficulty]}`, 'success');
+    } catch (error) {
+        console.error('Error setting game difficulty:', error);
+        const errorMessage = error.message || error.detail || 'Failed to set difficulty';
+        alert(errorMessage);
+        // Revert selection on error
+        document.getElementById('game-difficulty').value = 'medium';
     }
 }
 

@@ -5,11 +5,11 @@ Game logic and mechanics for The Trading Game
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
 from game_constants import (
-    ResourceType, BuildingType, NationType, GameEventType,
+    ResourceType, BuildingType, NationType, GameEventType, GameDifficulty,
     NATION_STARTING_RESOURCES, BUILDING_COSTS, BUILDING_PRODUCTION,
     FOOD_TAX_DEVELOPED, FOOD_TAX_DEVELOPING, BANK_INITIAL_PRICES,
     FAMINE_PENALTY_MULTIPLIER, calculate_final_score,
-    MAX_HOSPITALS, MAX_RESTAURANTS, MAX_INFRASTRUCTURE
+    MAX_HOSPITALS, MAX_RESTAURANTS, MAX_INFRASTRUCTURE, DIFFICULTY_MODIFIERS
 )
 
 
@@ -17,12 +17,13 @@ class GameLogic:
     """Handles all game logic operations"""
     
     @staticmethod
-    def initialize_nation(nation_type: str) -> Dict[str, Any]:
+    def initialize_nation(nation_type: str, difficulty: str = "medium") -> Dict[str, Any]:
         """
-        Initialize a nation's starting state
+        Initialize a nation's starting state with difficulty-adjusted resources
         
         Args:
             nation_type: NationType enum value (nation_1, nation_2, nation_3, nation_4)
+            difficulty: Game difficulty level (easy, medium, hard). Affects starting resources only, not buildings.
             
         Returns:
             Dictionary with initial resources and buildings
@@ -30,16 +31,26 @@ class GameLogic:
         if nation_type not in [nt.value for nt in NationType]:
             raise ValueError(f"Invalid nation type: {nation_type}")
         
+        # Validate difficulty
+        if difficulty not in [d.value for d in GameDifficulty]:
+            difficulty = "medium"  # Default to medium if invalid
+        
         nation_config = NATION_STARTING_RESOURCES[NationType(nation_type)]
+        
+        # Get difficulty modifier
+        difficulty_modifier = DIFFICULTY_MODIFIERS[GameDifficulty(difficulty)]
+        
+        # Apply difficulty modifier to starting resources (not buildings)
+        adjusted_resources = {
+            resource.value: int(amount * difficulty_modifier)
+            for resource, amount in nation_config["resources"].items()
+        }
         
         return {
             "nation_type": nation_type,
             "name": nation_config["name"],
             "is_developed": nation_config["is_developed"],
-            "resources": {
-                resource.value: amount 
-                for resource, amount in nation_config["resources"].items()
-            },
+            "resources": adjusted_resources,
             "buildings": {
                 building.value: count 
                 for building, count in nation_config["buildings"].items()
