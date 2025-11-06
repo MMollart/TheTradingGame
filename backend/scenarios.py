@@ -1,8 +1,12 @@
 """
 Historical Scenarios for The Trading Game
+
+This module defines historical scenarios with custom resources and buildings.
+Each scenario can override the default game resources (food, raw_materials, etc.)
+with themed alternatives (e.g., Space Race uses Knowledge, Liquid Fuels, etc.)
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from game_constants import ResourceType, BuildingType
 
 
@@ -14,6 +18,428 @@ class ScenarioType:
     SPACE_RACE = "space_race"
     AGE_OF_EXPLORATION = "age_of_exploration"
     GREAT_DEPRESSION = "great_depression"
+
+
+# Scenario-specific resource definitions
+# Each scenario can define custom resources that replace the default ones
+SCENARIO_RESOURCES = {
+    ScenarioType.SPACE_RACE: {
+        "resource_1": {
+            "id": "knowledge",
+            "name": "Knowledge",
+            "icon": "📚",
+            "description": "Scientific research and expertise",
+            "base_price": 3,
+            "rarity": "common",
+            "maps_to": ResourceType.FOOD  # Maps to default resource slot
+        },
+        "resource_2": {
+            "id": "liquid_fuels",
+            "name": "Liquid Fuels",
+            "icon": "🛢️",
+            "description": "Rocket propellants and fuel",
+            "base_price": 5,
+            "rarity": "uncommon",
+            "maps_to": ResourceType.RAW_MATERIALS
+        },
+        "resource_3": {
+            "id": "metals",
+            "name": "Metals",
+            "icon": "🔩",
+            "description": "Titanium, aluminum, and steel",
+            "base_price": 20,
+            "rarity": "rare",
+            "maps_to": ResourceType.ELECTRICAL_GOODS
+        },
+        "resource_4": {
+            "id": "electronics",
+            "name": "Electronics",
+            "icon": "💻",
+            "description": "Silicon chips and computing components",
+            "base_price": 25,
+            "rarity": "rare",
+            "maps_to": ResourceType.MEDICAL_GOODS
+        }
+    },
+    ScenarioType.MARSHALL_PLAN: {
+        # Marshall Plan uses default resources with themed names
+        "resource_1": {
+            "id": "food",
+            "name": "Food Supplies",
+            "icon": "🌾",
+            "description": "Agricultural products and food aid",
+            "base_price": 2,
+            "rarity": "common",
+            "maps_to": ResourceType.FOOD
+        },
+        "resource_2": {
+            "id": "raw_materials",
+            "name": "Construction Materials",
+            "icon": "🏗️",
+            "description": "Steel, timber, and building supplies",
+            "base_price": 3,
+            "rarity": "common",
+            "maps_to": ResourceType.RAW_MATERIALS
+        },
+        "resource_3": {
+            "id": "machinery",
+            "name": "Machinery",
+            "icon": "⚙️",
+            "description": "Industrial equipment",
+            "base_price": 15,
+            "rarity": "uncommon",
+            "maps_to": ResourceType.ELECTRICAL_GOODS
+        },
+        "resource_4": {
+            "id": "medical_supplies",
+            "name": "Medical Supplies",
+            "icon": "💊",
+            "description": "Medicine and healthcare equipment",
+            "base_price": 20,
+            "rarity": "rare",
+            "maps_to": ResourceType.MEDICAL_GOODS
+        }
+    },
+    ScenarioType.SILK_ROAD: {
+        "resource_1": {
+            "id": "food",
+            "name": "Food & Grain",
+            "icon": "🌾",
+            "description": "Rice, wheat, and provisions",
+            "base_price": 2,
+            "rarity": "common",
+            "maps_to": ResourceType.FOOD
+        },
+        "resource_2": {
+            "id": "raw_materials",
+            "name": "Raw Silk",
+            "icon": "🧵",
+            "description": "Unprocessed silk thread",
+            "base_price": 4,
+            "rarity": "uncommon",
+            "maps_to": ResourceType.RAW_MATERIALS
+        },
+        "resource_3": {
+            "id": "luxury_goods",
+            "name": "Luxury Goods",
+            "icon": "💎",
+            "description": "Porcelain, jade, and fine textiles",
+            "base_price": 18,
+            "rarity": "rare",
+            "maps_to": ResourceType.ELECTRICAL_GOODS
+        },
+        "resource_4": {
+            "id": "spices",
+            "name": "Spices & Perfumes",
+            "icon": "🌶️",
+            "description": "Exotic spices and fragrances",
+            "base_price": 22,
+            "rarity": "rare",
+            "maps_to": ResourceType.MEDICAL_GOODS
+        }
+    },
+    ScenarioType.INDUSTRIAL_REVOLUTION: {
+        "resource_1": {
+            "id": "food",
+            "name": "Food",
+            "icon": "🌾",
+            "description": "Agricultural products",
+            "base_price": 2,
+            "rarity": "common",
+            "maps_to": ResourceType.FOOD
+        },
+        "resource_2": {
+            "id": "coal_iron",
+            "name": "Coal & Iron",
+            "icon": "⛏️",
+            "description": "Mining resources",
+            "base_price": 3,
+            "rarity": "common",
+            "maps_to": ResourceType.RAW_MATERIALS
+        },
+        "resource_3": {
+            "id": "textiles",
+            "name": "Textiles",
+            "icon": "🧶",
+            "description": "Cotton and wool products",
+            "base_price": 15,
+            "rarity": "uncommon",
+            "maps_to": ResourceType.ELECTRICAL_GOODS
+        },
+        "resource_4": {
+            "id": "labor",
+            "name": "Labor Services",
+            "icon": "👷",
+            "description": "Worker availability and welfare",
+            "base_price": 20,
+            "rarity": "rare",
+            "maps_to": ResourceType.MEDICAL_GOODS
+        }
+    },
+    ScenarioType.AGE_OF_EXPLORATION: {
+        "resource_1": {
+            "id": "food",
+            "name": "Provisions",
+            "icon": "🥖",
+            "description": "Ship provisions and supplies",
+            "base_price": 2,
+            "rarity": "common",
+            "maps_to": ResourceType.FOOD
+        },
+        "resource_2": {
+            "id": "timber_naval_stores",
+            "name": "Timber & Naval Stores",
+            "icon": "🌲",
+            "description": "Shipbuilding materials",
+            "base_price": 4,
+            "rarity": "uncommon",
+            "maps_to": ResourceType.RAW_MATERIALS
+        },
+        "resource_3": {
+            "id": "colonial_goods",
+            "name": "Colonial Goods",
+            "icon": "📦",
+            "description": "Sugar, tobacco, and trade goods",
+            "base_price": 16,
+            "rarity": "uncommon",
+            "maps_to": ResourceType.ELECTRICAL_GOODS
+        },
+        "resource_4": {
+            "id": "precious_metals",
+            "name": "Precious Metals",
+            "icon": "🏆",
+            "description": "Gold and silver from colonies",
+            "base_price": 25,
+            "rarity": "rare",
+            "maps_to": ResourceType.MEDICAL_GOODS
+        }
+    },
+    ScenarioType.GREAT_DEPRESSION: {
+        "resource_1": {
+            "id": "food",
+            "name": "Food",
+            "icon": "🌾",
+            "description": "Essential food supplies",
+            "base_price": 3,
+            "rarity": "uncommon",
+            "maps_to": ResourceType.FOOD
+        },
+        "resource_2": {
+            "id": "raw_materials",
+            "name": "Raw Materials",
+            "icon": "⚙️",
+            "description": "Industrial materials",
+            "base_price": 4,
+            "rarity": "uncommon",
+            "maps_to": ResourceType.RAW_MATERIALS
+        },
+        "resource_3": {
+            "id": "manufactured_goods",
+            "name": "Manufactured Goods",
+            "icon": "📻",
+            "description": "Factory products",
+            "base_price": 18,
+            "rarity": "rare",
+            "maps_to": ResourceType.ELECTRICAL_GOODS
+        },
+        "resource_4": {
+            "id": "employment",
+            "name": "Employment",
+            "icon": "💼",
+            "description": "Jobs and economic activity",
+            "base_price": 22,
+            "rarity": "rare",
+            "maps_to": ResourceType.MEDICAL_GOODS
+        }
+    }
+}
+
+# Scenario-specific building definitions
+SCENARIO_BUILDINGS = {
+    ScenarioType.SPACE_RACE: {
+        "building_1": {
+            "id": "library",
+            "name": "Research Library",
+            "icon": "📖",
+            "description": "Produces Knowledge",
+            "produces": "knowledge",
+            "maps_to": BuildingType.FARM
+        },
+        "building_2": {
+            "id": "fuel_depot",
+            "name": "Fuel Refinery",
+            "icon": "🏭",
+            "description": "Produces Liquid Fuels",
+            "produces": "liquid_fuels",
+            "maps_to": BuildingType.MINE
+        },
+        "building_3": {
+            "id": "metal_works",
+            "name": "Metalworks",
+            "icon": "🔨",
+            "description": "Produces Metals from Liquid Fuels",
+            "produces": "metals",
+            "requires": "liquid_fuels",
+            "maps_to": BuildingType.ELECTRICAL_FACTORY
+        },
+        "building_4": {
+            "id": "tech_lab",
+            "name": "Electronics Lab",
+            "icon": "🔬",
+            "description": "Produces Electronics from Knowledge",
+            "produces": "electronics",
+            "requires": "knowledge",
+            "maps_to": BuildingType.MEDICAL_FACTORY
+        }
+    }
+    # Other scenarios use default buildings with their default resource mappings
+}
+
+
+def get_scenario_resources(scenario_id: Optional[str]) -> Dict[str, Dict[str, Any]]:
+    """
+    Get resource definitions for a scenario.
+    Returns default resources if scenario has no custom resources.
+    
+    Args:
+        scenario_id: Scenario identifier or None for default game
+        
+    Returns:
+        Dictionary of resource definitions
+    """
+    if scenario_id and scenario_id in SCENARIO_RESOURCES:
+        return SCENARIO_RESOURCES[scenario_id]
+    
+    # Return default resources
+    return {
+        "resource_1": {
+            "id": "food",
+            "name": "Food",
+            "icon": "🌾",
+            "description": "Agricultural products",
+            "base_price": 2,
+            "rarity": "common",
+            "maps_to": ResourceType.FOOD
+        },
+        "resource_2": {
+            "id": "raw_materials",
+            "name": "Raw Materials",
+            "icon": "⛏️",
+            "description": "Mining and construction materials",
+            "base_price": 3,
+            "rarity": "common",
+            "maps_to": ResourceType.RAW_MATERIALS
+        },
+        "resource_3": {
+            "id": "electrical_goods",
+            "name": "Electrical Goods",
+            "icon": "⚡",
+            "description": "Electronic products",
+            "base_price": 15,
+            "rarity": "uncommon",
+            "maps_to": ResourceType.ELECTRICAL_GOODS
+        },
+        "resource_4": {
+            "id": "medical_goods",
+            "name": "Medical Goods",
+            "icon": "🏥",
+            "description": "Healthcare products",
+            "base_price": 20,
+            "rarity": "rare",
+            "maps_to": ResourceType.MEDICAL_GOODS
+        }
+    }
+
+
+def get_scenario_buildings(scenario_id: Optional[str]) -> Dict[str, Dict[str, Any]]:
+    """
+    Get building definitions for a scenario.
+    Returns default buildings if scenario has no custom buildings.
+    
+    Args:
+        scenario_id: Scenario identifier or None for default game
+        
+    Returns:
+        Dictionary of building definitions
+    """
+    if scenario_id and scenario_id in SCENARIO_BUILDINGS:
+        return SCENARIO_BUILDINGS[scenario_id]
+    
+    # Return default buildings
+    return {
+        "building_1": {
+            "id": "farm",
+            "name": "Farm",
+            "icon": "🚜",
+            "description": "Produces Food",
+            "produces": "food",
+            "maps_to": BuildingType.FARM
+        },
+        "building_2": {
+            "id": "mine",
+            "name": "Mine",
+            "icon": "⛏️",
+            "description": "Produces Raw Materials",
+            "produces": "raw_materials",
+            "maps_to": BuildingType.MINE
+        },
+        "building_3": {
+            "id": "electrical_factory",
+            "name": "Electrical Factory",
+            "icon": "⚡",
+            "description": "Produces Electrical Goods from Raw Materials",
+            "produces": "electrical_goods",
+            "requires": "raw_materials",
+            "maps_to": BuildingType.ELECTRICAL_FACTORY
+        },
+        "building_4": {
+            "id": "medical_factory",
+            "name": "Medical Factory",
+            "icon": "🏥",
+            "description": "Produces Medical Goods from Food",
+            "produces": "medical_goods",
+            "requires": "food",
+            "maps_to": BuildingType.MEDICAL_FACTORY
+        }
+    }
+
+
+def get_resource_price(scenario_id: Optional[str], resource_id: str, difficulty: str = "medium") -> int:
+    """
+    Calculate resource price based on scenario, resource rarity, and difficulty.
+    
+    Args:
+        scenario_id: Scenario identifier or None
+        resource_id: Resource identifier  
+        difficulty: Game difficulty (easy/medium/hard)
+        
+    Returns:
+        Base price for the resource
+    """
+    resources = get_scenario_resources(scenario_id)
+    
+    # Find the resource
+    resource_def = None
+    for res in resources.values():
+        if res["id"] == resource_id:
+            resource_def = res
+            break
+    
+    if not resource_def:
+        return 10  # Default fallback price
+    
+    base_price = resource_def["base_price"]
+    
+    # Apply difficulty multiplier
+    difficulty_multipliers = {
+        "easy": 0.8,      # 20% cheaper in easy mode
+        "medium": 1.0,    # Normal price
+        "hard": 1.3       # 30% more expensive in hard mode
+    }
+    
+    multiplier = difficulty_multipliers.get(difficulty, 1.0)
+    
+    return int(base_price * multiplier)
 
 
 # Define historical scenarios with complete configurations
@@ -759,20 +1185,27 @@ SCENARIOS = {
 
 def get_scenario(scenario_id: str) -> Dict[str, Any]:
     """
-    Get a scenario configuration by ID
+    Get a scenario configuration by ID, including resource and building metadata
     
     Args:
         scenario_id: Scenario identifier (e.g., 'marshall_plan')
         
     Returns:
-        Scenario configuration dictionary
+        Scenario configuration dictionary with resources and buildings metadata
         
     Raises:
         ValueError: If scenario_id is not found
     """
     if scenario_id not in SCENARIOS:
         raise ValueError(f"Unknown scenario: {scenario_id}")
-    return SCENARIOS[scenario_id]
+    
+    scenario = SCENARIOS[scenario_id].copy()
+    
+    # Add resource and building metadata
+    scenario["resources"] = get_scenario_resources(scenario_id)
+    scenario["buildings"] = get_scenario_buildings(scenario_id)
+    
+    return scenario
 
 
 def list_scenarios() -> List[Dict[str, Any]]:

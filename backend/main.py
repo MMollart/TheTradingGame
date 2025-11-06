@@ -488,7 +488,9 @@ async def set_game_scenario(
         "name": scenario["name"],
         "period": scenario["period"],
         "special_rules": scenario["special_rules"],
-        "victory_conditions": scenario["victory_conditions"]
+        "victory_conditions": scenario["victory_conditions"],
+        "resources": scenario.get("resources", {}),  # Include resource metadata
+        "buildings": scenario.get("buildings", {})   # Include building metadata
     }
     
     flag_modified(game, "game_state")
@@ -1458,6 +1460,12 @@ async def start_game(
                 "events_triggered": []
             }
             flag_modified(player, 'player_state')
+    
+    # Store resource and building metadata in game_state for frontend
+    from scenarios import get_scenario_resources, get_scenario_buildings
+    scenario_id = game.scenario_id if use_scenario else None
+    game.game_state['resource_metadata'] = get_scenario_resources(scenario_id)
+    game.game_state['building_metadata'] = get_scenario_buildings(scenario_id)
     
     # Initialize dynamic pricing in game_state (works without banker role)
     pricing_mgr = PricingManager(db)
