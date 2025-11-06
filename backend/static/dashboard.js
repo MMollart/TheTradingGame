@@ -3983,7 +3983,9 @@ function formatResourceName(resource) {
     if (resourceMetadata) {
         for (const resKey in resourceMetadata) {
             const resMeta = resourceMetadata[resKey];
-            if (resMeta.maps_to === resource || resMeta.id === resource) {
+            // Handle both enum objects (with .value) and string values
+            const mapsToValue = resMeta.maps_to?.value || resMeta.maps_to;
+            if (mapsToValue === resource || resMeta.id === resource) {
                 return `${resMeta.icon} ${resMeta.name}`;
             }
         }
@@ -4005,7 +4007,9 @@ function formatBuildingName(building) {
     if (buildingMetadata) {
         for (const bldKey in buildingMetadata) {
             const bldMeta = buildingMetadata[bldKey];
-            if (bldMeta.maps_to === building || bldMeta.id === building) {
+            // Handle both enum objects (with .value) and string values
+            const mapsToValue = bldMeta.maps_to?.value || bldMeta.maps_to;
+            if (mapsToValue === building || bldMeta.id === building) {
                 return `${bldMeta.icon} ${bldMeta.name}`;
             }
         }

@@ -305,7 +305,24 @@ def get_scenario_resources(scenario_id: Optional[str]) -> Dict[str, Dict[str, An
         scenario_id: Scenario identifier or None for default game
         
     Returns:
-        Dictionary of resource definitions
+        Dictionary of resource definitions with structure:
+        {
+            "resource_1": {
+                "id": "knowledge",
+                "name": "Knowledge",
+                "icon": "📚",
+                "description": "Scientific research and expertise",
+                "base_price": 3,
+                "rarity": "common",
+                "maps_to": ResourceType.FOOD
+            },
+            ...
+        }
+    
+    Example:
+        >>> resources = get_scenario_resources("space_race")
+        >>> resources["resource_1"]["name"]
+        'Knowledge'
     """
     if scenario_id and scenario_id in SCENARIO_RESOURCES:
         return SCENARIO_RESOURCES[scenario_id]
@@ -360,7 +377,23 @@ def get_scenario_buildings(scenario_id: Optional[str]) -> Dict[str, Dict[str, An
         scenario_id: Scenario identifier or None for default game
         
     Returns:
-        Dictionary of building definitions
+        Dictionary of building definitions with structure:
+        {
+            "building_1": {
+                "id": "library",
+                "name": "Research Library",
+                "icon": "📖",
+                "description": "Produces Knowledge",
+                "produces": "knowledge",
+                "maps_to": BuildingType.FARM
+            },
+            ...
+        }
+    
+    Example:
+        >>> buildings = get_scenario_buildings("space_race")
+        >>> buildings["building_1"]["name"]
+        'Research Library'
     """
     if scenario_id and scenario_id in SCENARIO_BUILDINGS:
         return SCENARIO_BUILDINGS[scenario_id]
