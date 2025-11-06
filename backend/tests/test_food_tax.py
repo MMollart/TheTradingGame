@@ -600,7 +600,7 @@ class TestGameStatusHandling:
     
     def _create_test_game_with_pending_tax(self, db, game_code: str, status: GameStatus):
         """Helper to create a game with tax due in various statuses"""
-        next_due = datetime.utcnow() - timedelta(minutes=1)  # Tax is due
+        next_due = datetime.utcnow() - timedelta(minutes=1)  # Tax is overdue by 1 minute
         
         game = GameSession(
             game_code=game_code,
