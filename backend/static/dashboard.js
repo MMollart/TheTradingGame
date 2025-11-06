@@ -56,6 +56,13 @@ async function initDashboard() {
         return;
     }
     
+    // Immediately update header game code to prevent flash of "------"
+    document.getElementById('header-game-code').textContent = currentGameCode;
+    let bigGameCodeElement = document.getElementById('big-game-code');
+    if (bigGameCodeElement) {
+        bigGameCodeElement.textContent = currentGameCode;
+    }
+    
     // Check if user is authenticated and set token
     const authToken = localStorage.getItem('authToken');
     if (authToken) {
@@ -259,36 +266,36 @@ function connectWebSocket() {
     });
     
     gameWS.on('player_assigned_team', (data) => {
-        // console.log('[player_assigned_team] Team assignment notification:', data);
-        // console.log('[player_assigned_team] Comparing player_id:', data.player_id, 'with currentPlayer.id:', currentPlayer.id);
-        // console.log('[player_assigned_team] Types:', typeof data.player_id, 'vs', typeof currentPlayer.id);
-        // console.log('[player_assigned_team] Match?', data.player_id == currentPlayer.id);
+        console.log('[player_assigned_team] Team assignment notification:', data);
+        console.log('[player_assigned_team] Comparing player_id:', data.player_id, 'with currentPlayer.id:', currentPlayer.id);
+        console.log('[player_assigned_team] Types:', typeof data.player_id, 'vs', typeof currentPlayer.id);
+        console.log('[player_assigned_team] Match?', data.player_id == currentPlayer.id);
         
         // If this is me, refresh game data and update dashboard
         // Use loose equality to handle string/number mismatch
         if (data.player_id == currentPlayer.id) {
-            // console.log('[player_assigned_team] ✅ I was assigned to Team', data.team_number);
-            // console.log('[player_assigned_team] Setting currentPlayer.groupNumber to:', data.team_number);
+            console.log('[player_assigned_team] ✅ I was assigned to Team', data.team_number);
+            console.log('[player_assigned_team] Setting currentPlayer.groupNumber to:', data.team_number);
             addEventLog(`You have been assigned to Team ${data.team_number}!`, 'success');
             // Update my group number
             currentPlayer.groupNumber = data.team_number;
-            // console.log('[player_assigned_team] currentPlayer.groupNumber is now:', currentPlayer.groupNumber);
-            // console.log('[player_assigned_team] Calling loadGameData()...');
+            console.log('[player_assigned_team] currentPlayer.groupNumber is now:', currentPlayer.groupNumber);
+            console.log('[player_assigned_team] Calling loadGameData()...');
             // Reload game data to get player state and show cards
             loadGameData().then(() => {
-                // console.log('[player_assigned_team] loadGameData() complete, calling updatePlayerCardsVisibility()...');
+                console.log('[player_assigned_team] loadGameData() complete, calling updatePlayerCardsVisibility()...');
                 updatePlayerCardsVisibility();
-                // console.log('[player_assigned_team] Calling updateDashboard()...');
+                console.log('[player_assigned_team] Calling updateDashboard()...');
                 updateDashboard();
-                // console.log('[player_assigned_team] Calling refreshTeamMembers()...');
+                console.log('[player_assigned_team] Calling refreshTeamMembers()...');
                 refreshTeamMembers();
-                // console.log('[player_assigned_team] Dashboard update complete!');
+                console.log('[player_assigned_team] Dashboard update complete!');
             });
         } else {
-            // console.log('[player_assigned_team] ❌ Not me, checking if host/banker...');
+            console.log('[player_assigned_team] ❌ Not me, checking if host/banker...');
             if (currentPlayer.role === 'host' || currentPlayer.role === 'banker') {
                 // Host/Banker refreshes player lists and team overview
-                // console.log('[player_assigned_team] I am host/banker, refreshing displays');
+                console.log('[player_assigned_team] I am host/banker, refreshing displays');
                 addEventLog(`${data.player_name} assigned to Team ${data.team_number}`, 'info');
                 updatePlayersOverview();
                 refreshUnassigned();
