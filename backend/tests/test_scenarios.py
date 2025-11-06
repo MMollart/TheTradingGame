@@ -147,6 +147,158 @@ class TestScenarios:
         britain = scenario['nation_profiles']['1']
         assert britain['name'] == 'Britain'
         assert 'infrastructure' in britain['starting_buildings']
+
+
+class TestScenarioResources:
+    """Test scenario-specific resource and building definitions"""
+    
+    def test_get_scenario_resources_space_race(self):
+        """Test Space Race has custom resources"""
+        from scenarios import get_scenario_resources, ScenarioType
+        
+        resources = get_scenario_resources(ScenarioType.SPACE_RACE)
+        
+        # Should have 4 resources
+        assert len(resources) == 4
+        
+        # Check specific Space Race resources
+        resource_names = [r['name'] for r in resources.values()]
+        assert 'Knowledge' in resource_names
+        assert 'Liquid Fuels' in resource_names
+        assert 'Metals' in resource_names
+        assert 'Electronics' in resource_names
+        
+        # Check each resource has required fields
+        for res_key, res_data in resources.items():
+            assert 'id' in res_data
+            assert 'name' in res_data
+            assert 'icon' in res_data
+            assert 'description' in res_data
+            assert 'base_price' in res_data
+            assert 'rarity' in res_data
+            assert 'maps_to' in res_data
+    
+    def test_get_scenario_resources_default(self):
+        """Test default resources for non-scenario games"""
+        from scenarios import get_scenario_resources
+        
+        resources = get_scenario_resources(None)
+        
+        # Should have 4 default resources
+        assert len(resources) == 4
+        
+        resource_names = [r['name'] for r in resources.values()]
+        assert 'Food' in resource_names
+        assert 'Raw Materials' in resource_names
+        assert 'Electrical Goods' in resource_names
+        assert 'Medical Goods' in resource_names
+    
+    def test_get_scenario_buildings_space_race(self):
+        """Test Space Race has custom buildings"""
+        from scenarios import get_scenario_buildings, ScenarioType
+        
+        buildings = get_scenario_buildings(ScenarioType.SPACE_RACE)
+        
+        # Should have 4 buildings
+        assert len(buildings) == 4
+        
+        # Check specific Space Race buildings
+        building_names = [b['name'] for b in buildings.values()]
+        assert 'Research Library' in building_names
+        assert 'Fuel Refinery' in building_names
+        assert 'Metalworks' in building_names
+        assert 'Electronics Lab' in building_names
+        
+        # Check each building has required fields
+        for bld_key, bld_data in buildings.items():
+            assert 'id' in bld_data
+            assert 'name' in bld_data
+            assert 'icon' in bld_data
+            assert 'description' in bld_data
+            assert 'produces' in bld_data
+            assert 'maps_to' in bld_data
+    
+    def test_get_scenario_buildings_default(self):
+        """Test default buildings for non-scenario games"""
+        from scenarios import get_scenario_buildings
+        
+        buildings = get_scenario_buildings(None)
+        
+        # Should have 4 default buildings
+        assert len(buildings) == 4
+        
+        building_names = [b['name'] for b in buildings.values()]
+        assert 'Farm' in building_names
+        assert 'Mine' in building_names
+        assert 'Electrical Factory' in building_names
+        assert 'Medical Factory' in building_names
+    
+    def test_get_resource_price_difficulty(self):
+        """Test resource prices adjust based on difficulty"""
+        from scenarios import get_resource_price, ScenarioType
+        
+        # Test Space Race metals pricing
+        easy_price = get_resource_price(ScenarioType.SPACE_RACE, 'metals', 'easy')
+        medium_price = get_resource_price(ScenarioType.SPACE_RACE, 'metals', 'medium')
+        hard_price = get_resource_price(ScenarioType.SPACE_RACE, 'metals', 'hard')
+        
+        # Easy should be cheaper than medium
+        assert easy_price < medium_price
+        # Hard should be more expensive than medium
+        assert hard_price > medium_price
+        
+        # Check specific multipliers (base price is 20 for metals)
+        assert easy_price == int(20 * 0.8)  # 16
+        assert medium_price == 20
+        assert hard_price == int(20 * 1.3)  # 26
+    
+    def test_scenario_includes_metadata(self):
+        """Test that get_scenario includes resource and building metadata"""
+        from scenarios import get_scenario, ScenarioType
+        
+        scenario = get_scenario(ScenarioType.SPACE_RACE)
+        
+        # Should include metadata
+        assert 'resources' in scenario
+        assert 'buildings' in scenario
+        
+        # Resources should be populated
+        assert len(scenario['resources']) == 4
+        assert 'resource_1' in scenario['resources']
+        
+        # Buildings should be populated
+        assert len(scenario['buildings']) == 4
+        assert 'building_1' in scenario['buildings']
+    
+    def test_all_scenarios_have_resource_definitions(self):
+        """Test that all scenarios have resource definitions (custom or default)"""
+        from scenarios import get_scenario_resources, SCENARIOS
+        
+        for scenario_id in SCENARIOS.keys():
+            resources = get_scenario_resources(scenario_id)
+            assert len(resources) >= 4, f"Scenario {scenario_id} should have at least 4 resources"
+            
+            # Each resource should have required metadata
+            for res in resources.values():
+                assert 'icon' in res
+                assert 'name' in res
+                assert 'base_price' in res
+    
+    def test_resource_mapping_consistency(self):
+        """Test that resource mappings are consistent with game_constants"""
+        from scenarios import get_scenario_resources, ScenarioType
+        from game_constants import ResourceType
+        
+        resources = get_scenario_resources(ScenarioType.SPACE_RACE)
+        
+        # Check that maps_to values are valid ResourceType values
+        valid_resource_types = [rt.value for rt in ResourceType if rt != ResourceType.CURRENCY]
+        
+        for res in resources.values():
+            maps_to = res.get('maps_to')
+            if maps_to and hasattr(maps_to, 'value'):
+                # It's an enum, get the value
+                assert maps_to.value in valid_resource_types or maps_to in valid_resource_types
     
     def test_silk_road_specifics(self):
         """Test specific details of Silk Road scenario"""
