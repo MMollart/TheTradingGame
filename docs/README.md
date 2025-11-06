@@ -12,6 +12,7 @@ Complete documentation for The Trading Game - a real-time multiplayer resource t
 - **[OSM_OAUTH_SETUP.md](OSM_OAUTH_SETUP.md)** - OnlineScoutManager OAuth2 integration guide
 
 ### 🎯 Feature Documentation
+- **[HISTORICAL_SCENARIOS.md](HISTORICAL_SCENARIOS.md)** - 🎭 Historical scenarios with themed nations and rules (6 scenarios available)
 - **[FEATURE-GAME-DURATION.md](FEATURE-GAME-DURATION.md)** - Configurable game duration (1-4 hours in 30-min intervals)
 - **[FEATURE-LOBBY-AND-CHALLENGES.md](FEATURE-LOBBY-AND-CHALLENGES.md)** - Lobby system and challenge mechanics
 - **[FEATURE-FOOD-TAX-AUTOMATION.md](FEATURE-FOOD-TAX-AUTOMATION.md)** - Automated food tax system with banker controls

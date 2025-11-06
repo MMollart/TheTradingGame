@@ -35,6 +35,7 @@ from game_constants import (
     NationType, BuildingType, BUILDING_COSTS, 
     MAX_HOSPITALS, MAX_RESTAURANTS, MAX_INFRASTRUCTURE
 )
+from scenarios import list_scenarios, get_scenario, get_nation_config_for_scenario
 from email_utils import send_registration_email
 from challenge_api import router as challenge_router_v2
 from trading_api import router as trading_router_v2
@@ -82,12 +83,20 @@ async def on_startup():
     """Initialize database and background tasks on startup"""
     init_db()
     start_food_tax_scheduler()
+    
+    # Start scenario event scheduler
+    from scenario_event_scheduler import start_scenario_event_scheduler
+    start_scenario_event_scheduler()
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
     """Clean up background tasks on shutdown"""
     stop_food_tax_scheduler()
+    
+    # Stop scenario event scheduler
+    from scenario_event_scheduler import stop_scenario_event_scheduler
+    stop_scenario_event_scheduler()
 
 
 # Include v2 Challenge API routes
@@ -407,6 +416,106 @@ def set_game_difficulty(
         "success": True,
         "message": f"Game difficulty set to {difficulty_descriptions[difficulty]}",
         "difficulty": difficulty
+    }
+
+
+@app.get("/scenarios")
+def get_available_scenarios():
+    """
+    Get list of all available historical scenarios
+    """
+    return {
+        "scenarios": list_scenarios()
+    }
+
+
+@app.get("/scenarios/{scenario_id}")
+def get_scenario_details(scenario_id: str):
+    """
+    Get detailed information about a specific scenario
+    """
+    try:
+        scenario = get_scenario(scenario_id)
+        return scenario
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+class SetScenarioRequest(BaseModel):
+    scenario_id: str
+
+
+@app.post("/games/{game_code}/set-scenario")
+async def set_game_scenario(
+    game_code: str,
+    request: SetScenarioRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Set the historical scenario for a game.
+    Must be set before game starts.
+    This will configure teams, duration, and difficulty based on the scenario.
+    """
+    game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Can't change scenario after game has started
+    if game.status != GameStatus.WAITING:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot change scenario after game has started"
+        )
+    
+    # Validate scenario exists
+    try:
+        scenario = get_scenario(request.scenario_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
+    # Set scenario and configure game based on scenario
+    game.scenario_id = request.scenario_id
+    game.num_teams = len(scenario["nation_profiles"])  # Set number of teams based on scenario
+    game.game_duration_minutes = scenario["recommended_duration"]  # Set recommended duration
+    game.difficulty = scenario["difficulty"]  # Set difficulty level
+    
+    # Initialize game_state with scenario info
+    if not game.game_state:
+        game.game_state = {}
+    
+    game.game_state["scenario"] = {
+        "id": request.scenario_id,
+        "name": scenario["name"],
+        "period": scenario["period"],
+        "special_rules": scenario["special_rules"],
+        "victory_conditions": scenario["victory_conditions"]
+    }
+    
+    flag_modified(game, "game_state")
+    db.commit()
+    db.refresh(game)
+    
+    # Broadcast scenario change to all players via WebSocket
+    await manager.broadcast_to_game(
+        game_code.upper(),
+        {
+            "type": "scenario_changed",
+            "scenario_id": request.scenario_id,
+            "scenario_name": scenario["name"],
+            "num_teams": game.num_teams,
+            "duration_minutes": game.game_duration_minutes,
+            "difficulty": game.difficulty
+        }
+    )
+    
+    return {
+        "success": True,
+        "message": f"Scenario set to '{scenario['name']}'",
+        "scenario_id": request.scenario_id,
+        "scenario_name": scenario["name"],
+        "num_teams": game.num_teams,
+        "game_duration_minutes": game.game_duration_minutes,
+        "difficulty": game.difficulty
     }
 
 
@@ -1287,19 +1396,47 @@ async def start_game(
     # Get difficulty setting from game model (defaults to "medium")
     difficulty = game.difficulty if hasattr(game, 'difficulty') and game.difficulty else "medium"
     
+    # Check if a scenario is set
+    use_scenario = hasattr(game, 'scenario_id') and game.scenario_id
+    
     for team_number in team_numbers:
-        # Cycle through nation types using modulo (team 5+ get same types as 1-4, etc.)
-        nation_index = (team_number - 1) % num_nation_types
-        nation_type = nation_types[nation_index]
-        
-        # Initialize team state with nation-specific resources and difficulty modifier
-        team_state = GameLogic.initialize_nation(nation_type, difficulty=difficulty)
-        game.game_state['teams'][str(team_number)] = {
-            'resources': team_state['resources'],
-            'buildings': team_state['buildings'],
-            'name': team_state['name'],  # Store nation name for dynamic frontend display
-            'nation_type': team_state['nation_type']  # Store nation type identifier
-        }
+        if use_scenario:
+            # Use scenario-specific nation configuration
+            try:
+                nation_config = get_nation_config_for_scenario(game.scenario_id, team_number)
+                game.game_state['teams'][str(team_number)] = {
+                    'resources': nation_config['resources'],
+                    'buildings': nation_config['buildings'],
+                    'optional_buildings': nation_config.get('optional_buildings', {}),
+                    'name': nation_config['name'],  # Scenario-specific nation name
+                    'nation_type': f"scenario_{game.scenario_id}_{team_number}",  # Unique identifier
+                    'scenario_description': nation_config.get('description', '')
+                }
+            except (ValueError, KeyError) as e:
+                # Fallback to default nation if scenario config fails
+                logger.warning(f"Failed to load scenario config for team {team_number}: {e}")
+                nation_index = (team_number - 1) % num_nation_types
+                nation_type = nation_types[nation_index]
+                team_state = GameLogic.initialize_nation(nation_type, difficulty=difficulty)
+                game.game_state['teams'][str(team_number)] = {
+                    'resources': team_state['resources'],
+                    'buildings': team_state['buildings'],
+                    'name': team_state['name'],
+                    'nation_type': team_state['nation_type']
+                }
+        else:
+            # Use default nation types (cycling through 1-4)
+            nation_index = (team_number - 1) % num_nation_types
+            nation_type = nation_types[nation_index]
+            
+            # Initialize team state with nation-specific resources and difficulty modifier
+            team_state = GameLogic.initialize_nation(nation_type, difficulty=difficulty)
+            game.game_state['teams'][str(team_number)] = {
+                'resources': team_state['resources'],
+                'buildings': team_state['buildings'],
+                'name': team_state['name'],  # Store nation name for dynamic frontend display
+                'nation_type': team_state['nation_type']  # Store nation type identifier
+            }
     
     # Mark game_state as modified so SQLAlchemy knows to persist the changes
     flag_modified(game, 'game_state')
@@ -1334,6 +1471,11 @@ async def start_game(
     
     # Initialize food tax tracking
     await on_game_started(game_code)
+    
+    # Initialize scenario event tracking
+    if game.scenario_id:
+        from scenario_event_scheduler import on_game_started as scenario_on_game_started
+        await scenario_on_game_started(game_code)
     
     # Broadcast game status change to all players
     await manager.broadcast_to_game(
@@ -1454,6 +1596,11 @@ async def end_game(
     
     # Notify food tax scheduler that game has ended
     await on_game_ended(game_code)
+    
+    # Notify scenario event scheduler that game has ended
+    if game.scenario_id:
+        from scenario_event_scheduler import on_game_ended as scenario_on_game_ended
+        await scenario_on_game_ended(game_code)
     
     # Broadcast game status change to all players
     await manager.broadcast_to_game(
