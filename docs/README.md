@@ -6,6 +6,7 @@ Complete documentation for The Trading Game - a real-time multiplayer resource t
 
 ### 🚀 Getting Started
 - **[PLAYER_INSTRUCTIONS.md](PLAYER_INSTRUCTIONS.md)** - 📋 **Complete player guide for gameplay (printable)**
+- **[PRINTING_GUIDE.md](PRINTING_GUIDE.md)** - 🖨️ Guide for printing player instructions
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick reference for server management and common commands
 - **[OSM_OAUTH_SETUP.md](OSM_OAUTH_SETUP.md)** - OnlineScoutManager OAuth2 integration guide
 
