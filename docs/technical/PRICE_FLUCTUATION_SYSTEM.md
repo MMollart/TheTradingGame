@@ -7,10 +7,11 @@ The price fluctuation system adds realistic market dynamics to bank resource pri
 ## Key Features
 
 ### 1. Random Fluctuations
-- **Frequency**: Every second, each resource has a 3.33% chance of price change
+- **Frequency**: Every 30 seconds, each resource will change price (100% probability)
 - **Magnitude**: ±2% variation per change
-- **Bounds**: Prices constrained to 0.5x - 2.0x baseline
-- **Spread**: Buy price always exceeds sell price by ~10%
+- **Bounds**: Prices constrained to 0.5x - 3.5x baseline
+- **Spread**: Buy price always exceeds sell price by ~20%
+- **Market Depth**: Large trades have exponentially greater price impact
 
 ### 2. Momentum System
 - **Lookback Period**: Last 2 minutes of price history
