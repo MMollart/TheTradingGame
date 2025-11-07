@@ -119,6 +119,71 @@ def run_migrations():
                     END IF;
                 END $$;
             """
+        },
+        {
+            "name": "005_create_game_event_instances_table",
+            "description": "Create game_event_instances table for event system (disasters, economic events, etc.)",
+            "sql": """
+                -- Create game_event_instances table for tracking active game events
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.tables 
+                        WHERE table_name='game_event_instances'
+                    ) THEN
+                        CREATE TABLE game_event_instances (
+                            id SERIAL PRIMARY KEY,
+                            game_session_id INTEGER NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
+                            event_type VARCHAR(23) NOT NULL,
+                            event_category VARCHAR(16) NOT NULL,
+                            severity INTEGER NOT NULL,
+                            status VARCHAR(7) NOT NULL DEFAULT 'active',
+                            event_data JSON,
+                            duration_cycles INTEGER,
+                            cycles_remaining INTEGER,
+                            triggered_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                            expires_at TIMESTAMP
+                        );
+                        
+                        CREATE INDEX idx_game_event_instances_game_session_id ON game_event_instances(game_session_id);
+                        CREATE INDEX idx_game_event_instances_status ON game_event_instances(status);
+                        
+                        RAISE NOTICE 'Created game_event_instances table';
+                    END IF;
+                END $$;
+            """
+        },
+        {
+            "name": "006_create_oauth_tokens_table",
+            "description": "Create oauth_tokens table for OAuth authentication (OSM integration)",
+            "sql": """
+                -- Create oauth_tokens table for external OAuth integrations
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.tables 
+                        WHERE table_name='oauth_tokens'
+                    ) THEN
+                        CREATE TABLE oauth_tokens (
+                            id SERIAL PRIMARY KEY,
+                            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                            provider VARCHAR(3) NOT NULL,
+                            access_token TEXT NOT NULL,
+                            refresh_token TEXT,
+                            token_type VARCHAR(50) DEFAULT 'Bearer',
+                            expires_at TIMESTAMP,
+                            scope VARCHAR(500),
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            updated_at TIMESTAMP DEFAULT NOW()
+                        );
+                        
+                        CREATE INDEX idx_oauth_tokens_user_id ON oauth_tokens(user_id);
+                        CREATE INDEX idx_oauth_tokens_provider ON oauth_tokens(provider);
+                        
+                        RAISE NOTICE 'Created oauth_tokens table';
+                    END IF;
+                END $$;
+            """
         }
     ]
     
