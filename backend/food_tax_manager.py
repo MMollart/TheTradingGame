@@ -431,3 +431,38 @@ class FoodTaxManager:
             "success": True,
             "event": result
         }
+    
+    def force_apply_tax_all_teams(self, game_code: str) -> Dict[str, Any]:
+        """
+        Manually trigger food tax for ALL teams (host/banker action).
+        
+        This is used when the host or banker presses "Apply Food Tax (All Nations)" button.
+        
+        Args:
+            game_code: Game code
+            
+        Returns:
+            Result of tax application for all teams
+        """
+        game = self.db.query(GameSession).filter(
+            GameSession.game_code == game_code.upper()
+        ).first()
+        
+        if not game:
+            return {"success": False, "error": "Game not found"}
+        
+        if 'food_tax' not in game.game_state:
+            return {"success": False, "error": "Food tax not initialized"}
+        
+        events = []
+        for team_number, tax_data in game.game_state['food_tax'].items():
+            result = self._apply_tax_to_team(game, team_number, tax_data)
+            events.append(result)
+        
+        self.db.commit()
+        
+        return {
+            "success": True,
+            "events": events,
+            "teams_processed": len(events)
+        }

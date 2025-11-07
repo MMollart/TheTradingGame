@@ -4556,6 +4556,40 @@ function handleGameEvent(data) {
         case 'food_tax':
             addEventLog('Food tax has been applied!', 'warning');
             break;
+        case 'food_tax_applied':
+            // Handle successful food tax application
+            {
+                const teamNum = eventData.team_number;
+                const taxAmount = eventData.tax_amount;
+                const message = eventData.message || `Food tax paid: ${taxAmount} food`;
+                
+                addEventLog(`Team ${teamNum}: ${message}`, 'warning');
+                
+                // Refresh game state to show updated resources
+                refreshGameState();
+            }
+            break;
+        case 'food_tax_famine':
+            // Handle famine scenario
+            {
+                const teamNum = eventData.team_number;
+                const message = eventData.message || 'Famine occurred!';
+                
+                addEventLog(`Team ${teamNum}: ${message}`, 'error');
+                
+                // Refresh game state to show updated resources
+                refreshGameState();
+            }
+            break;
+        case 'food_tax_failed':
+            // Handle tax application failure
+            {
+                const teamNum = eventData.team_number;
+                const message = eventData.message || 'Failed to apply food tax';
+                
+                addEventLog(`Team ${teamNum}: ${message}`, 'error');
+            }
+            break;
         case 'natural_disaster':
         case 'drought':
         case 'disease':
