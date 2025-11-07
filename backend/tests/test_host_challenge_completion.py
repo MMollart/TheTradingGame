@@ -91,7 +91,7 @@ def test_host_can_complete_challenge_without_banker(client, sample_game, db):
     
     assert response_data["success"] is True
     assert "Transferred" in response_data["message"]
-    assert response_data["bank_remaining"] == 135  # 150 (1 team * 150) - 15
+    assert response_data["bank_remaining"] == 235  # 250 (1 team * 250) - 15
     assert response_data["team_total"] >= 15  # At least the transferred amount
     
     # Verify challenge status

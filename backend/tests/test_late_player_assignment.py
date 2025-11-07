@@ -173,12 +173,12 @@ class TestLatePlayerAssignment:
         # Assignment should succeed
         assert response.status_code == 200
         
-        # Verify bank inventory did NOT increase
-        # Bank inventory should remain at 250 (initialized for 1 team only)
-        # not increase to 500, since team 2 didn't exist before game start
+        # Verify bank inventory DID increase (compensating for late team)
+        # Bank inventory should increase from 250 to 500 when first player joins team 2
+        # This compensates the bank for the team joining late
         game_response = client.get(f"/games/{game_code}")
         state = game_response.json()["game_state"]
-        assert state["bank_inventory"]["food"] == 250
+        assert state["bank_inventory"]["food"] == 500
     
     def test_assign_during_paused_game(self, client, sample_game, sample_players):
         """Test that player can be assigned during paused game"""

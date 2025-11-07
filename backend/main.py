@@ -955,10 +955,12 @@ async def assign_player_group(
             detail=f"Group number must be between 1 and {max_teams}"
         )
     
-    # Check if this is a post-game-start assignment to an existing team
+    # Check if this is a post-game-start assignment
     game_started = game.status in [GameStatus.IN_PROGRESS, GameStatus.PAUSED]
     team_key = str(group_number)
-    team_already_exists = (
+    
+    # Check if team exists in game_state (was initialized at game start)
+    team_exists_in_state = (
         game.game_state and 
         'teams' in game.game_state and 
         team_key in game.game_state['teams']
@@ -971,8 +973,24 @@ async def assign_player_group(
         if p.role.value == "player"
     )
     
-    # If game has started, team exists, and team has NO players yet, increase bank inventory
-    if game_started and team_already_exists and not team_has_players:
+    # If game has started, ensure bank_inventory exists (edge case recovery)
+    if game_started:
+        if not game.game_state:
+            game.game_state = {}
+        
+        if 'bank_inventory' not in game.game_state:
+            # Initialize if somehow missing - use current number of teams in game_state
+            num_teams_in_state = len(game.game_state.get('teams', {}))
+            banker_state = GameLogic.initialize_banker(num_teams=num_teams_in_state if num_teams_in_state > 0 else 1)
+            game.game_state['bank_inventory'] = banker_state['bank_inventory']
+            flag_modified(game, 'game_state')
+            logger.warning(
+                f"Bank inventory was missing for game {game_code}, initialized with {num_teams_in_state} teams"
+            )
+    
+    # If game has started and this is the first player joining a team:
+    # Increase bank inventory and initialize team if needed
+    if game_started and not team_has_players:
         from game_constants import BANK_RESOURCES_PER_TEAM
         
         logger.info(
@@ -980,20 +998,30 @@ async def assign_player_group(
             f"after game start. Increasing bank inventory."
         )
         
-        # Ensure bank_inventory exists in game_state
-        if not game.game_state:
-            game.game_state = {}
-        
-        if 'bank_inventory' not in game.game_state:
-            # Initialize if somehow missing - use actual num_teams for consistency
-            num_teams_for_init = game.num_teams if game.num_teams else 1
-            banker_state = GameLogic.initialize_banker(num_teams=num_teams_for_init)
-            game.game_state['bank_inventory'] = banker_state['bank_inventory']
-        
         # Increase bank inventory by BANK_RESOURCES_PER_TEAM (standard per team allocation)
         for resource in ['food', 'raw_materials', 'electrical_goods', 'medical_goods']:
             current = game.game_state['bank_inventory'].get(resource, 0)
             game.game_state['bank_inventory'][resource] = current + BANK_RESOURCES_PER_TEAM
+        
+        # Initialize the team in game_state if it doesn't exist yet
+        if not team_exists_in_state:
+            if 'teams' not in game.game_state:
+                game.game_state['teams'] = {}
+            
+            # Initialize team with nation-specific resources
+            from game_constants import NationType
+            nation_types = [nation_type.value for nation_type in NationType]
+            nation_index = (group_number - 1) % len(nation_types)
+            nation_type = nation_types[nation_index]
+            
+            difficulty = game.difficulty if hasattr(game, 'difficulty') and game.difficulty else "medium"
+            team_state = GameLogic.initialize_nation(nation_type, difficulty=difficulty)
+            game.game_state['teams'][team_key] = {
+                'resources': team_state['resources'],
+                'buildings': team_state['buildings'],
+                'name': team_state['name'],
+                'nation_type': team_state['nation_type']
+            }
         
         flag_modified(game, 'game_state')
         
