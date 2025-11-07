@@ -5823,7 +5823,7 @@ async function completeChallengeAndGrantResources(playerId, buildingType, teamNu
     // console.log('[completeChallengeAndGrantResources] playerId type:', typeof playerId);
     
     // Convert playerId to number if it's a string
-    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId) : playerId;
+    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId, 10) : playerId;
     // console.log('[completeChallengeAndGrantResources] playerIdNum:', playerIdNum);
     
     // Find challenge - check challenge manager first
@@ -5979,7 +5979,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
     // console.log('[cancelActiveChallenge] Called for player:', playerId, 'building:', buildingType);
     
     // Convert playerId to number if it's a string
-    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId) : playerId;
+    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId, 10) : playerId;
     
     // Find challenge - check challenge manager first
     let challenge = null;
