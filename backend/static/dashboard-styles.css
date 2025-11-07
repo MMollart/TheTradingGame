@@ -982,11 +982,32 @@ body {
     color: #7413dc;
 }
 
-/* Active Challenges List */
+/* Active Challenges List - Mobile-first responsive grid */
 .active-challenges-list {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 15px;
+}
+
+/* Tablet: 2 columns */
+@media (min-width: 768px) {
+    .active-challenges-list {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Desktop: 3 columns */
+@media (min-width: 1200px) {
+    .active-challenges-list {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Wide Desktop: 4 columns */
+@media (min-width: 1600px) {
+    .active-challenges-list {
+        grid-template-columns: repeat(4, 1fr);
+    }
 }
 
 .active-challenge-item {
@@ -996,6 +1017,10 @@ body {
     border-left: 4px solid #FFE627;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 280px;
 }
 
 .active-challenge-item.expiring {
@@ -1077,6 +1102,7 @@ body {
     display: flex;
     gap: 10px;
     justify-content: flex-end;
+    margin-top: auto;
 }
 
 /* Pending Approvals Section */
@@ -2308,12 +2334,9 @@ body {
     background: #5a6268;
 }
 
-/* ==================== ACTIVE CHALLENGES ==================== */
+/* ==================== ACTIVE CHALLENGES (Player View) ==================== */
 
-.active-challenges-list {
-    max-height: 350px;
-    overflow-y: auto;
-}
+/* Note: .active-challenges-list grid layout is defined earlier in the file (line ~985) */
 
 .challenge-item {
     background: white;
