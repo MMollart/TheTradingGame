@@ -173,7 +173,7 @@ class TestKindnessModifier:
         
         result = calculate_kindness_modifier(trade_margins)
         
-        # Weighted avg: (-0.50*1000 + 0.50*10) / 1010 = -495/1010 = -0.49
+        # Weighted avg: (-0.50*1000 + 0.50*10) / 1010 = -495/1010 ≈ -0.490
         # Should be heavily influenced by the large generous trade
         assert result['avg_margin'] < -0.4
         assert result['modifier'] > 1.05  # Significant bonus

@@ -378,8 +378,8 @@ def calculate_kindness_modifier(trade_margins: List[Dict]) -> Dict:
     
     avg_margin = total_weighted_margin / total_weight if total_weight > 0 else 0.0
     
-    # Calculate modifier: 1 + (avg_margin * kindness_factor)
-    # Negative margins (losses) increase the modifier (reward)
+    # Calculate modifier: 1 - (avg_margin * kindness_factor)
+    # Negative margins (losses) increase the modifier (reward) since subtracting a negative adds
     # Positive margins (profits) decrease the modifier (penalty)
     modifier = 1.0 - (avg_margin * KINDNESS_FACTOR)
     

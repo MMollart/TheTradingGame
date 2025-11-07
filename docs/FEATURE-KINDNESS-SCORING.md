@@ -93,10 +93,10 @@ A database migration (`004_add_trade_margin_columns`) automatically adds these c
 **Calculation:**
 ```
 Weighted Avg = (-25×100 + -30×150 + -20×80) / 330 = -26.4%
-Modifier = 1 - (-0.264 × 0.15) = 1.04 (4% bonus)
+Modifier = 1 - (-0.264 × 0.15) = 1.0396 (approximately 4% bonus)
 
 Base Score: 10,000
-Final Score: 10,000 × 1.04 = 10,400
+Final Score: 10,000 × 1.0396 = 10,396
 Label: "Generous Trader"
 ```
 
@@ -109,10 +109,10 @@ Label: "Generous Trader"
 **Calculation:**
 ```
 Weighted Avg = (30×100 + 25×150) / 250 = 27%
-Modifier = 1 - (0.27 × 0.15) = 0.96 (4% penalty)
+Modifier = 1 - (0.27 × 0.15) = 0.9595 (approximately 4% penalty)
 
 Base Score: 10,000
-Final Score: 10,000 × 0.96 = 9,600
+Final Score: 10,000 × 0.9595 = 9,595
 Label: "Profit-Focused"
 ```
 
