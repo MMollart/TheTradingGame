@@ -120,6 +120,7 @@ When contributing documentation:
 
 ## 🆕 Latest Documentation Updates
 
+- **⚡ Game Events System** - 8 event types (disasters, economic, positive) with difficulty scaling and mitigation
 - **Game Duration Feature** - Configurable 1-4 hour gameplay
 - **Food Tax Automation** - Banker-controlled tax system
 - **Challenge WebSocket Events** - Real-time synchronization

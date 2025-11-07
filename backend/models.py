@@ -240,9 +240,68 @@ class PriceHistory(Base):
     game_session = relationship("GameSession")
 
 
+class EventCategory(str, enum.Enum):
+    """Event categories"""
+    NATURAL_DISASTER = "natural_disaster"
+    ECONOMIC_EVENT = "economic_event"
+    POSITIVE_EVENT = "positive_event"
+
+
+class EventType(str, enum.Enum):
+    """Specific event types"""
+    # Natural Disasters
+    EARTHQUAKE = "earthquake"
+    FIRE = "fire"
+    DROUGHT = "drought"
+    PLAGUE = "plague"
+    BLIZZARD = "blizzard"
+    TORNADO = "tornado"
+    
+    # Economic Events
+    ECONOMIC_RECESSION = "economic_recession"
+    
+    # Positive Events
+    AUTOMATION_BREAKTHROUGH = "automation_breakthrough"
+
+
+class EventStatus(str, enum.Enum):
+    """Event lifecycle status"""
+    ACTIVE = "active"        # Event is currently active
+    EXPIRED = "expired"      # Event has expired/completed
+    CURED = "cured"         # Event was cured (plague only)
+
+
 class OAuthProvider(str, enum.Enum):
     """OAuth provider types"""
     OSM = "osm"  # OnlineScoutManager
+
+
+class GameEventInstance(Base):
+    """Active game events (disasters, economic events, etc.)"""
+    __tablename__ = "game_event_instances"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    game_session_id = Column(Integer, ForeignKey("game_sessions.id"), nullable=False)
+    
+    # Event details
+    event_type = Column(Enum(EventType), nullable=False)
+    event_category = Column(Enum(EventCategory), nullable=False)
+    severity = Column(Integer, nullable=False)  # 1-5
+    status = Column(Enum(EventStatus), default=EventStatus.ACTIVE, nullable=False)
+    
+    # Event metadata
+    event_data = Column(JSON)  # Store event-specific data (affected teams, modifiers, etc.)
+    
+    # Duration tracking
+    duration_cycles = Column(Integer, nullable=True)  # Duration in food tax cycles (null = instant)
+    cycles_remaining = Column(Integer, nullable=True)  # Cycles left until expiration
+    
+    # Timestamps
+    triggered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    game_session = relationship("GameSession")
 
 
 class OAuthToken(Base):
