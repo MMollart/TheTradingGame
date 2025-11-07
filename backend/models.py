@@ -213,6 +213,11 @@ class TradeOffer(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
     
+    # Trade margin tracking (for kindness scoring)
+    # Margin from perspective of from_team: negative = generous, positive = profitable
+    from_team_margin = Column(JSON, nullable=True)  # {"margin": -0.15, "trade_value": 100}
+    to_team_margin = Column(JSON, nullable=True)    # {"margin": 0.15, "trade_value": 100}
+    
     # Relationships
     game_session = relationship("GameSession")
     initiated_by = relationship("Player", foreign_keys=[initiated_by_player_id])

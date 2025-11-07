@@ -1570,6 +1570,8 @@ async def end_game(
     db: Session = Depends(get_db)
 ):
     """End a game session and calculate scores (works for both authenticated and anonymous games)"""
+    from models import TradeOffer, TradeOfferStatus
+    
     game = db.query(GameSession).filter(
         GameSession.game_code == game_code.upper()
     ).first()
@@ -1577,29 +1579,50 @@ async def end_game(
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     
-    # Calculate scores for each nation
+    # Get all completed trades for this game
+    completed_trades = db.query(TradeOffer).filter(
+        TradeOffer.game_session_id == game.id,
+        TradeOffer.status == TradeOfferStatus.ACCEPTED
+    ).all()
+    
+    # Aggregate trade margins by team
+    team_trade_margins = {}
+    for trade in completed_trades:
+        # Add margins for from_team
+        from_team = str(trade.from_team_number)
+        if from_team not in team_trade_margins:
+            team_trade_margins[from_team] = []
+        if trade.from_team_margin:
+            team_trade_margins[from_team].append(trade.from_team_margin)
+        
+        # Add margins for to_team
+        to_team = str(trade.to_team_number)
+        if to_team not in team_trade_margins:
+            team_trade_margins[to_team] = []
+        if trade.to_team_margin:
+            team_trade_margins[to_team].append(trade.to_team_margin)
+    
+    # Calculate scores for each team
     scores = {}
-    banker_state = None
+    bank_prices = game.game_state.get('bank_prices', {})
     
-    # Find banker to get bank prices
-    for player in game.players:
-        if player.role.value == "banker":
-            banker_state = player.player_state
-            break
-    
-    bank_prices = banker_state.get("bank_prices", {}) if banker_state else {}
-    
-    for player in game.players:
-        if player.role.value == "player" and player.player_state:
-            score = GameLogic.calculate_score(player.player_state, bank_prices)
-            scores[player.id] = {
-                "player_name": player.player_name,
-                "nation": player.player_state.get("name"),
-                "score": score
-            }
+    # Score by team rather than by player
+    teams = game.game_state.get('teams', {})
+    for team_num, team_state in teams.items():
+        # Add trade margins to team state for scoring calculation
+        team_state['trade_margins'] = team_trade_margins.get(team_num, [])
+        team_state['bank_prices'] = bank_prices
+        
+        score = GameLogic.calculate_score(team_state, bank_prices)
+        scores[team_num] = {
+            "team_name": team_state.get("name", f"Team {team_num}"),
+            "nation_type": team_state.get("nation_type", "unknown"),
+            "score": score
+        }
     
     game.status = GameStatus.COMPLETED
-    game.game_state = {"final_scores": scores}
+    game.game_state = {"final_scores": scores, "teams": teams}
+    flag_modified(game, 'game_state')
     db.commit()
     
     # Notify food tax scheduler that game has ended

@@ -578,3 +578,56 @@ class TestTradingAPI:
         assert game.game_state['bank_prices']['food']['baseline'] == 10
         assert game.game_state['bank_prices']['food']['buy_price'] == data['buy_price']
         assert game.game_state['bank_prices']['food']['sell_price'] == data['sell_price']
+    
+    def test_trade_margin_recorded_on_accept(self, client, sample_game, sample_players, db):
+        """Test that trade margins are recorded when trade is accepted"""
+        game_code = sample_game["game_code"]
+        
+        # Get players and assign to teams
+        game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+        players = db.query(Player).filter(
+            Player.game_session_id == game.id,
+            Player.role == "player"
+        ).all()
+        
+        player1 = players[0]
+        player1.group_number = 1
+        player2 = players[1]
+        player2.group_number = 2
+        db.commit()
+        
+        # Start game and initialize bank prices
+        client.post(f"/games/{game_code}/start")
+        response = client.post(f"/api/v2/trading/{game_code}/bank/initialize-prices")
+        assert response.status_code == 200
+        
+        db.refresh(game)
+        
+        # Create and accept trade offer
+        trade_mgr = TradeManager(db)
+        offer = trade_mgr.create_trade_offer(
+            game_code, 1, 2, player1.id,
+            {'food': 10}, {'currency': 50}
+        )
+        
+        accepted_offer, updated_game = trade_mgr.accept_trade_offer(
+            offer.id, player2.id, accept_counter=False
+        )
+        
+        # Verify trade margins were recorded
+        assert accepted_offer.from_team_margin is not None
+        assert accepted_offer.to_team_margin is not None
+        
+        # Verify margin structure
+        assert 'margin' in accepted_offer.from_team_margin
+        assert 'trade_value' in accepted_offer.from_team_margin
+        assert 'margin' in accepted_offer.to_team_margin
+        assert 'trade_value' in accepted_offer.to_team_margin
+        
+        # Margins should be opposite (one team's gain is another's loss)
+        from_margin = accepted_offer.from_team_margin['margin']
+        to_margin = accepted_offer.to_team_margin['margin']
+        
+        # The sum of margins should be close to zero (accounting for rounding)
+        # Not exactly zero due to different trade_value denominators
+        assert abs(from_margin + to_margin) < 0.5  # Allow for calculation differences
