@@ -282,6 +282,9 @@ FAMINE_PENALTY_MULTIPLIER = 2  # Pay double to bank
 
 # ==================== Central Bank ====================
 
+# Bank inventory allocation per team
+BANK_RESOURCES_PER_TEAM = 250  # Resources allocated per team in bank inventory
+
 # Initial bank prices (adjustable during game)
 BANK_INITIAL_PRICES = {
     ResourceType.FOOD: 2,

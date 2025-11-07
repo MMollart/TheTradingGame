@@ -927,7 +927,11 @@ async def assign_player_group(
     group_number: int,
     db: Session = Depends(get_db)
 ):
-    """Manually assign a player to a group (host dashboard action)"""
+    """
+    Manually assign a player to a group (host dashboard action).
+    Can be used both before and after game starts.
+    When assigning after game start, bank inventory is increased to compensate.
+    """
     game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -943,8 +947,60 @@ async def assign_player_group(
     if player.role.value != "player":
         raise HTTPException(status_code=400, detail="Can only assign groups to players, not hosts or bankers")
     
-    if group_number < 1 or group_number > 4:
-        raise HTTPException(status_code=400, detail="Group number must be between 1 and 4")
+    # Validate team number against game's configured teams
+    max_teams = game.num_teams if game.num_teams else 4
+    if group_number < 1 or group_number > max_teams:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Group number must be between 1 and {max_teams}"
+        )
+    
+    # Check if this is a post-game-start assignment to an existing team
+    game_started = game.status in [GameStatus.IN_PROGRESS, GameStatus.PAUSED]
+    team_key = str(group_number)
+    team_already_exists = (
+        game.game_state and 
+        'teams' in game.game_state and 
+        team_key in game.game_state['teams']
+    )
+    
+    # Check if team already has players assigned (before this assignment)
+    team_has_players = any(
+        p.group_number == group_number and p.id != player_id
+        for p in game.players
+        if p.role.value == "player"
+    )
+    
+    # If game has started, team exists, and team has NO players yet, increase bank inventory
+    if game_started and team_already_exists and not team_has_players:
+        from game_constants import BANK_RESOURCES_PER_TEAM
+        
+        logger.info(
+            f"Adding first player {player.player_name} to team {group_number} "
+            f"after game start. Increasing bank inventory."
+        )
+        
+        # Ensure bank_inventory exists in game_state
+        if not game.game_state:
+            game.game_state = {}
+        
+        if 'bank_inventory' not in game.game_state:
+            # Initialize if somehow missing - use actual num_teams for consistency
+            num_teams_for_init = game.num_teams if game.num_teams else 1
+            banker_state = GameLogic.initialize_banker(num_teams=num_teams_for_init)
+            game.game_state['bank_inventory'] = banker_state['bank_inventory']
+        
+        # Increase bank inventory by BANK_RESOURCES_PER_TEAM (standard per team allocation)
+        for resource in ['food', 'raw_materials', 'electrical_goods', 'medical_goods']:
+            current = game.game_state['bank_inventory'].get(resource, 0)
+            game.game_state['bank_inventory'][resource] = current + BANK_RESOURCES_PER_TEAM
+        
+        flag_modified(game, 'game_state')
+        
+        logger.info(
+            f"Bank inventory increased by {BANK_RESOURCES_PER_TEAM} for each resource type. "
+            f"New inventory: {game.game_state['bank_inventory']}"
+        )
     
     player.group_number = group_number
     db.commit()
