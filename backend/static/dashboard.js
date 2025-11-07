@@ -44,6 +44,107 @@ const DIFFICULTY_MODIFIERS = {
 // Current difficulty setting (can be changed by host/banker)
 let currentDifficultyModifier = DIFFICULTY_MODIFIERS.normal;
 
+// ===== GLOBAL ERROR HANDLING =====
+// Prevents dashboard from going blank when errors occur
+// These handlers catch errors and log them without crashing the UI
+
+/**
+ * Global error handler for uncaught exceptions
+ * Logs error details and attempts to keep dashboard functional
+ */
+window.addEventListener('error', function(event) {
+    console.error('[GLOBAL ERROR HANDLER] Uncaught exception:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error
+    });
+    
+    // Log to event log if available
+    if (typeof addEventLog === 'function') {
+        addEventLog('⚠️ UI Error: ' + event.message, 'error');
+    }
+    
+    // Prevent default error handling that might blank the page
+    event.preventDefault();
+    
+    // Return true to prevent error from propagating
+    return true;
+});
+
+/**
+ * Global handler for unhandled promise rejections
+ * Catches async errors that could crash the dashboard
+ */
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('[GLOBAL ERROR HANDLER] Unhandled promise rejection:', {
+        reason: event.reason,
+        promise: event.promise
+    });
+    
+    // Log to event log if available
+    if (typeof addEventLog === 'function') {
+        const errorMsg = event.reason?.message || event.reason?.toString() || 'Unknown error';
+        addEventLog('⚠️ Async Error: ' + errorMsg, 'error');
+    }
+    
+    // Prevent default handling that might blank the page
+    event.preventDefault();
+});
+
+/**
+ * Defensive DOM helper - safely gets element by ID with null check
+ * @param {string} id - Element ID
+ * @param {boolean} silent - If true, don't log warning for missing element (default: false)
+ * @returns {HTMLElement|null} - Element or null if not found
+ */
+function safeGetElementById(id, silent = false) {
+    try {
+        const element = document.getElementById(id);
+        if (!element && !silent) {
+            console.warn(`[DOM WARNING] Element not found: #${id}`);
+        }
+        return element;
+    } catch (error) {
+        console.error(`[DOM ERROR] Failed to get element #${id}:`, error);
+        return null;
+    }
+}
+
+/**
+ * Safely updates element text content with null check
+ * @param {string} id - Element ID
+ * @param {string} text - Text to set
+ * @param {boolean} silent - If true, don't log warning for missing element
+ */
+function safeSetText(id, text, silent = false) {
+    const element = safeGetElementById(id, silent);
+    if (element) {
+        element.textContent = text;
+    }
+}
+
+/**
+ * Safely adds/removes CSS class with null check
+ * @param {string} id - Element ID
+ * @param {string} className - Class name
+ * @param {boolean} add - True to add, false to remove
+ * @param {boolean} silent - If true, don't log warning for missing element
+ */
+function safeToggleClass(id, className, add, silent = false) {
+    const element = safeGetElementById(id, silent);
+    if (element) {
+        if (add) {
+            element.classList.add(className);
+        } else {
+            element.classList.remove(className);
+        }
+    }
+}
+
+// ===== END GLOBAL ERROR HANDLING =====
+
 // Initialize dashboard from URL parameters
 async function initDashboard() {
     const params = new URLSearchParams(window.location.search);
@@ -115,28 +216,54 @@ async function initDashboard() {
 }
 
 function showDashboard(role) {
-    // Hide all dashboards
-    document.getElementById('host-dashboard').classList.add('hidden');
-    document.getElementById('nation-dashboard').classList.add('hidden');
-    
-    // Show appropriate dashboard
-    if (role === 'host' || role === 'banker') {
-        // Both hosts and bankers use the host-dashboard
-        document.getElementById('host-dashboard').classList.remove('hidden');
+    try {
+        // Hide all dashboards with null checks (silent for optional elements)
+        const hostDashboard = safeGetElementById('host-dashboard', false);
+        const nationDashboard = safeGetElementById('nation-dashboard', false);
         
-        // Check if welcome banner should be shown (first time only, host-only)
-        const welcomeBanner = document.getElementById('welcome-banner');
-        const welcomeDismissed = sessionStorage.getItem('welcomeDismissed');
-        if (welcomeBanner && role === 'host' && !welcomeDismissed) {
-            welcomeBanner.classList.remove('hidden');
-        } else if (welcomeBanner) {
-            welcomeBanner.classList.add('hidden');
+        if (hostDashboard) hostDashboard.classList.add('hidden');
+        if (nationDashboard) nationDashboard.classList.add('hidden');
+        
+        // Show appropriate dashboard
+        if (role === 'host' || role === 'banker') {
+            // Both hosts and bankers use the host-dashboard
+            if (hostDashboard) {
+                hostDashboard.classList.remove('hidden');
+            }
+            
+            // Check if welcome banner should be shown (first time only, host-only)
+            // Silent=true since welcome banner is optional
+            const welcomeBanner = safeGetElementById('welcome-banner', true);
+            const welcomeDismissed = sessionStorage.getItem('welcomeDismissed');
+            if (welcomeBanner && role === 'host' && !welcomeDismissed) {
+                welcomeBanner.classList.remove('hidden');
+            } else if (welcomeBanner) {
+                welcomeBanner.classList.add('hidden');
+            }
+            
+            setupHostDashboard();
+        } else {
+            if (nationDashboard) {
+                nationDashboard.classList.remove('hidden');
+            }
+            setupNationDashboard();
         }
+    } catch (error) {
+        console.error('[showDashboard] Error showing dashboard:', error);
+        // Try to recover by ensuring at least one dashboard is visible
+        const hostDashboard = document.getElementById('host-dashboard');
+        const nationDashboard = document.getElementById('nation-dashboard');
         
-        setupHostDashboard();
-    } else {
-        document.getElementById('nation-dashboard').classList.remove('hidden');
-        setupNationDashboard();
+        if (role === 'host' || role === 'banker') {
+            if (hostDashboard) {
+                hostDashboard.classList.remove('hidden');
+            }
+        } else {
+            // For player role
+            if (nationDashboard) {
+                nationDashboard.classList.remove('hidden');
+            }
+        }
     }
 }
 
@@ -1416,20 +1543,21 @@ async function unassignPlayer(playerId, playerName) {
 }
 
 async function setupHostDashboard() {
-    // console.log('setupHostDashboard: Starting setup...');
-    // console.log('currentPlayer.role:', currentPlayer.role);
-    
-    // Show test mode toggle for host only
-    showTestModeToggleForHost();
-    
-    // Configure tabs based on role
-    const isHost = currentPlayer.role === 'host';
-    const isBanker = currentPlayer.role === 'banker';
-    
-    // console.log('isHost:', isHost, 'isBanker:', isBanker);
-    
-    // Reorder tabs based on role
-    reorderTabsForRole(currentPlayer.role);
+    try {
+        // console.log('setupHostDashboard: Starting setup...');
+        // console.log('currentPlayer.role:', currentPlayer.role);
+        
+        // Show test mode toggle for host only
+        showTestModeToggleForHost();
+        
+        // Configure tabs based on role
+        const isHost = currentPlayer.role === 'host';
+        const isBanker = currentPlayer.role === 'banker';
+        
+        // console.log('isHost:', isHost, 'isBanker:', isBanker);
+        
+        // Reorder tabs based on role
+        reorderTabsForRole(currentPlayer.role);
     
     // Show/hide Game Controls tab based on role
     const gameControlsTab = document.getElementById('tab-btn-controls');
@@ -1532,6 +1660,14 @@ async function setupHostDashboard() {
     }
     
     // console.log('setupHostDashboard: Setup complete');
+    } catch (error) {
+        console.error('[setupHostDashboard] Error during setup:', error);
+        // Log to event log
+        if (typeof addEventLog === 'function') {
+            addEventLog('⚠️ Error setting up host dashboard: ' + (error?.message || 'Unknown error'), 'error');
+        }
+        // Don't re-throw - allow partial setup to remain
+    }
 }
 
 // Update game control button states based on current game status
@@ -2642,20 +2778,44 @@ function showFinalScores(scores) {
 
 // ==================== BANKER FUNCTIONS ====================
 
-function updatePrice(resource, source = 'banker') {
+async function updatePrice(resource, source = 'banker') {
     const prefix = source === 'host' ? 'host-' : '';
-    const value = parseInt(document.getElementById(`${prefix}price-${resource}`).value);
+    // Convert underscores to hyphens for ID (e.g., raw_materials -> raw-materials)
+    const resourceId = resource.replace(/_/g, '-');
+    const value = parseInt(document.getElementById(`${prefix}price-${resourceId}`).value);
     
-    if (!playerState.bank_prices) playerState.bank_prices = {};
-    playerState.bank_prices[resource] = value;
+    if (value < 1) {
+        alert('Price must be at least 1');
+        return;
+    }
     
-    // Update state
-    gameWS.send({
-        type: 'update_player_state',
-        player_state: playerState
-    });
-    
-    addEventLog(`Updated ${formatResourceName(resource)} price to ${value}`);
+    try {
+        // Call API to update bank price in game state
+        const response = await fetch(`/games/${currentGameCode}/update-bank-price`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                resource_type: resource,
+                baseline_price: value
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update price');
+        }
+        
+        const data = await response.json();
+        addEventLog(
+            `Updated ${formatResourceName(resource)} price to ${value} ` +
+            `(Buy: ${data.buy_price}, Sell: ${data.sell_price})`
+        );
+    } catch (error) {
+        console.error('Error updating price:', error);
+        alert(`Failed to update price: ${error.message}`);
+    }
 }
 
 function triggerFoodTax() {
@@ -2976,11 +3136,10 @@ async function updateTeamNameSection() {
     if (!teamNameSection || !currentTeamNameSpan) return;
     
     try {
-        // Get game settings to check if team naming is allowed
+        // Team naming is always allowed - players can always choose their own team names
         const game = await gameAPI.getGame(currentGameCode);
-        const allowTeamNames = game.game_state?.allow_team_names || false;
         
-        if (!allowTeamNames || !currentPlayer.groupNumber) {
+        if (!currentPlayer.groupNumber) {
             teamNameSection.style.display = 'none';
             return;
         }
@@ -3400,12 +3559,24 @@ function receiveChallengeAssignment(buildingType, challengeDescription) {
         requestBtn.disabled = false;
         requestBtn.textContent = '📋 Request Challenge';
     }
-    if (produceBtn) produceBtn.style.display = 'inline-block';
+    // Only show complete button for host/banker roles, not for players
+    // Players cannot complete their own challenges - that's the host/banker's job
+    if (produceBtn) {
+        const isHostOrBanker = currentPlayer.role === 'host' || currentPlayer.role === 'banker';
+        produceBtn.style.display = isHostOrBanker ? 'inline-block' : 'none';
+    }
     
     addEventLog(`Challenge assigned: ${challengeDescription}`, 'success');
 }
 
 function startProduction(buildingType) {
+    // Only host/banker can complete challenges
+    const isHostOrBanker = currentPlayer.role === 'host' || currentPlayer.role === 'banker';
+    if (!isHostOrBanker) {
+        alert('Only the host or banker can complete challenges.');
+        return;
+    }
+    
     // Get the assigned challenge
     const challengeSpan = document.getElementById(`${buildingType}-challenge`);
     const challengeDescription = challengeSpan ? challengeSpan.textContent : 'Unknown challenge';
@@ -3420,6 +3591,14 @@ function startProduction(buildingType) {
 }
 
 function completeChallenge() {
+    // Only host/banker can complete challenges
+    const isHostOrBanker = currentPlayer.role === 'host' || currentPlayer.role === 'banker';
+    if (!isHostOrBanker) {
+        alert('Only the host or banker can complete challenges.');
+        closeChallengeModal();
+        return;
+    }
+    
     const modal = document.getElementById('challenge-modal');
     const buildingType = modal.dataset.buildingType;
     
@@ -3548,7 +3727,7 @@ async function updatePriceChart() {
     }
 }
 
-function updateBankTradePreview() {
+async function updateBankTradePreview() {
     const resourceType = document.getElementById('bank-trade-resource').value;
     const quantity = parseInt(document.getElementById('bank-trade-quantity').value) || 0;
     const isBuying = document.querySelector('input[name="bank-trade-action"]:checked').value === 'buy';
@@ -3563,6 +3742,9 @@ function updateBankTradePreview() {
         document.getElementById('bank-trade-preview').style.display = 'none';
         return;
     }
+    
+    // Reload current prices from API to ensure we have the latest prices
+    await tradingManager.loadBankPrices();
     
     const cost = tradingManager.calculateTradeCost(resourceType, quantity, isBuying);
     const prices = tradingManager.currentPrices[resourceType];
@@ -3865,6 +4047,12 @@ async function refreshPendingTrades() {
         const isReceiver = trade.to_team === currentPlayer.groupNumber;
         const hasCounterOffer = trade.counter_offered_resources !== null;
         
+        // Determine labels from viewer's perspective
+        // For initiator: offered = you give, requested = you get
+        // For receiver: offered = you get, requested = you give
+        const youGiveResources = isInitiator ? trade.offered_resources : trade.requested_resources;
+        const youGetResources = isInitiator ? trade.requested_resources : trade.offered_resources;
+        
         let html = `
             <div class="trade-offer-card" style="border: 1px solid #ccc; padding: 15px; margin-bottom: 10px; border-radius: 5px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -3877,28 +4065,36 @@ async function refreshPendingTrades() {
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
                     <div>
-                        <strong>Offered:</strong><br>
-                        ${tradingManager.formatResourcesDisplay(trade.offered_resources)}
+                        <strong>🔴 You Give:</strong><br>
+                        ${tradingManager.formatResourcesDisplay(youGiveResources)}
                     </div>
                     <div>
-                        <strong>Requested:</strong><br>
-                        ${tradingManager.formatResourcesDisplay(trade.requested_resources)}
+                        <strong>🟢 You Get:</strong><br>
+                        ${tradingManager.formatResourcesDisplay(youGetResources)}
                     </div>
                 </div>
         `;
         
         if (hasCounterOffer) {
+            // For counter-offers, the roles are reversed
+            // Counter-offer is made by the receiver of the original offer
+            // So from viewer's perspective:
+            // - If viewer is original initiator: counter_offered = you get, counter_requested = you give
+            // - If viewer is original receiver (counter-offer maker): counter_offered = you give, counter_requested = you get
+            const counterYouGiveResources = isInitiator ? trade.counter_requested_resources : trade.counter_offered_resources;
+            const counterYouGetResources = isInitiator ? trade.counter_offered_resources : trade.counter_requested_resources;
+            
             html += `
                 <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
                     <strong>Counter-Offer:</strong>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 5px;">
                         <div>
-                            <strong>Offered:</strong><br>
-                            ${tradingManager.formatResourcesDisplay(trade.counter_offered_resources)}
+                            <strong>🔴 You Give:</strong><br>
+                            ${tradingManager.formatResourcesDisplay(counterYouGiveResources)}
                         </div>
                         <div>
-                            <strong>Requested:</strong><br>
-                            ${tradingManager.formatResourcesDisplay(trade.counter_requested_resources)}
+                            <strong>🟢 You Get:</strong><br>
+                            ${tradingManager.formatResourcesDisplay(counterYouGetResources)}
                         </div>
                     </div>
                 </div>
@@ -3967,9 +4163,152 @@ async function cancelTradeOffer(tradeId) {
     }
 }
 
+// Global variable to track current trade being countered
+let currentCounterTradeId = null;
+
 function showCounterOfferForm(tradeId) {
-    alert('Counter-offer UI not yet implemented. This will allow you to propose different terms.');
-    // TODO: Implement counter-offer modal
+    // Find the trade offer in the current list
+    const trade = tradingManager.teamTradeOffers.find(t => t.id === tradeId);
+    if (!trade) {
+        alert('Trade offer not found');
+        return;
+    }
+    
+    currentCounterTradeId = tradeId;
+    
+    // Determine what the current player receives and gives in the original offer
+    const isInitiator = trade.from_team === currentPlayer.groupNumber;
+    const youGetResources = isInitiator ? trade.requested_resources : trade.offered_resources;
+    const youGiveResources = isInitiator ? trade.offered_resources : trade.requested_resources;
+    
+    // Display original offer details
+    document.getElementById('counter-original-you-get').textContent = 
+        tradingManager.formatResourcesDisplay(youGetResources);
+    document.getElementById('counter-original-you-give').textContent = 
+        tradingManager.formatResourcesDisplay(youGiveResources);
+    
+    // Clear previous counter-offer inputs
+    document.getElementById('counter-offer-list').innerHTML = '';
+    document.getElementById('counter-request-list').innerHTML = '';
+    
+    // Pre-populate with the original offer (as a starting point for modification)
+    // Note: Counter-offer perspective - "You offer" means what you're giving
+    Object.entries(youGiveResources).forEach(([resource, quantity]) => {
+        addCounterOfferResource(resource, quantity);
+    });
+    
+    Object.entries(youGetResources).forEach(([resource, quantity]) => {
+        addCounterRequestResource(resource, quantity);
+    });
+    
+    // Show the modal
+    document.getElementById('counter-offer-modal').classList.remove('hidden');
+}
+
+function addCounterOfferResource(resourceType = 'food', quantity = 1) {
+    const container = document.getElementById('counter-offer-list');
+    const id = `counter-offer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    
+    const resourceDiv = document.createElement('div');
+    resourceDiv.className = 'resource-input-group';
+    resourceDiv.innerHTML = `
+        <select id="${id}-type">
+            <option value="food" ${resourceType === 'food' ? 'selected' : ''}>🌾 Food</option>
+            <option value="raw_materials" ${resourceType === 'raw_materials' ? 'selected' : ''}>⚙️ Raw Materials</option>
+            <option value="electrical_goods" ${resourceType === 'electrical_goods' ? 'selected' : ''}>⚡ Electrical Goods</option>
+            <option value="medical_goods" ${resourceType === 'medical_goods' ? 'selected' : ''}>🏥 Medical Goods</option>
+            <option value="currency" ${resourceType === 'currency' ? 'selected' : ''}>💰 Currency</option>
+        </select>
+        <input type="number" id="${id}-qty" min="1" value="${quantity}" placeholder="Qty">
+        <button class="btn btn-sm btn-danger" onclick="removeCounterResource('${id}')">×</button>
+    `;
+    
+    container.appendChild(resourceDiv);
+}
+
+function addCounterRequestResource(resourceType = 'food', quantity = 1) {
+    const container = document.getElementById('counter-request-list');
+    const id = `counter-request-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    
+    const resourceDiv = document.createElement('div');
+    resourceDiv.className = 'resource-input-group';
+    resourceDiv.innerHTML = `
+        <select id="${id}-type">
+            <option value="food" ${resourceType === 'food' ? 'selected' : ''}>🌾 Food</option>
+            <option value="raw_materials" ${resourceType === 'raw_materials' ? 'selected' : ''}>⚙️ Raw Materials</option>
+            <option value="electrical_goods" ${resourceType === 'electrical_goods' ? 'selected' : ''}>⚡ Electrical Goods</option>
+            <option value="medical_goods" ${resourceType === 'medical_goods' ? 'selected' : ''}>🏥 Medical Goods</option>
+            <option value="currency" ${resourceType === 'currency' ? 'selected' : ''}>💰 Currency</option>
+        </select>
+        <input type="number" id="${id}-qty" min="1" value="${quantity}" placeholder="Qty">
+        <button class="btn btn-sm btn-danger" onclick="removeCounterResource('${id}')">×</button>
+    `;
+    
+    container.appendChild(resourceDiv);
+}
+
+function removeCounterResource(id) {
+    const element = document.getElementById(`${id}-type`);
+    if (element) {
+        element.parentElement.remove();
+    }
+}
+
+// Helper function to collect resources from input groups
+function collectResourcesFromInputGroups(selector) {
+    const resources = {};
+    document.querySelectorAll(selector).forEach(group => {
+        const typeSelect = group.querySelector('select');
+        const qtyInput = group.querySelector('input[type="number"]');
+        const type = typeSelect.value;
+        const qty = parseInt(qtyInput.value) || 0;
+        
+        if (qty > 0) {
+            resources[type] = (resources[type] || 0) + qty;
+        }
+    });
+    return resources;
+}
+
+async function submitCounterOffer() {
+    if (!currentCounterTradeId) {
+        alert('No trade selected for counter-offer');
+        return;
+    }
+    
+    // Collect counter-offered resources (what you're giving)
+    const counterOfferedResources = collectResourcesFromInputGroups('#counter-offer-list .resource-input-group');
+    
+    // Collect counter-requested resources (what you want to receive)
+    const counterRequestedResources = collectResourcesFromInputGroups('#counter-request-list .resource-input-group');
+    
+    if (Object.keys(counterOfferedResources).length === 0) {
+        alert('Please add at least one resource to offer');
+        return;
+    }
+    
+    if (Object.keys(counterRequestedResources).length === 0) {
+        alert('Please add at least one resource to request');
+        return;
+    }
+    
+    try {
+        await tradingManager.createCounterOffer(
+            currentCounterTradeId,
+            counterOfferedResources,
+            counterRequestedResources
+        );
+        alert('Counter-offer sent successfully!');
+        closeCounterOfferModal();
+        await refreshPendingTrades();
+    } catch (error) {
+        alert(`Failed to send counter-offer: ${error.message}`);
+    }
+}
+
+function closeCounterOfferModal() {
+    document.getElementById('counter-offer-modal').classList.add('hidden');
+    currentCounterTradeId = null;
 }
 
 function closeTradeModal() {
@@ -4104,7 +4443,7 @@ function showBriefToast(message, type = 'info') {
 }
 
 function updateTradeNotificationsList() {
-    const container = document.getElementById('trade-notifications-list');
+    const container = document.getElementById('trade-notification-list');
     if (!container) return;
     
     if (tradeNotifications.length === 0) {
@@ -4519,11 +4858,12 @@ async function giveBuildings() {
 }
 
 function handleGameEvent(data) {
-    const { event_type, data: eventData } = data;
-    
-    // console.log(`[WebSocket Event] Received event_type: ${event_type}`, eventData);
-    
-    // Handle notification-type messages (challenge assignments/completions sent to teams)
+    try {
+        const { event_type, data: eventData } = data;
+        
+        // console.log(`[WebSocket Event] Received event_type: ${event_type}`, eventData);
+        
+        // Handle notification-type messages (challenge assignments/completions sent to teams)
     if (data.type === 'notification' && data.notification_type) {
         const notificationType = data.notification_type;
         const message = data.message;
@@ -4553,9 +4893,52 @@ function handleGameEvent(data) {
     }
     
     switch (event_type) {
+        case 'food_tax_warning':
+            // Food tax warning - show notification to affected team
+            if (eventData.team_number == currentPlayer.groupNumber) {
+                const minutesRemaining = eventData.minutes_remaining || 3;
+                const warningMsg = `⚠️ Food tax due in ${minutesRemaining.toFixed(1)} minutes!`;
+                showTradeNotification(warningMsg, 'warning');
+                addEventLog(warningMsg, 'warning');
+            }
+            break;
+        
+        case 'food_tax_applied':
+            // Food tax successfully applied - show notification with amount
+            if (eventData.team_number == currentPlayer.groupNumber) {
+                const taxAmount = eventData.tax_amount || 0;
+                const taxMsg = `🍖 Food tax applied: ${taxAmount} food deducted`;
+                showTradeNotification(taxMsg, 'warning');
+                addEventLog(taxMsg, 'warning');
+                
+                // Update team resources if provided
+                if (eventData.new_resources) {
+                    teamState.resources = eventData.new_resources;
+                    refreshTeamResources();
+                }
+            }
+            break;
+        
+        case 'food_tax_famine':
+            // Food tax caused famine - show critical notification
+            if (eventData.team_number == currentPlayer.groupNumber) {
+                const famineMsg = `💀 FAMINE! Insufficient food for tax - penalties applied`;
+                showTradeNotification(famineMsg, 'error');
+                addEventLog(famineMsg, 'error');
+                
+                // Update team resources if provided
+                if (eventData.new_resources) {
+                    teamState.resources = eventData.new_resources;
+                    refreshTeamResources();
+                }
+            }
+            break;
+        
         case 'food_tax':
+            // Legacy food_tax event (keep for backwards compatibility)
             addEventLog('Food tax has been applied!', 'warning');
             break;
+        
         case 'food_tax_applied':
             // Handle successful food tax application
             {
@@ -4571,6 +4954,7 @@ function handleGameEvent(data) {
                 });
             }
             break;
+        
         case 'food_tax_famine':
             // Handle famine scenario
             {
@@ -4585,6 +4969,7 @@ function handleGameEvent(data) {
                 });
             }
             break;
+        
         case 'food_tax_failed':
             // Handle tax application failure
             {
@@ -4594,12 +4979,19 @@ function handleGameEvent(data) {
                 addEventLog(`Team ${teamNum}: ${message}`, 'error');
             }
             break;
+        
         case 'natural_disaster':
         case 'drought':
         case 'disease':
         case 'famine':
-            addEventLog(`${event_type} event triggered! Severity: ${eventData.severity}`, 'error');
+            // Natural disaster events - show notification to all players
+            const disasterType = event_type.toUpperCase().replace('_', ' ');
+            const severity = eventData.severity || 'unknown';
+            const disasterMsg = `🌪️ ${disasterType} event! Severity: ${severity}`;
+            showTradeNotification(disasterMsg, 'error');
+            addEventLog(disasterMsg, 'error');
             break;
+        
         case 'production_complete':
             if (eventData.player_id === currentPlayer.id) {
                 addEventLog('Production completed successfully!', 'success');
@@ -4762,7 +5154,7 @@ function handleGameEvent(data) {
             // Update team resources after bank trade
             if (eventData.team_number === currentPlayer.groupNumber) {
                 teamState.resources = eventData.team_resources;
-                refreshTeamResources();
+                updatePlayerDashboard();
                 
                 const action = eventData.is_buying ? 'bought' : 'sold';
                 addEventLog(`${action.charAt(0).toUpperCase() + action.slice(1)} ${eventData.quantity} ${formatResourceName(eventData.resource_type)}`, 'success');
@@ -4827,7 +5219,7 @@ function handleGameEvent(data) {
                 const myTeamNum = String(currentPlayer.groupNumber);
                 if (eventData.team_states[myTeamNum]) {
                     teamState = eventData.team_states[myTeamNum];
-                    refreshTeamResources();
+                    updatePlayerDashboard();
                 }
             }
             
@@ -4867,6 +5259,21 @@ function handleGameEvent(data) {
                 refreshPendingTrades();
             }
             break;
+    }
+    } catch (error) {
+        // Catch any errors in event handling to prevent dashboard from crashing
+        console.error('[handleGameEvent] Error processing event:', {
+            event_type: data?.event_type,
+            error: error,
+            stack: error?.stack
+        });
+        
+        // Log to event log if available
+        if (typeof addEventLog === 'function') {
+            addEventLog('⚠️ Error processing game event: ' + (error?.message || 'Unknown error'), 'error');
+        }
+        
+        // Don't re-throw - we want the dashboard to stay functional
     }
 }
 
@@ -5011,8 +5418,72 @@ function openGameSettings() {
     const modal = document.getElementById('settings-modal');
     modal.classList.add('show');
     
-    // Load current game configuration
+    // Load current game configuration and apply restrictions
     loadGameSettings();
+    applySettingsRestrictions();
+}
+
+function applySettingsRestrictions() {
+    // Check if game has started (not in waiting state)
+    const gameStarted = currentGameStatus !== 'waiting';
+    
+    // Get elements
+    const numTeamsInput = document.getElementById('num-teams-modal');
+    const gameDurationInput = document.getElementById('game-duration-modal');
+    const gameDifficultySelect = document.getElementById('game-difficulty');
+    
+    const teamsWarning = document.getElementById('teams-warning');
+    const teamsLockedWarning = document.getElementById('teams-locked-warning');
+    const rulesWarning = document.getElementById('rules-warning');
+    const rulesLockedWarning = document.getElementById('rules-locked-warning');
+    
+    if (gameStarted) {
+        // Disable restricted fields
+        if (numTeamsInput) {
+            numTeamsInput.disabled = true;
+            numTeamsInput.style.opacity = '0.6';
+            numTeamsInput.style.cursor = 'not-allowed';
+        }
+        if (gameDurationInput) {
+            gameDurationInput.disabled = true;
+            gameDurationInput.style.opacity = '0.6';
+            gameDurationInput.style.cursor = 'not-allowed';
+        }
+        if (gameDifficultySelect) {
+            gameDifficultySelect.disabled = true;
+            gameDifficultySelect.style.opacity = '0.6';
+            gameDifficultySelect.style.cursor = 'not-allowed';
+        }
+        
+        // Show locked warnings, hide regular warnings
+        if (teamsWarning) teamsWarning.style.display = 'none';
+        if (teamsLockedWarning) teamsLockedWarning.style.display = 'block';
+        if (rulesWarning) rulesWarning.style.display = 'none';
+        if (rulesLockedWarning) rulesLockedWarning.style.display = 'block';
+    } else {
+        // Enable fields (game in waiting state)
+        if (numTeamsInput) {
+            numTeamsInput.disabled = false;
+            numTeamsInput.style.opacity = '1';
+            numTeamsInput.style.cursor = 'auto';
+        }
+        if (gameDurationInput) {
+            gameDurationInput.disabled = false;
+            gameDurationInput.style.opacity = '1';
+            gameDurationInput.style.cursor = 'auto';
+        }
+        if (gameDifficultySelect) {
+            gameDifficultySelect.disabled = false;
+            gameDifficultySelect.style.opacity = '1';
+            gameDifficultySelect.style.cursor = 'auto';
+        }
+        
+        // Show regular warnings, hide locked warnings
+        if (teamsWarning) teamsWarning.style.display = 'block';
+        if (teamsLockedWarning) teamsLockedWarning.style.display = 'none';
+        if (rulesWarning) rulesWarning.style.display = 'block';
+        if (rulesLockedWarning) rulesLockedWarning.style.display = 'none';
+    }
 }
 
 function closeGameSettings() {
@@ -5111,6 +5582,219 @@ async function loadGameSettings() {
         });
     } catch (error) {
         console.error('Error loading game settings:', error);
+    }
+    
+    // Load available scenarios
+    await loadScenariosForModal();
+}
+
+let availableScenarios = [];
+let selectedScenario = null;
+
+async function loadScenariosForModal() {
+    try {
+        const response = await fetch('/scenarios');
+        const data = await response.json();
+        availableScenarios = data.scenarios;
+        
+        const select = document.getElementById('scenario-select-modal');
+        if (!select) return;
+        
+        // Clear existing options except the first one
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
+        
+        // Add scenario options
+        availableScenarios.forEach(scenario => {
+            const option = document.createElement('option');
+            option.value = scenario.id;
+            option.textContent = `${scenario.name} (${scenario.period}) - ${scenario.difficulty.toUpperCase()}`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading scenarios:', error);
+    }
+}
+
+function onScenarioChangeModal() {
+    const select = document.getElementById('scenario-select-modal');
+    const scenarioId = select.value;
+    
+    const detailsDiv = document.getElementById('scenario-details-modal');
+    
+    if (!scenarioId) {
+        if (detailsDiv) detailsDiv.style.display = 'none';
+        selectedScenario = null;
+        return;
+    }
+
+    const scenario = availableScenarios.find(s => s.id === scenarioId);
+    if (scenario && detailsDiv) {
+        selectedScenario = scenario;
+        document.getElementById('scenario-name-modal').textContent = scenario.name;
+        document.getElementById('scenario-period-modal').textContent = scenario.period;
+        document.getElementById('scenario-difficulty-modal').textContent = scenario.difficulty.toUpperCase();
+        document.getElementById('scenario-duration-modal').textContent = `${scenario.recommended_duration} minutes`;
+        document.getElementById('scenario-desc-modal').textContent = scenario.description;
+        detailsDiv.style.display = 'block';
+        
+        // Auto-set duration to scenario recommendation
+        const durationSlider = document.getElementById('game-duration-modal');
+        if (durationSlider) {
+            durationSlider.value = scenario.recommended_duration;
+            updateDurationDisplayModal(scenario.recommended_duration);
+        }
+    }
+}
+
+async function saveAllSettings() {
+    // Check if game has started
+    const gameStarted = currentGameStatus !== 'waiting';
+    
+    const errors = [];
+    const successes = [];
+    
+    try {
+        // Save team configuration (only if not started)
+        if (!gameStarted) {
+            // Check if a scenario is selected
+            const scenarioSelect = document.getElementById('scenario-select-modal');
+            const scenarioId = scenarioSelect ? scenarioSelect.value : '';
+            
+            if (scenarioId) {
+                // Save scenario (this will auto-set teams, duration, and difficulty)
+                try {
+                    const response = await fetch(`/games/${currentGameCode}/set-scenario`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scenario_id: scenarioId })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to set scenario');
+                    }
+                    
+                    const data = await response.json();
+                    successes.push(`Scenario set: ${data.scenario_name}`);
+                    successes.push(`Auto-configured: ${data.num_teams} teams, ${data.game_duration_minutes} minutes, ${data.difficulty} difficulty`);
+                    
+                    // Reload team boxes
+                    await loadGameAndCreateTeamBoxes();
+                } catch (error) {
+                    errors.push(`Scenario: ${error.message || 'Unknown error'}`);
+                }
+            } else {
+                // Manual configuration without scenario
+                const numTeams = parseInt(document.getElementById('num-teams-modal').value);
+                
+                if (numTeams < 1 || numTeams > 20) {
+                    errors.push('Number of teams must be between 1 and 20');
+                } else {
+                    try {
+                        await gameAPI.setNumTeams(currentGameCode, numTeams);
+                        successes.push(`Team configuration: ${numTeams} teams`);
+                        
+                        // Update status display
+                        const statusSpan = document.getElementById('teams-status-modal');
+                        if (statusSpan) {
+                            statusSpan.textContent = `✓ Currently: ${numTeams} teams`;
+                            statusSpan.style.color = '#4caf50';
+                        }
+                        
+                        // Reload team boxes
+                        await loadGameAndCreateTeamBoxes();
+                    } catch (error) {
+                        errors.push(`Team configuration: ${error.message || error.detail || 'Unknown error'}`);
+                    }
+                }
+                
+                // Save game duration (only if not started and no scenario)
+                try {
+                    const gameDuration = parseInt(document.getElementById('game-duration-modal').value);
+                    await gameAPI.setGameDuration(currentGameCode, gameDuration);
+                    const hours = Math.floor(gameDuration / 60);
+                    const mins = gameDuration % 60;
+                    let durationStr = hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''}` : '';
+                    if (mins > 0) {
+                        if (durationStr) durationStr += ' ';
+                        durationStr += `${mins} minutes`;
+                    }
+                    successes.push(`Game duration: ${durationStr}`);
+                } catch (error) {
+                    errors.push(`Game duration: ${error.message || error.detail || 'Unknown error'}`);
+                }
+                
+                // Save game difficulty (only if not started and no scenario)
+                try {
+                    const difficulty = document.getElementById('game-difficulty').value;
+                    await gameAPI.setGameDifficulty(currentGameCode, difficulty);
+                    const difficultyDescriptions = {
+                        'easy': 'Easy',
+                        'medium': 'Medium',
+                        'hard': 'Hard'
+                    };
+                successes.push(`Game difficulty: ${difficultyDescriptions[difficulty]}`);
+            } catch (error) {
+                errors.push(`Game difficulty: ${error.message || error.detail || 'Unknown error'}`);
+            }
+        }
+        
+        // Save challenge defaults (can be done anytime)
+        try {
+            if (typeof challengeTypes !== 'undefined') {
+                const newDefaults = {
+                    'push_ups': parseInt(document.getElementById('challenge-push_ups').value),
+                    'sit_ups': parseInt(document.getElementById('challenge-sit_ups').value),
+                    'burpees': parseInt(document.getElementById('challenge-burpees').value),
+                    'star_jumps': parseInt(document.getElementById('challenge-star_jumps').value),
+                    'squats': parseInt(document.getElementById('challenge-squats').value),
+                    'lunges': parseInt(document.getElementById('challenge-lunges').value),
+                    'plank': parseInt(document.getElementById('challenge-plank').value),
+                    'jumping_jacks': parseInt(document.getElementById('challenge-jumping_jacks').value)
+                };
+                
+                let challengesSaved = false;
+                Object.keys(newDefaults).forEach(key => {
+                    if (challengeTypes[key] && !isNaN(newDefaults[key]) && newDefaults[key] > 0) {
+                        challengeTypes[key].default = newDefaults[key];
+                        challengesSaved = true;
+                    }
+                });
+                
+                if (challengesSaved) {
+                    successes.push('Challenge defaults updated');
+                }
+            }
+        } catch (error) {
+            console.error('Error saving challenge defaults:', error);
+            errors.push(`Challenge defaults: ${error.message || 'Unknown error'}`);
+        }
+        
+        // Show results
+        let message = '';
+        if (successes.length > 0) {
+            message += '✅ Settings saved:\n' + successes.map(s => '  • ' + s).join('\n');
+            addEventLog('Settings saved successfully', 'success');
+        }
+        if (errors.length > 0) {
+            if (message) message += '\n\n';
+            message += '❌ Errors:\n' + errors.map(e => '  • ' + e).join('\n');
+        }
+        
+        if (message) {
+            alert(message);
+        }
+        
+        // Close modal if all succeeded
+        if (errors.length === 0) {
+            closeGameSettings();
+        }
+        
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        alert('Failed to save settings: ' + (error.message || error.detail || 'Unknown error'));
     }
 }
 
@@ -5809,6 +6493,23 @@ function updateActiveChallengesList() {
         challengeItem.className = `active-challenge-item ${isExpiring ? 'expiring' : ''}`;
         challengeItem.dataset.challengeKey = `${challenge.player_id}-${challenge.building_type}`;
         
+        // Only host/banker can complete or cancel challenges
+        const isHostOrBanker = currentPlayer.role === 'host' || currentPlayer.role === 'banker';
+        const actionButtonsHtml = isHostOrBanker ? `
+            <div class="challenge-actions">
+                <button class="btn btn-success" onclick="completeChallengeAndGrantResources('${challenge.player_id}', '${challenge.building_type}', ${challenge.team_number})" style="margin-right: 10px;">
+                    ✅ Complete Challenge
+                </button>
+                <button class="btn btn-danger" onclick="cancelActiveChallenge('${challenge.player_id}', '${challenge.building_type}')">
+                    ❌ Cancel Challenge
+                </button>
+            </div>
+        ` : `
+            <div class="challenge-status">
+                <p style="color: #667eea; font-weight: 600; font-style: italic;">⏳ Challenge in progress - waiting for host/banker to complete</p>
+            </div>
+        `;
+        
         challengeItem.innerHTML = `
             <div class="challenge-header">
                 <div class="challenge-info">
@@ -5827,14 +6528,7 @@ function updateActiveChallengesList() {
                 <p><strong>Challenge:</strong> <span class="challenge-description">${challenge.challenge_description}</span></p>
                 <p><strong>Type:</strong> ${challenge.has_school ? 'Individual (has school 🏫)' : 'Team-wide (no school)'}</p>
             </div>
-            <div class="challenge-actions">
-                <button class="btn btn-success" onclick="completeChallengeAndGrantResources('${challenge.player_id}', '${challenge.building_type}', ${challenge.team_number})" style="margin-right: 10px;">
-                    ✅ Complete Challenge
-                </button>
-                <button class="btn btn-danger" onclick="cancelActiveChallenge('${challenge.player_id}', '${challenge.building_type}')">
-                    ❌ Cancel Challenge
-                </button>
-            </div>
+            ${actionButtonsHtml}
         `;
         
         listDiv.appendChild(challengeItem);
@@ -5861,7 +6555,7 @@ async function completeChallengeAndGrantResources(playerId, buildingType, teamNu
     // console.log('[completeChallengeAndGrantResources] playerId type:', typeof playerId);
     
     // Convert playerId to number if it's a string
-    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId) : playerId;
+    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId, 10) : playerId;
     // console.log('[completeChallengeAndGrantResources] playerIdNum:', playerIdNum);
     
     // Find challenge - check challenge manager first
@@ -6016,6 +6710,9 @@ async function cancelActiveChallenge(playerId, buildingType) {
     
     // console.log('[cancelActiveChallenge] Called for player:', playerId, 'building:', buildingType);
     
+    // Convert playerId to number if it's a string
+    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId, 10) : playerId;
+    
     // Find challenge - check challenge manager first
     let challenge = null;
     let challengeDbId = null;
@@ -6023,7 +6720,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
     if (challengeManager) {
         const assignedChallenges = challengeManager.getAssignedChallenges();
         challenge = assignedChallenges.find(
-            ch => ch.player_id === playerId && ch.building_type === buildingType
+            ch => ch.player_id === playerIdNum && ch.building_type === buildingType
         );
         if (challenge) {
             challengeDbId = challenge.db_id;
@@ -6033,7 +6730,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
     
     // Fall back to legacy object
     if (!challenge) {
-        const challengeKey = `${playerId}-${buildingType}`;
+        const challengeKey = `${playerIdNum}-${buildingType}`;
         challenge = allActiveChallenges[challengeKey];
         if (challenge) {
             challengeDbId = challenge.db_id;
@@ -6057,7 +6754,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
     }
     
     // Remove from active challenges (legacy)
-    const challengeKey = `${playerId}-${buildingType}`;
+    const challengeKey = `${playerIdNum}-${buildingType}`;
     delete allActiveChallenges[challengeKey];
     
     // Notify player via WebSocket
@@ -6065,7 +6762,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
         type: 'event',
         event_type: 'challenge_cancelled',
         data: {
-            player_id: playerId,
+            player_id: playerIdNum,
             building_type: buildingType,
             team_number: challenge.team_number
         }
@@ -6104,12 +6801,13 @@ function expireChallenge(playerId, buildingType) {
 
 // Load banker view for host
 async function loadHostBankerView() {
-    // Load bank prices
-    if (playerState.bank_prices) {
-        document.getElementById('host-price-food').value = playerState.bank_prices.food || 2;
-        document.getElementById('host-price-raw-materials').value = playerState.bank_prices.raw_materials || 3;
-        document.getElementById('host-price-electrical-goods').value = playerState.bank_prices.electrical_goods || 15;
-        document.getElementById('host-price-medical-goods').value = playerState.bank_prices.medical_goods || 20;
+    // Load bank prices from game state (not player state)
+    if (gameState.bank_prices) {
+        // bank_prices now stores baseline, buy_price, sell_price - use baseline for the input
+        document.getElementById('host-price-food').value = gameState.bank_prices.food?.baseline || 2;
+        document.getElementById('host-price-raw-materials').value = gameState.bank_prices.raw_materials?.baseline || 3;
+        document.getElementById('host-price-electrical-goods').value = gameState.bank_prices.electrical_goods?.baseline || 15;
+        document.getElementById('host-price-medical-goods').value = gameState.bank_prices.medical_goods?.baseline || 20;
     }
     
     // Load bank inventory from gameState (not playerState)
@@ -6119,7 +6817,7 @@ async function loadHostBankerView() {
         Object.entries(gameState.bank_inventory).forEach(([resource, amount]) => {
             const item = document.createElement('div');
             item.className = 'resource-item';
-            item.innerHTML = `<strong>${resource}:</strong> ${amount}`;
+            item.innerHTML = `<strong>${formatResourceName(resource)}:</strong> ${amount}`;
             inventoryDiv.appendChild(item);
         });
     } else {

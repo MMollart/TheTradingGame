@@ -43,7 +43,7 @@ Players request physical challenges (push-ups, burpees) → Host/Banker assigns 
 **Key files**:
 - Backend: `backend/challenge_manager.py`, `backend/challenge_api.py`, `backend/models.py` (Challenge, ChallengeStatus enum)
 - Frontend: `frontend/challenge-manager.js`, `frontend/dashboard.js` (WebSocket handlers)
-- Docs: `docs/CHALLENGE_SYSTEM_README.md`, `docs/FEATURE-LOBBY-AND-CHALLENGES.md`
+- Docs: `docs/technical/CHALLENGE_SYSTEM_README.md`, `docs/technical/FEATURE-LOBBY-AND-CHALLENGES.md`
 
 **4. WebSocket Event Protocol**
 Format: `{"type": "event", "event_type": "<specific_event>", "data": {...}}`
@@ -392,37 +392,47 @@ window.addEventListener('beforeunload', () => gameWS.disconnect());
 
 ## Feature Documentation
 
-All documentation files are now organized in the `docs/` directory. See [docs/README.md](../docs/README.md) for the complete documentation index.
+All documentation files are organized in `docs/` with three main folders: `game-design/`, `player-guides/`, and `technical/`. See [docs/README.md](../docs/README.md) for the complete documentation index.
 
-### Getting Started Documentation
-- **[QUICKSTART.md](../docs/QUICKSTART.md)**: Server management scripts, development workflow, testing
-- **[OSM_OAUTH_SETUP.md](../docs/OSM_OAUTH_SETUP.md)**: OnlineScoutManager OAuth2 integration setup
+### Game Design Documentation
+- **[CHATGPT_GAME_PROMPT.md](../docs/game-design/CHATGPT_GAME_PROMPT.md)**: Complete game description for AI assistance
+- **[GAME_EVENTS.md](../docs/game-design/GAME_EVENTS.md)**: Natural disasters, economic events, mitigation strategies
+- **[HISTORICAL_SCENARIOS.md](../docs/game-design/HISTORICAL_SCENARIOS.md)**: 6 historical scenarios with themed nations
+- **[FLOW_DIAGRAM.md](../docs/game-design/FLOW_DIAGRAM.md)**: Game flow diagrams, state transitions, gameplay sequences
+- **[SCOUT_COLORS.md](../docs/game-design/SCOUT_COLORS.md)**: Scout-themed color palette, design system guidelines
 
-### Core Feature Documentation
-- **[CHALLENGE_SYSTEM_README.md](../docs/CHALLENGE_SYSTEM_README.md)**: Complete challenge architecture, multi-user support, pause-aware timing, API reference, testing guide
-- **[FEATURE-LOBBY-AND-CHALLENGES.md](../docs/FEATURE-LOBBY-AND-CHALLENGES.md)**: Lobby state management, challenge request workflow, player approval system
-- **[FEATURE-GAME-DURATION.md](../docs/FEATURE-GAME-DURATION.md)**: Configurable game duration (1-4 hours), game timer implementation, pause/resume behavior
-- **[FEATURE-FOOD-TAX-AUTOMATION.md](../docs/FEATURE-FOOD-TAX-AUTOMATION.md)**: Automated food tax system, banker controls, penalty mechanics
-- **[FOOD-TAX-QUICKSTART.md](../docs/FOOD-TAX-QUICKSTART.md)**: Quick guide for using food tax feature
-- **[TRADING_FEATURE_README.md](../docs/TRADING_FEATURE_README.md)**: Resource trading system, team-to-team trading, World Bank trading
-- **[BUILDING-CONSTRUCTION-SYSTEM.md](../docs/BUILDING-CONSTRUCTION-SYSTEM.md)**: Building types, construction costs, production multipliers
+### Player Guides
+- **[PLAYER_INSTRUCTIONS_QUICK.md](../docs/player-guides/PLAYER_INSTRUCTIONS_QUICK.md)**: 2-page quick reference (best for printing)
+- **[PLAYER_INSTRUCTIONS.md](../docs/player-guides/PLAYER_INSTRUCTIONS.md)**: Complete player guide (detailed)
+- **[QUICKSTART.md](../docs/player-guides/QUICKSTART.md)**: Server management scripts, development workflow, testing
+- **[FOOD-TAX-QUICKSTART.md](../docs/player-guides/FOOD-TAX-QUICKSTART.md)**: Quick guide for using food tax feature
+- **[PRINTING_GUIDE.md](../docs/player-guides/PRINTING_GUIDE.md)**: Guide for printing player instructions
 
-### Architecture & Implementation
-- **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](../docs/CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)**: WebSocket event handling, real-time synchronization, event types
-- **[CHALLENGE-WEBSOCKET-TESTING.md](../docs/CHALLENGE-WEBSOCKET-TESTING.md)**: WebSocket testing methodology and test cases
-- **[FLOW_DIAGRAM.md](../docs/FLOW_DIAGRAM.md)**: Game flow diagrams, state transitions, gameplay sequences
+### Technical Documentation
+
+**Core Features:**
+- **[CHALLENGE_SYSTEM_README.md](../docs/technical/CHALLENGE_SYSTEM_README.md)**: Complete challenge architecture, multi-user support, pause-aware timing, API reference
+- **[FEATURE-LOBBY-AND-CHALLENGES.md](../docs/technical/FEATURE-LOBBY-AND-CHALLENGES.md)**: Lobby state management, challenge request workflow, player approval
+- **[FEATURE-GAME-DURATION.md](../docs/technical/FEATURE-GAME-DURATION.md)**: Configurable game duration (1-4 hours), game timer, pause/resume
+- **[FEATURE-FOOD-TAX-AUTOMATION.md](../docs/technical/FEATURE-FOOD-TAX-AUTOMATION.md)**: Automated food tax system, banker controls, penalty mechanics
+- **[TRADING_FEATURE_README.md](../docs/technical/TRADING_FEATURE_README.md)**: Resource trading system, team-to-team trading, World Bank trading
+- **[BUILDING-CONSTRUCTION-SYSTEM.md](../docs/technical/BUILDING-CONSTRUCTION-SYSTEM.md)**: Building types, construction costs, production multipliers
+
+**Architecture & Implementation:**
+- **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](../docs/technical/CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)**: WebSocket event handling, real-time synchronization
+- **[CHALLENGE-WEBSOCKET-TESTING.md](../docs/technical/CHALLENGE-WEBSOCKET-TESTING.md)**: WebSocket testing methodology and test cases
+- **[IMPLEMENTATION_SUMMARY.md](../docs/technical/IMPLEMENTATION_SUMMARY.md)**: General implementation patterns and conventions
+- **[IMPLEMENTATION_SUMMARY_FOOD_TAX.md](../docs/technical/IMPLEMENTATION_SUMMARY_FOOD_TAX.md)**: Food tax implementation details
+- **[TRADING_IMPLEMENTATION_SUMMARY.md](../docs/technical/TRADING_IMPLEMENTATION_SUMMARY.md)**: Trading system implementation guide
+- **[TRADING_SYSTEM_TESTING.md](../docs/technical/TRADING_SYSTEM_TESTING.md)**: Trading system test suite and validation
+
+**Setup & Troubleshooting:**
+- **[OSM_OAUTH_SETUP.md](../docs/technical/OSM_OAUTH_SETUP.md)**: OnlineScoutManager OAuth2 integration setup
+- **[DASHBOARD_REFRESH_FIX.md](../docs/technical/DASHBOARD_REFRESH_FIX.md)**: Dashboard refresh issues, WebSocket reconnection fixes
+- **[FIX_BANKER_NOT_FOUND.md](../docs/technical/FIX_BANKER_NOT_FOUND.md)**: Banker role detection bug fix
+
+**API Reference:**
 - **[DOCS.md](../docs/DOCS.md)**: Technical API documentation, database schema, endpoints
-- **[IMPLEMENTATION_SUMMARY.md](../docs/IMPLEMENTATION_SUMMARY.md)**: General implementation patterns and conventions
-- **[IMPLEMENTATION_SUMMARY_FOOD_TAX.md](../docs/IMPLEMENTATION_SUMMARY_FOOD_TAX.md)**: Food tax implementation details
-- **[TRADING_IMPLEMENTATION_SUMMARY.md](../docs/TRADING_IMPLEMENTATION_SUMMARY.md)**: Trading system implementation guide
-- **[TRADING_SYSTEM_TESTING.md](../docs/TRADING_SYSTEM_TESTING.md)**: Trading system test suite and validation
-
-### Troubleshooting & Fixes
-- **[DASHBOARD_REFRESH_FIX.md](../docs/DASHBOARD_REFRESH_FIX.md)**: Dashboard refresh issues, WebSocket reconnection fixes
-- **[FIX_BANKER_NOT_FOUND.md](../docs/FIX_BANKER_NOT_FOUND.md)**: Banker role detection bug fix
-
-### UI/UX Design
-- **[SCOUT_COLORS.md](../docs/SCOUT_COLORS.md)**: Scout-themed color palette, design system guidelines
 
 ## When Modifying Code
 

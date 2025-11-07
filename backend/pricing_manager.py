@@ -328,3 +328,59 @@ class PricingManager:
         unit_price = price_info['buy_price'] if is_team_buying else price_info['sell_price']
         
         return unit_price * quantity
+    
+    def update_resource_baseline(
+        self,
+        game_code: str,
+        resource_type: str,
+        new_baseline: int,
+        current_prices: Dict[str, Dict[str, int]]
+    ) -> Dict[str, Dict[str, int]]:
+        """
+        Manually update the baseline price for a resource (for host/banker).
+        
+        Args:
+            game_code: The game code
+            resource_type: Resource to update
+            new_baseline: New baseline price
+            current_prices: Current price structure
+        
+        Returns:
+            Updated price structure
+        """
+        game = self.db.query(GameSession).filter(
+            GameSession.game_code == game_code.upper()
+        ).first()
+        
+        if not game:
+            raise ValueError(f"Game {game_code} not found")
+        
+        if resource_type not in current_prices:
+            raise ValueError(f"Unknown resource type: {resource_type}")
+        
+        if new_baseline < 1:
+            raise ValueError("Baseline price must be at least 1")
+        
+        # Calculate new buy/sell prices with spread
+        new_buy_price = self._apply_spread(new_baseline, is_buy=True)
+        new_sell_price = self._apply_spread(new_baseline, is_buy=False)
+        
+        # Update prices
+        updated_prices = current_prices.copy()
+        updated_prices[resource_type] = {
+            'baseline': new_baseline,
+            'buy_price': new_buy_price,
+            'sell_price': new_sell_price
+        }
+        
+        # Record price change
+        self._record_price_history(
+            game.id,
+            resource_type,
+            new_buy_price,
+            new_sell_price,
+            new_baseline,
+            triggered_by_trade=False
+        )
+        
+        return updated_prices

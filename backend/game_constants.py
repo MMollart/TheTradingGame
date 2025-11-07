@@ -342,6 +342,68 @@ DEFAULT_CHALLENGE_REQUIREMENTS = {
 
 # ==================== Scoring ====================
 
+# Kindness scoring configuration
+KINDNESS_FACTOR = 0.15  # 15% impact per unit of average margin
+MIN_KINDNESS_MODIFIER = 0.5  # Minimum 50% of base score (caps penalty)
+MAX_KINDNESS_MODIFIER = 1.5  # Maximum 150% of base score (caps bonus)
+
+def calculate_kindness_modifier(trade_margins: List[Dict]) -> Dict:
+    """
+    Calculate the kindness modifier based on trade history.
+    
+    Args:
+        trade_margins: List of trade margin records, each with 'margin' and 'trade_value'
+                      Negative margins = generous trades, Positive = profitable trades
+    
+    Returns:
+        Dictionary with 'modifier' (float), 'avg_margin' (float), and 'label' (str)
+    """
+    if not trade_margins:
+        return {
+            'modifier': 1.0,
+            'avg_margin': 0.0,
+            'label': 'No Trades'
+        }
+    
+    # Calculate weighted average margin (larger trades have more influence)
+    total_weighted_margin = 0.0
+    total_weight = 0.0
+    
+    for trade in trade_margins:
+        margin = trade.get('margin', 0.0)
+        trade_value = trade.get('trade_value', 1.0)  # Use 1.0 as default weight
+        
+        total_weighted_margin += margin * trade_value
+        total_weight += trade_value
+    
+    avg_margin = total_weighted_margin / total_weight if total_weight > 0 else 0.0
+    
+    # Calculate modifier: 1 - (avg_margin * kindness_factor)
+    # Negative margins (losses) increase the modifier (reward) since subtracting a negative adds
+    # Positive margins (profits) decrease the modifier (penalty)
+    modifier = 1.0 - (avg_margin * KINDNESS_FACTOR)
+    
+    # Apply bounds to prevent extreme modifiers
+    modifier = max(MIN_KINDNESS_MODIFIER, min(MAX_KINDNESS_MODIFIER, modifier))
+    
+    # Determine label
+    if avg_margin <= -0.2:
+        label = "Generous Trader"
+    elif avg_margin <= -0.05:
+        label = "Fair Trader"
+    elif avg_margin < 0.05:
+        label = "Balanced Trader"
+    elif avg_margin < 0.2:
+        label = "Shrewd Trader"
+    else:
+        label = "Profit-Focused"
+    
+    return {
+        'modifier': round(modifier, 4),
+        'avg_margin': round(avg_margin, 4),
+        'label': label
+    }
+
 def calculate_final_score(nation_state: Dict) -> Dict:
     """
     Calculate final score for a nation based on:
@@ -349,12 +411,16 @@ def calculate_final_score(nation_state: Dict) -> Dict:
     - Buildings at double their currency cost
     - Trade deals
     - Donations/kindness
+    - Trade fairness modifier (kindness-based)
     """
     score = {
         "resource_value": 0,
         "building_value": 0,
         "trade_value": 0,
         "kindness_value": 0,
+        "base_total": 0,
+        "kindness_modifier": 1.0,
+        "kindness_label": "No Trades",
         "total": 0
     }
     
@@ -372,7 +438,24 @@ def calculate_final_score(nation_state: Dict) -> Dict:
     score["trade_value"] = nation_state.get("trade_value", 0)
     score["kindness_value"] = nation_state.get("kindness_value", 0)
     
-    score["total"] = sum(score.values())
+    # Calculate base total before kindness modifier
+    score["base_total"] = (
+        score["resource_value"] + 
+        score["building_value"] + 
+        score["trade_value"] + 
+        score["kindness_value"]
+    )
+    
+    # Apply kindness modifier based on trade history
+    trade_margins = nation_state.get("trade_margins", [])
+    if trade_margins:
+        kindness_data = calculate_kindness_modifier(trade_margins)
+        score["kindness_modifier"] = kindness_data['modifier']
+        score["kindness_label"] = kindness_data['label']
+        score["avg_trade_margin"] = kindness_data['avg_margin']
+    
+    # Calculate final total with kindness modifier
+    score["total"] = int(score["base_total"] * score["kindness_modifier"])
     
     return score
 

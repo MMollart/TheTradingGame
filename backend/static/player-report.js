@@ -284,6 +284,33 @@ function populatePlayerContributions(currentPlayer, teamPlayers, challenges) {
     container.innerHTML = html || '<div class="empty-state">No challenges completed yet</div>';
 }
 
+function formatResourceName(resource) {
+    // Map resource keys to display names
+    const names = {
+        'food': 'Food',
+        'raw_materials': 'Raw Materials',
+        'electrical_goods': 'Electrical Goods',
+        'medical_goods': 'Medical Goods',
+        'currency': 'Currency'
+    };
+    return names[resource] || resource.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function formatBuildingName(building) {
+    // Map building keys to display names
+    const names = {
+        'farm': 'Farm',
+        'mine': 'Mine',
+        'electrical_factory': 'Electrical Factory',
+        'medical_factory': 'Medical Factory',
+        'school': 'School',
+        'hospital': 'Hospital',
+        'restaurant': 'Restaurant',
+        'water_treatment': 'Water Treatment'
+    };
+    return names[building] || building.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
 function populateResources(resources) {
     const container = document.getElementById('resources-container');
     
@@ -295,7 +322,7 @@ function populateResources(resources) {
     const html = Object.entries(resources).map(([resource, amount]) => `
         <div class="resource-item">
             <div class="resource-icon">${RESOURCE_ICONS[resource] || '📦'}</div>
-            <div class="resource-name">${resource.replace(/_/g, ' ')}</div>
+            <div class="resource-name">${formatResourceName(resource)}</div>
             <div class="resource-amount">${amount}</div>
         </div>
     `).join('');
@@ -314,7 +341,7 @@ function populateBuildings(buildings) {
     const html = Object.entries(buildings).map(([building, count]) => `
         <div class="building-item">
             <div class="building-icon">${BUILDING_ICONS[building] || '🏢'}</div>
-            <div class="building-name">${building.replace(/_/g, ' ')}</div>
+            <div class="building-name">${formatBuildingName(building)}</div>
             <div class="building-count">${count}</div>
         </div>
     `).join('');

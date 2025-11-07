@@ -188,6 +188,39 @@ class TestPricingManager:
         assert all('buy_price' in h for h in history)
         assert all('sell_price' in h for h in history)
         assert all('timestamp' in h for h in history)
+    
+    def test_manual_price_update(self, client, sample_game, sample_players, db):
+        """Test manually updating a resource price (for host/banker)"""
+        game_code = sample_game["game_code"]
+        pricing_mgr = PricingManager(db)
+        
+        # Initialize prices
+        initial_prices = pricing_mgr.initialize_bank_prices(game_code)
+        initial_food_baseline = initial_prices['food']['baseline']
+        
+        # Manually update food baseline to 5
+        updated_prices = pricing_mgr.update_resource_baseline(
+            game_code,
+            'food',
+            5,
+            initial_prices
+        )
+        
+        # Check baseline was updated
+        assert updated_prices['food']['baseline'] == 5
+        assert updated_prices['food']['baseline'] != initial_food_baseline
+        
+        # Check buy/sell prices were recalculated with spread
+        assert updated_prices['food']['buy_price'] > 5
+        assert updated_prices['food']['sell_price'] < 5
+        
+        # Other resources should be unchanged
+        assert updated_prices['raw_materials'] == initial_prices['raw_materials']
+        assert updated_prices['electrical_goods'] == initial_prices['electrical_goods']
+        
+        # Check price history was recorded
+        history = pricing_mgr.get_price_history(game_code, 'food')
+        assert len(history) >= 2  # Initial + manual update
 
 
 class TestTradeManager:
@@ -507,3 +540,94 @@ class TestTradingAPI:
         data = response.json()
         assert data['success'] is True
         assert 'trade_id' in data
+    
+    def test_update_bank_price_endpoint(self, client, sample_game, sample_players, db):
+        """Test updating bank price via API"""
+        game_code = sample_game["game_code"]
+        
+        # Start game to initialize bank prices
+        client.post(f"/games/{game_code}/start")
+        
+        # Get initial prices
+        game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+        initial_food_baseline = game.game_state['bank_prices']['food']['baseline']
+        
+        # Update food price to 10
+        response = client.post(
+            f"/games/{game_code}/update-bank-price",
+            json={
+                "resource_type": "food",
+                "baseline_price": 10
+            }
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data['resource_type'] == 'food'
+        assert data['baseline'] == 10
+        assert data['baseline'] != initial_food_baseline
+        assert 'buy_price' in data
+        assert 'sell_price' in data
+        
+        # Verify buy price is higher than baseline and sell price is lower
+        assert data['buy_price'] > 10
+        assert data['sell_price'] < 10
+        
+        # Verify price was updated in game state
+        db.refresh(game)
+        assert game.game_state['bank_prices']['food']['baseline'] == 10
+        assert game.game_state['bank_prices']['food']['buy_price'] == data['buy_price']
+        assert game.game_state['bank_prices']['food']['sell_price'] == data['sell_price']
+    
+    def test_trade_margin_recorded_on_accept(self, client, sample_game, sample_players, db):
+        """Test that trade margins are recorded when trade is accepted"""
+        game_code = sample_game["game_code"]
+        
+        # Get players and assign to teams
+        game = db.query(GameSession).filter(GameSession.game_code == game_code.upper()).first()
+        players = db.query(Player).filter(
+            Player.game_session_id == game.id,
+            Player.role == "player"
+        ).all()
+        
+        player1 = players[0]
+        player1.group_number = 1
+        player2 = players[1]
+        player2.group_number = 2
+        db.commit()
+        
+        # Start game and initialize bank prices
+        client.post(f"/games/{game_code}/start")
+        response = client.post(f"/api/v2/trading/{game_code}/bank/initialize-prices")
+        assert response.status_code == 200
+        
+        db.refresh(game)
+        
+        # Create and accept trade offer
+        trade_mgr = TradeManager(db)
+        offer = trade_mgr.create_trade_offer(
+            game_code, 1, 2, player1.id,
+            {'food': 10}, {'currency': 50}
+        )
+        
+        accepted_offer, updated_game = trade_mgr.accept_trade_offer(
+            offer.id, player2.id, accept_counter=False
+        )
+        
+        # Verify trade margins were recorded
+        assert accepted_offer.from_team_margin is not None
+        assert accepted_offer.to_team_margin is not None
+        
+        # Verify margin structure
+        assert 'margin' in accepted_offer.from_team_margin
+        assert 'trade_value' in accepted_offer.from_team_margin
+        assert 'margin' in accepted_offer.to_team_margin
+        assert 'trade_value' in accepted_offer.to_team_margin
+        
+        # Margins should be opposite (one team's gain is another's loss)
+        from_margin = accepted_offer.from_team_margin['margin']
+        to_margin = accepted_offer.to_team_margin['margin']
+        
+        # The sum of margins should be close to zero (accounting for rounding)
+        # Not exactly zero due to different trade_value denominators
+        assert abs(from_margin + to_margin) < 0.5  # Allow for calculation differences

@@ -228,6 +228,7 @@ class FoodTaxManager:
         
         current_time = datetime.utcnow()
         events = []
+        tax_applied = False  # Track if any tax was applied this cycle
         
         for team_number, tax_data in game.game_state['food_tax'].items():
             next_due_str = tax_data.get('next_tax_due')
@@ -261,6 +262,19 @@ class FoodTaxManager:
                 # Apply tax
                 result = self._apply_tax_to_team(game, team_number, tax_data)
                 events.append(result)
+                tax_applied = True
+        
+        # Process event cycle updates (for duration-based events like Drought, Blizzard)
+        # Only process once per food tax cycle when at least one tax was applied
+        if tax_applied:
+            try:
+                from event_manager import EventManager
+                event_mgr = EventManager(self.db)
+                event_mgr.process_food_tax_cycle(game)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error processing event cycle for game {game_code}: {str(e)}")
         
         self.db.commit()
         return events

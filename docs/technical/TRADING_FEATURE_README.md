@@ -280,14 +280,17 @@ Follow the comprehensive guide in `TRADING_SYSTEM_TESTING.md`:
 
 ## 🐛 Known Issues
 
-1. **Test Execution**: FastAPI/Pydantic version mismatch
+1. **Counter-offer UI**: Shows placeholder message instead of full form
+   - Workaround: Create a new offer with different terms
+   
+2. **Test Execution**: FastAPI/Pydantic version mismatch
    - Tests are written but can't run automatically
    - Manual testing recommended
 
 ## 🚀 Future Enhancements
 
 ### Short-term
-- [x] Complete counter-offer UI ✅ (Implemented)
+- [ ] Complete counter-offer UI
 - [ ] Trade history view (completed trades)
 - [ ] Mobile-responsive modals
 - [ ] Price trend indicators (↑↓ arrows)

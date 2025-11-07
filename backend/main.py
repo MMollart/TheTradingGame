@@ -111,6 +111,10 @@ app.include_router(osm_oauth_router)
 # Include Food Tax API routes
 app.include_router(food_tax_router_v2)
 
+# Include Event API routes
+from event_api import router as event_router_v2
+app.include_router(event_router_v2)
+
 
 @app.get("/")
 def read_root():
@@ -1590,6 +1594,8 @@ async def end_game(
     db: Session = Depends(get_db)
 ):
     """End a game session and calculate scores (works for both authenticated and anonymous games)"""
+    from models import TradeOffer, TradeOfferStatus
+    
     game = db.query(GameSession).filter(
         GameSession.game_code == game_code.upper()
     ).first()
@@ -1597,29 +1603,50 @@ async def end_game(
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     
-    # Calculate scores for each nation
+    # Get all completed trades for this game
+    completed_trades = db.query(TradeOffer).filter(
+        TradeOffer.game_session_id == game.id,
+        TradeOffer.status == TradeOfferStatus.ACCEPTED
+    ).all()
+    
+    # Aggregate trade margins by team
+    team_trade_margins = {}
+    for trade in completed_trades:
+        # Add margins for from_team
+        from_team = str(trade.from_team_number)
+        if from_team not in team_trade_margins:
+            team_trade_margins[from_team] = []
+        if trade.from_team_margin:
+            team_trade_margins[from_team].append(trade.from_team_margin)
+        
+        # Add margins for to_team
+        to_team = str(trade.to_team_number)
+        if to_team not in team_trade_margins:
+            team_trade_margins[to_team] = []
+        if trade.to_team_margin:
+            team_trade_margins[to_team].append(trade.to_team_margin)
+    
+    # Calculate scores for each team
     scores = {}
-    banker_state = None
+    bank_prices = game.game_state.get('bank_prices', {})
     
-    # Find banker to get bank prices
-    for player in game.players:
-        if player.role.value == "banker":
-            banker_state = player.player_state
-            break
-    
-    bank_prices = banker_state.get("bank_prices", {}) if banker_state else {}
-    
-    for player in game.players:
-        if player.role.value == "player" and player.player_state:
-            score = GameLogic.calculate_score(player.player_state, bank_prices)
-            scores[player.id] = {
-                "player_name": player.player_name,
-                "nation": player.player_state.get("name"),
-                "score": score
-            }
+    # Score by team rather than by player
+    teams = game.game_state.get('teams', {})
+    for team_num, team_state in teams.items():
+        # Add trade margins to team state for scoring calculation
+        team_state['trade_margins'] = team_trade_margins.get(team_num, [])
+        team_state['bank_prices'] = bank_prices
+        
+        score = GameLogic.calculate_score(team_state, bank_prices)
+        scores[team_num] = {
+            "team_name": team_state.get("name", f"Team {team_num}"),
+            "nation_type": team_state.get("nation_type", "unknown"),
+            "score": score
+        }
     
     game.status = GameStatus.COMPLETED
-    game.game_state = {"final_scores": scores}
+    game.game_state = {"final_scores": scores, "teams": teams}
+    flag_modified(game, 'game_state')
     db.commit()
     
     # Notify food tax scheduler that game has ended
@@ -1659,6 +1686,10 @@ class ManualBuildingRequest(BaseModel):
 class BuildBuildingRequest(BaseModel):
     team_number: int
     building_type: str
+
+class UpdateBankPriceRequest(BaseModel):
+    resource_type: str
+    baseline_price: int
 
 @app.post("/games/{game_code}/manual-resources")
 async def give_manual_resources(
@@ -1781,6 +1812,83 @@ async def give_manual_buildings(
         "team_number": team_number,
         "building_type": building_type,
         "new_count": team_state['buildings'][building_type]
+    }
+
+
+@app.post("/games/{game_code}/update-bank-price")
+async def update_bank_price(
+    game_code: str,
+    request: UpdateBankPriceRequest,
+    db: Session = Depends(get_db)
+):
+    """Manually update a bank resource price (host/banker only)"""
+    resource_type = request.resource_type
+    baseline_price = request.baseline_price
+    
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Validate inputs
+    valid_resources = ['food', 'raw_materials', 'electrical_goods', 'medical_goods']
+    if resource_type not in valid_resources:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid resource type. Must be one of: {valid_resources}"
+        )
+    
+    if baseline_price < 1:
+        raise HTTPException(status_code=400, detail="Price must be at least 1")
+    
+    # Initialize pricing manager
+    pricing_mgr = PricingManager(db)
+    
+    # Get current bank prices
+    current_prices = game.game_state.get('bank_prices', {})
+    if not current_prices:
+        # Initialize if not present
+        current_prices = pricing_mgr.initialize_bank_prices(game_code)
+    
+    # Update the price
+    updated_prices = pricing_mgr.update_resource_baseline(
+        game_code,
+        resource_type,
+        baseline_price,
+        current_prices
+    )
+    
+    # Save updated prices to game state
+    game.game_state['bank_prices'] = updated_prices
+    flag_modified(game, 'game_state')
+    db.commit()
+    
+    # Broadcast state update to all players
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "state_updated",
+        "state": game.game_state
+    })
+    
+    # Also broadcast a specific price update event
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "event",
+        "event_type": "bank_price_updated",
+        "data": {
+            "resource_type": resource_type,
+            "baseline": baseline_price,
+            "buy_price": updated_prices[resource_type]['buy_price'],
+            "sell_price": updated_prices[resource_type]['sell_price']
+        }
+    })
+    
+    return {
+        "message": f"Successfully updated {resource_type} price to {baseline_price}",
+        "resource_type": resource_type,
+        "baseline": baseline_price,
+        "buy_price": updated_prices[resource_type]['buy_price'],
+        "sell_price": updated_prices[resource_type]['sell_price']
     }
 
 

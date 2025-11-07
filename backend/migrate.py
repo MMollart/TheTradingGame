@@ -90,6 +90,35 @@ def run_migrations():
                     END IF;
                 END $$;
             """
+        },
+        {
+            "name": "004_add_trade_margin_columns",
+            "description": "Add trade margin tracking columns to trade_offers table for kindness scoring",
+            "sql": """
+                -- Add trade margin columns for kindness-based scoring
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='trade_offers' AND column_name='from_team_margin'
+                    ) THEN
+                        ALTER TABLE trade_offers 
+                        ADD COLUMN from_team_margin JSON;
+                        
+                        RAISE NOTICE 'Added from_team_margin column to trade_offers';
+                    END IF;
+                    
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='trade_offers' AND column_name='to_team_margin'
+                    ) THEN
+                        ALTER TABLE trade_offers 
+                        ADD COLUMN to_team_margin JSON;
+                        
+                        RAISE NOTICE 'Added to_team_margin column to trade_offers';
+                    END IF;
+                END $$;
+            """
         }
     ]
     
