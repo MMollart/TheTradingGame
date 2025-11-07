@@ -494,86 +494,108 @@ class ChallengeManager {
     // WebSocket event handlers (to be called from main dashboard code)
     
     handleChallengeRequest(eventData) {
-        // console.log('[ChallengeManager] WebSocket: challenge_request', eventData);
-        // console.log('[ChallengeManager] Current player:', this.currentPlayer);
-        // console.log('[ChallengeManager] Current player role:', this.currentPlayer?.role);
-        
-        const challenge = {
-            db_id: eventData.db_id || null, // Database ID from HTTP response
-            player_id: eventData.player_id,
-            player_name: eventData.player_name || 'Unknown Player',
-            team_number: eventData.team_number,
-            building_type: eventData.building_type,
-            building_name: eventData.building_name,
-            has_school: eventData.has_school,
-            status: 'requested',
-            challenge_type: null,
-            challenge_description: null,
-            target_number: null,
-            start_time: null,
-            timestamp: new Date().toISOString(),
-            requested_at: new Date().toISOString(),
-            assigned_at: null,
-            completed_at: null
-        };
-        
-        const key = this._getChallengeKey(challenge);
-        // console.log('[ChallengeManager] Adding challenge with key:', key);
-        // console.log('[ChallengeManager] Challenge object:', challenge);
-        this.challenges.set(key, challenge);
-        // console.log('[ChallengeManager] Challenges map after add:', Array.from(this.challenges.entries()));
-        // console.log('[ChallengeManager] Challenges map size:', this.challenges.size);
-        // console.log('[ChallengeManager] Calling _notifyUpdates()...');
-        this._notifyUpdates();
-        // console.log('[ChallengeManager] _notifyUpdates() called');
+        try {
+            // console.log('[ChallengeManager] WebSocket: challenge_request', eventData);
+            // console.log('[ChallengeManager] Current player:', this.currentPlayer);
+            // console.log('[ChallengeManager] Current player role:', this.currentPlayer?.role);
+            
+            const challenge = {
+                db_id: eventData.db_id || null, // Database ID from HTTP response
+                player_id: eventData.player_id,
+                player_name: eventData.player_name || 'Unknown Player',
+                team_number: eventData.team_number,
+                building_type: eventData.building_type,
+                building_name: eventData.building_name,
+                has_school: eventData.has_school,
+                status: 'requested',
+                challenge_type: null,
+                challenge_description: null,
+                target_number: null,
+                start_time: null,
+                timestamp: new Date().toISOString(),
+                requested_at: new Date().toISOString(),
+                assigned_at: null,
+                completed_at: null
+            };
+            
+            const key = this._getChallengeKey(challenge);
+            // console.log('[ChallengeManager] Adding challenge with key:', key);
+            // console.log('[ChallengeManager] Challenge object:', challenge);
+            this.challenges.set(key, challenge);
+            // console.log('[ChallengeManager] Challenges map after add:', Array.from(this.challenges.entries()));
+            // console.log('[ChallengeManager] Challenges map size:', this.challenges.size);
+            // console.log('[ChallengeManager] Calling _notifyUpdates()...');
+            this._notifyUpdates();
+            // console.log('[ChallengeManager] _notifyUpdates() called');
+        } catch (error) {
+            console.error('[ChallengeManager] Error handling challenge request:', error);
+            // Don't re-throw - allow dashboard to continue functioning
+        }
     }
     
     handleChallengeAssigned(eventData) {
-        // console.log('[ChallengeManager] WebSocket: challenge_assigned', eventData);
-        
-        // Find existing challenge
-        const key = this._findChallengeKeyByPlayerAndBuilding(eventData.player_id, eventData.building_type);
-        
-        if (key) {
-            const challenge = this.challenges.get(key);
-            challenge.status = 'assigned';
-            challenge.challenge_type = eventData.challenge_type;
-            challenge.challenge_description = eventData.challenge_description;
-            challenge.target_number = eventData.target_number;
-            challenge.start_time = eventData.start_time;
-            // Handle date conversion safely
-            if (eventData.start_time) {
-                const date = new Date(eventData.start_time);
-                challenge.assigned_at = isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+        try {
+            // console.log('[ChallengeManager] WebSocket: challenge_assigned', eventData);
+            
+            // Find existing challenge
+            const key = this._findChallengeKeyByPlayerAndBuilding(eventData.player_id, eventData.building_type);
+            
+            if (key) {
+                const challenge = this.challenges.get(key);
+                challenge.status = 'assigned';
+                challenge.challenge_type = eventData.challenge_type;
+                challenge.challenge_description = eventData.challenge_description;
+                challenge.target_number = eventData.target_number;
+                challenge.start_time = eventData.start_time;
+                // Handle date conversion safely
+                if (eventData.start_time) {
+                    const date = new Date(eventData.start_time);
+                    challenge.assigned_at = isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+                } else {
+                    challenge.assigned_at = new Date().toISOString();
+                }
+                this.challenges.set(key, challenge);
+                this._notifyUpdates();
             } else {
-                challenge.assigned_at = new Date().toISOString();
+                // Challenge doesn't exist locally - reload from server
+                // console.log('[ChallengeManager] Challenge not found locally, reloading from server');
+                this.loadFromServer().catch(err => {
+                    console.error('[ChallengeManager] Failed to reload from server:', err);
+                });
             }
-            this.challenges.set(key, challenge);
-            this._notifyUpdates();
-        } else {
-            // Challenge doesn't exist locally - reload from server
-            // console.log('[ChallengeManager] Challenge not found locally, reloading from server');
-            this.loadFromServer();
+        } catch (error) {
+            console.error('[ChallengeManager] Error handling challenge assigned:', error);
+            // Don't re-throw - allow dashboard to continue functioning
         }
     }
     
     handleChallengeCompleted(eventData) {
-        // console.log('[ChallengeManager] WebSocket: challenge_completed', eventData);
-        
-        const key = this._findChallengeKeyByPlayerAndBuilding(eventData.player_id, eventData.building_type);
-        if (key) {
-            this.challenges.delete(key);
-            this._notifyUpdates();
+        try {
+            // console.log('[ChallengeManager] WebSocket: challenge_completed', eventData);
+            
+            const key = this._findChallengeKeyByPlayerAndBuilding(eventData.player_id, eventData.building_type);
+            if (key) {
+                this.challenges.delete(key);
+                this._notifyUpdates();
+            }
+        } catch (error) {
+            console.error('[ChallengeManager] Error handling challenge completed:', error);
+            // Don't re-throw - allow dashboard to continue functioning
         }
     }
     
     handleChallengeCancelled(eventData) {
-        // console.log('[ChallengeManager] WebSocket: challenge_cancelled', eventData);
-        
-        const key = this._findChallengeKeyByPlayerAndBuilding(eventData.player_id, eventData.building_type);
-        if (key) {
-            this.challenges.delete(key);
-            this._notifyUpdates();
+        try {
+            // console.log('[ChallengeManager] WebSocket: challenge_cancelled', eventData);
+            
+            const key = this._findChallengeKeyByPlayerAndBuilding(eventData.player_id, eventData.building_type);
+            if (key) {
+                this.challenges.delete(key);
+                this._notifyUpdates();
+            }
+        } catch (error) {
+            console.error('[ChallengeManager] Error handling challenge cancelled:', error);
+            // Don't re-throw - allow dashboard to continue functioning
         }
     }
     

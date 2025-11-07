@@ -44,6 +44,104 @@ const DIFFICULTY_MODIFIERS = {
 // Current difficulty setting (can be changed by host/banker)
 let currentDifficultyModifier = DIFFICULTY_MODIFIERS.normal;
 
+// ===== GLOBAL ERROR HANDLING =====
+// Prevents dashboard from going blank when errors occur
+// These handlers catch errors and log them without crashing the UI
+
+/**
+ * Global error handler for uncaught exceptions
+ * Logs error details and attempts to keep dashboard functional
+ */
+window.addEventListener('error', function(event) {
+    console.error('[GLOBAL ERROR HANDLER] Uncaught exception:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error
+    });
+    
+    // Log to event log if available
+    if (typeof addEventLog === 'function') {
+        addEventLog('⚠️ UI Error: ' + event.message, 'error');
+    }
+    
+    // Prevent default error handling that might blank the page
+    event.preventDefault();
+    
+    // Return true to prevent error from propagating
+    return true;
+});
+
+/**
+ * Global handler for unhandled promise rejections
+ * Catches async errors that could crash the dashboard
+ */
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('[GLOBAL ERROR HANDLER] Unhandled promise rejection:', {
+        reason: event.reason,
+        promise: event.promise
+    });
+    
+    // Log to event log if available
+    if (typeof addEventLog === 'function') {
+        const errorMsg = event.reason?.message || event.reason?.toString() || 'Unknown error';
+        addEventLog('⚠️ Async Error: ' + errorMsg, 'error');
+    }
+    
+    // Prevent default handling that might blank the page
+    event.preventDefault();
+});
+
+/**
+ * Defensive DOM helper - safely gets element by ID with null check
+ * @param {string} id - Element ID
+ * @returns {HTMLElement|null} - Element or null if not found
+ */
+function safeGetElementById(id) {
+    try {
+        const element = document.getElementById(id);
+        if (!element) {
+            console.warn(`[DOM WARNING] Element not found: #${id}`);
+        }
+        return element;
+    } catch (error) {
+        console.error(`[DOM ERROR] Failed to get element #${id}:`, error);
+        return null;
+    }
+}
+
+/**
+ * Safely updates element text content with null check
+ * @param {string} id - Element ID
+ * @param {string} text - Text to set
+ */
+function safeSetText(id, text) {
+    const element = safeGetElementById(id);
+    if (element) {
+        element.textContent = text;
+    }
+}
+
+/**
+ * Safely adds/removes CSS class with null check
+ * @param {string} id - Element ID
+ * @param {string} className - Class name
+ * @param {boolean} add - True to add, false to remove
+ */
+function safeToggleClass(id, className, add) {
+    const element = safeGetElementById(id);
+    if (element) {
+        if (add) {
+            element.classList.add(className);
+        } else {
+            element.classList.remove(className);
+        }
+    }
+}
+
+// ===== END GLOBAL ERROR HANDLING =====
+
 // Initialize dashboard from URL parameters
 async function initDashboard() {
     const params = new URLSearchParams(window.location.search);
@@ -115,28 +213,44 @@ async function initDashboard() {
 }
 
 function showDashboard(role) {
-    // Hide all dashboards
-    document.getElementById('host-dashboard').classList.add('hidden');
-    document.getElementById('nation-dashboard').classList.add('hidden');
-    
-    // Show appropriate dashboard
-    if (role === 'host' || role === 'banker') {
-        // Both hosts and bankers use the host-dashboard
-        document.getElementById('host-dashboard').classList.remove('hidden');
+    try {
+        // Hide all dashboards with null checks
+        const hostDashboard = safeGetElementById('host-dashboard');
+        const nationDashboard = safeGetElementById('nation-dashboard');
         
-        // Check if welcome banner should be shown (first time only, host-only)
-        const welcomeBanner = document.getElementById('welcome-banner');
-        const welcomeDismissed = sessionStorage.getItem('welcomeDismissed');
-        if (welcomeBanner && role === 'host' && !welcomeDismissed) {
-            welcomeBanner.classList.remove('hidden');
-        } else if (welcomeBanner) {
-            welcomeBanner.classList.add('hidden');
+        if (hostDashboard) hostDashboard.classList.add('hidden');
+        if (nationDashboard) nationDashboard.classList.add('hidden');
+        
+        // Show appropriate dashboard
+        if (role === 'host' || role === 'banker') {
+            // Both hosts and bankers use the host-dashboard
+            if (hostDashboard) {
+                hostDashboard.classList.remove('hidden');
+            }
+            
+            // Check if welcome banner should be shown (first time only, host-only)
+            const welcomeBanner = safeGetElementById('welcome-banner');
+            const welcomeDismissed = sessionStorage.getItem('welcomeDismissed');
+            if (welcomeBanner && role === 'host' && !welcomeDismissed) {
+                welcomeBanner.classList.remove('hidden');
+            } else if (welcomeBanner) {
+                welcomeBanner.classList.add('hidden');
+            }
+            
+            setupHostDashboard();
+        } else {
+            if (nationDashboard) {
+                nationDashboard.classList.remove('hidden');
+            }
+            setupNationDashboard();
         }
-        
-        setupHostDashboard();
-    } else {
-        document.getElementById('nation-dashboard').classList.remove('hidden');
-        setupNationDashboard();
+    } catch (error) {
+        console.error('[showDashboard] Error showing dashboard:', error);
+        // Try to recover by ensuring at least one dashboard is visible
+        const hostDashboard = document.getElementById('host-dashboard');
+        if (hostDashboard && (role === 'host' || role === 'banker')) {
+            hostDashboard.classList.remove('hidden');
+        }
     }
 }
 
@@ -1416,20 +1530,21 @@ async function unassignPlayer(playerId, playerName) {
 }
 
 async function setupHostDashboard() {
-    // console.log('setupHostDashboard: Starting setup...');
-    // console.log('currentPlayer.role:', currentPlayer.role);
-    
-    // Show test mode toggle for host only
-    showTestModeToggleForHost();
-    
-    // Configure tabs based on role
-    const isHost = currentPlayer.role === 'host';
-    const isBanker = currentPlayer.role === 'banker';
-    
-    // console.log('isHost:', isHost, 'isBanker:', isBanker);
-    
-    // Reorder tabs based on role
-    reorderTabsForRole(currentPlayer.role);
+    try {
+        // console.log('setupHostDashboard: Starting setup...');
+        // console.log('currentPlayer.role:', currentPlayer.role);
+        
+        // Show test mode toggle for host only
+        showTestModeToggleForHost();
+        
+        // Configure tabs based on role
+        const isHost = currentPlayer.role === 'host';
+        const isBanker = currentPlayer.role === 'banker';
+        
+        // console.log('isHost:', isHost, 'isBanker:', isBanker);
+        
+        // Reorder tabs based on role
+        reorderTabsForRole(currentPlayer.role);
     
     // Show/hide Game Controls tab based on role
     const gameControlsTab = document.getElementById('tab-btn-controls');
@@ -1532,6 +1647,14 @@ async function setupHostDashboard() {
     }
     
     // console.log('setupHostDashboard: Setup complete');
+    } catch (error) {
+        console.error('[setupHostDashboard] Error during setup:', error);
+        // Log to event log
+        if (typeof addEventLog === 'function') {
+            addEventLog('⚠️ Error setting up host dashboard: ' + (error?.message || 'Unknown error'), 'error');
+        }
+        // Don't re-throw - allow partial setup to remain
+    }
 }
 
 // Update game control button states based on current game status
@@ -4519,11 +4642,12 @@ async function giveBuildings() {
 }
 
 function handleGameEvent(data) {
-    const { event_type, data: eventData } = data;
-    
-    // console.log(`[WebSocket Event] Received event_type: ${event_type}`, eventData);
-    
-    // Handle notification-type messages (challenge assignments/completions sent to teams)
+    try {
+        const { event_type, data: eventData } = data;
+        
+        // console.log(`[WebSocket Event] Received event_type: ${event_type}`, eventData);
+        
+        // Handle notification-type messages (challenge assignments/completions sent to teams)
     if (data.type === 'notification' && data.notification_type) {
         const notificationType = data.notification_type;
         const message = data.message;
@@ -4829,6 +4953,21 @@ function handleGameEvent(data) {
                 refreshPendingTrades();
             }
             break;
+    }
+    } catch (error) {
+        // Catch any errors in event handling to prevent dashboard from crashing
+        console.error('[handleGameEvent] Error processing event:', {
+            event_type: data?.event_type,
+            error: error,
+            stack: error?.stack
+        });
+        
+        // Log to event log if available
+        if (typeof addEventLog === 'function') {
+            addEventLog('⚠️ Error processing game event: ' + (error?.message || 'Unknown error'), 'error');
+        }
+        
+        // Don't re-throw - we want the dashboard to stay functional
     }
 }
 
