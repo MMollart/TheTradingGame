@@ -964,12 +964,19 @@ async def assign_player_group(
         team_key in game.game_state['teams']
     )
     
-    # If game has started and team exists, increase bank inventory
-    if game_started and team_already_exists:
+    # Check if team already has players assigned (before this assignment)
+    team_has_players = any(
+        p.group_number == group_number and p.id != player_id
+        for p in game.players
+        if p.role.value == "player"
+    )
+    
+    # If game has started, team exists, and team has NO players yet, increase bank inventory
+    if game_started and team_already_exists and not team_has_players:
         from game_constants import BANK_RESOURCES_PER_TEAM
         
         logger.info(
-            f"Adding player {player.player_name} to existing team {group_number} "
+            f"Adding first player {player.player_name} to team {group_number} "
             f"after game start. Increasing bank inventory."
         )
         
