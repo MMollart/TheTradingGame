@@ -4104,7 +4104,7 @@ function showBriefToast(message, type = 'info') {
 }
 
 function updateTradeNotificationsList() {
-    const container = document.getElementById('trade-notifications-list');
+    const container = document.getElementById('trade-notification-list');
     if (!container) return;
     
     if (tradeNotifications.length === 0) {
