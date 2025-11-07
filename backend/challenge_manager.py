@@ -23,6 +23,14 @@ class ChallengeManager:
     
     CHALLENGE_DURATION_MINUTES = 10
     
+    # Production grants per building (resource and amount)
+    PRODUCTION_GRANTS = {
+        'farm': {'resource': 'food', 'amount': 5},
+        'mine': {'resource': 'raw_materials', 'amount': 5},
+        'electrical_factory': {'resource': 'electrical_goods', 'amount': 5},
+        'medical_factory': {'resource': 'medical_goods', 'amount': 5}
+    }
+    
     def __init__(self, db: Session):
         self.db = db
     
@@ -224,7 +232,13 @@ class ChallengeManager:
         player = challenge.player
         if player and player.group_number:
             building_name = challenge.building_type.replace('_', ' ').title()
-            notification_message = f"Challenge completed! {building_name} production is now unlocked"
+            
+            # Determine the resource and amount earned using class constant
+            grant_info = self.PRODUCTION_GRANTS.get(challenge.building_type, {'resource': 'resources', 'amount': 5})
+            resource_name = grant_info['resource'].replace('_', ' ').title()
+            resource_amount = grant_info['amount']
+            
+            notification_message = f"✅ {player.player_name} completed {challenge.challenge_description} and earned {resource_amount} {resource_name}!"
             
             await ws_manager.send_to_team(
                 game_code=game.game_code,
