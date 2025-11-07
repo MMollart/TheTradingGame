@@ -3400,12 +3400,24 @@ function receiveChallengeAssignment(buildingType, challengeDescription) {
         requestBtn.disabled = false;
         requestBtn.textContent = '📋 Request Challenge';
     }
-    if (produceBtn) produceBtn.style.display = 'inline-block';
+    // Only show complete button for host/banker roles, not for players
+    // Players cannot complete their own challenges - that's the host/banker's job
+    if (produceBtn) {
+        const isHostOrBanker = currentPlayer.role === 'host' || currentPlayer.role === 'banker';
+        produceBtn.style.display = isHostOrBanker ? 'inline-block' : 'none';
+    }
     
     addEventLog(`Challenge assigned: ${challengeDescription}`, 'success');
 }
 
 function startProduction(buildingType) {
+    // Only host/banker can complete challenges
+    const isHostOrBanker = currentPlayer.role === 'host' || currentPlayer.role === 'banker';
+    if (!isHostOrBanker) {
+        alert('Only the host or banker can complete challenges.');
+        return;
+    }
+    
     // Get the assigned challenge
     const challengeSpan = document.getElementById(`${buildingType}-challenge`);
     const challengeDescription = challengeSpan ? challengeSpan.textContent : 'Unknown challenge';
@@ -3420,6 +3432,14 @@ function startProduction(buildingType) {
 }
 
 function completeChallenge() {
+    // Only host/banker can complete challenges
+    const isHostOrBanker = currentPlayer.role === 'host' || currentPlayer.role === 'banker';
+    if (!isHostOrBanker) {
+        alert('Only the host or banker can complete challenges.');
+        closeChallengeModal();
+        return;
+    }
+    
     const modal = document.getElementById('challenge-modal');
     const buildingType = modal.dataset.buildingType;
     
@@ -5823,6 +5843,23 @@ function updateActiveChallengesList() {
         challengeItem.className = `active-challenge-item ${isExpiring ? 'expiring' : ''}`;
         challengeItem.dataset.challengeKey = `${challenge.player_id}-${challenge.building_type}`;
         
+        // Only host/banker can complete or cancel challenges
+        const isHostOrBanker = currentPlayer.role === 'host' || currentPlayer.role === 'banker';
+        const actionButtonsHtml = isHostOrBanker ? `
+            <div class="challenge-actions">
+                <button class="btn btn-success" onclick="completeChallengeAndGrantResources('${challenge.player_id}', '${challenge.building_type}', ${challenge.team_number})" style="margin-right: 10px;">
+                    ✅ Complete Challenge
+                </button>
+                <button class="btn btn-danger" onclick="cancelActiveChallenge('${challenge.player_id}', '${challenge.building_type}')">
+                    ❌ Cancel Challenge
+                </button>
+            </div>
+        ` : `
+            <div class="challenge-status">
+                <p style="color: #667eea; font-weight: 600; font-style: italic;">⏳ Challenge in progress - waiting for host/banker to complete</p>
+            </div>
+        `;
+        
         challengeItem.innerHTML = `
             <div class="challenge-header">
                 <div class="challenge-info">
@@ -5841,14 +5878,7 @@ function updateActiveChallengesList() {
                 <p><strong>Challenge:</strong> <span class="challenge-description">${challenge.challenge_description}</span></p>
                 <p><strong>Type:</strong> ${challenge.has_school ? 'Individual (has school 🏫)' : 'Team-wide (no school)'}</p>
             </div>
-            <div class="challenge-actions">
-                <button class="btn btn-success" onclick="completeChallengeAndGrantResources('${challenge.player_id}', '${challenge.building_type}', ${challenge.team_number})" style="margin-right: 10px;">
-                    ✅ Complete Challenge
-                </button>
-                <button class="btn btn-danger" onclick="cancelActiveChallenge('${challenge.player_id}', '${challenge.building_type}')">
-                    ❌ Cancel Challenge
-                </button>
-            </div>
+            ${actionButtonsHtml}
         `;
         
         listDiv.appendChild(challengeItem);
