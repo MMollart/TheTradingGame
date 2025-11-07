@@ -111,6 +111,10 @@ app.include_router(osm_oauth_router)
 # Include Food Tax API routes
 app.include_router(food_tax_router_v2)
 
+# Include Event API routes
+from event_api import router as event_router_v2
+app.include_router(event_router_v2)
+
 
 @app.get("/")
 def read_root():

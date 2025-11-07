@@ -1,0 +1,240 @@
+{
+  "events": {
+    "earthquake": {
+      "name": "Earthquake",
+      "icon": "🏚️",
+      "category": "natural_disaster",
+      "base_effect": 1.0,
+      "max_effect": 5,
+      "duration_cycles": 0,
+      "targets": "buildings",
+      "description": "Destroys random buildings across all teams",
+      "mitigation": {
+        "infrastructure": {
+          "reduction_per_building": 0.2,
+          "max_buildings": 5
+        }
+      },
+      "difficulty_scaling": true,
+      "formula": "Buildings Destroyed = Severity × Difficulty Modifier × (1 - Infrastructure × 0.2)"
+    },
+    "fire": {
+      "name": "Fire",
+      "icon": "🔥",
+      "category": "natural_disaster",
+      "base_effect": 0.2,
+      "duration_cycles": 0,
+      "targets": "electrical_factories",
+      "description": "Destroys electrical factories across all teams",
+      "mitigation": {
+        "hospital": {
+          "reduction_per_building": 0.2,
+          "max_buildings": 5
+        }
+      },
+      "difficulty_scaling": true,
+      "formula": "Destruction Rate = 20% × Severity × Difficulty Modifier × (1 - Hospitals × 0.2)"
+    },
+    "drought": {
+      "name": "Drought",
+      "icon": "💧",
+      "category": "natural_disaster",
+      "base_effect": 0.5,
+      "duration_cycles": 2,
+      "targets": "production",
+      "description": "Reduces farm and mine production for 2 food tax cycles",
+      "mitigation": {
+        "infrastructure": {
+          "reduction_per_building": 0.2,
+          "max_buildings": 5
+        }
+      },
+      "difficulty_scaling": true,
+      "formula": "Production Modifier = 0.5 + (3 - Severity) × 0.1",
+      "affected_buildings": ["farm", "mine"]
+    },
+    "plague": {
+      "name": "Plague",
+      "icon": "🦠",
+      "category": "natural_disaster",
+      "base_effect": 0.3,
+      "duration_cycles": -1,
+      "cure_cost": 5,
+      "targets": "production",
+      "contagious": true,
+      "description": "Contagious disease that reduces all production until cured",
+      "mitigation": {
+        "hospital": {
+          "reduction_per_building": 0.2,
+          "max_buildings": 5
+        }
+      },
+      "difficulty_scaling": true,
+      "formula": "Production Penalty = 30% × Severity × Difficulty Modifier × (1 - Hospitals × 0.2)",
+      "cure": {
+        "cost_resource": "medical_goods",
+        "cost_formula": "5 × Difficulty Modifier"
+      },
+      "contagion_rules": [
+        "Plague starts with 1-2 random teams (severity-dependent)",
+        "Spreads during any resource trade between infected and non-infected teams",
+        "Infected teams cannot initiate trades with non-infected teams",
+        "Banker can trade with infected teams (bank is immune)"
+      ]
+    },
+    "blizzard": {
+      "name": "Blizzard",
+      "icon": "❄️",
+      "category": "natural_disaster",
+      "base_effect": 2.0,
+      "duration_cycles": 2,
+      "targets": "food_tax_and_production",
+      "description": "Increases food tax and reduces all production for 2 cycles",
+      "mitigation": {
+        "restaurant": {
+          "benefit": "currency_rebate",
+          "formula": "20% of food tax paid"
+        },
+        "infrastructure": {
+          "reduction_per_building": 0.1,
+          "target": "production_penalty"
+        }
+      },
+      "difficulty_scaling": true,
+      "food_tax_multiplier_formula": "2.0 × Severity × Difficulty Modifier",
+      "production_penalties": {
+        "easy": 0.1,
+        "medium": 0.2,
+        "hard": 0.3
+      }
+    },
+    "tornado": {
+      "name": "Tornado",
+      "icon": "🌪️",
+      "category": "natural_disaster",
+      "base_effect": 0.15,
+      "duration_cycles": 0,
+      "targets": "resources",
+      "description": "Destroys percentage of ALL resources from each team",
+      "mitigation": {
+        "infrastructure": {
+          "reduction_per_building": 0.2,
+          "max_buildings": 5
+        }
+      },
+      "difficulty_scaling": true,
+      "formula": "Resource Loss = 15% × Severity × Difficulty Modifier × (1 - Infrastructure × 0.2)",
+      "affected_resources": ["food", "currency", "raw_materials", "electrical_goods", "medical_goods"]
+    },
+    "economic_recession": {
+      "name": "Economic Recession",
+      "icon": "📉",
+      "category": "economic_event",
+      "base_bank_price_increase": 0.5,
+      "base_building_cost_increase": 0.25,
+      "duration_cycles": 2,
+      "duration_formula": "2 + (Severity - 3)",
+      "targets": "prices_and_costs",
+      "description": "Increases bank prices and building costs",
+      "mitigation": {
+        "infrastructure": {
+          "reduction_per_building": 0.2,
+          "target": "price_increases"
+        }
+      },
+      "rewards": {
+        "restaurant": {
+          "benefit": "bonus_currency",
+          "formula": "50 currency × Severity × Difficulty Modifier per cycle per restaurant"
+        }
+      },
+      "difficulty_scaling": true,
+      "bank_price_formula": "Bank Prices × (1 + 50% × Severity × Difficulty)",
+      "building_cost_formula": "Building Costs × (1 + 25% × Severity × Difficulty)"
+    },
+    "automation_breakthrough": {
+      "name": "Automation Breakthrough",
+      "icon": "🤖",
+      "category": "positive_event",
+      "base_effect": 0.5,
+      "duration_cycles": 2,
+      "targets": "factories",
+      "description": "Offers one team increased factory production for payment",
+      "requirement": {
+        "resource": "electrical_goods",
+        "cost_formula": "30 × Difficulty Modifier"
+      },
+      "difficulty_scaling": true,
+      "production_bonus_formula": "50% × Severity × Difficulty Modifier",
+      "affected_buildings": ["electrical_factory", "medical_factory"],
+      "selection_strategy": "team_with_most_factories",
+      "payment_deadline": "1 food tax cycle"
+    }
+  },
+  "difficulty_modifiers": {
+    "easy": 0.75,
+    "medium": 1.0,
+    "hard": 1.5
+  },
+  "severity_guidelines": {
+    "1": {
+      "name": "Minor",
+      "description": "Minimal impact, tutorial/easy mode",
+      "recommended_for": "Early game introduction"
+    },
+    "2": {
+      "name": "Low",
+      "description": "Noticeable but manageable impact",
+      "recommended_for": "Learning mechanics"
+    },
+    "3": {
+      "name": "Standard",
+      "description": "Significant impact, recommended for balanced games",
+      "recommended_for": "Normal gameplay"
+    },
+    "4": {
+      "name": "High",
+      "description": "Major impact, creates strategic challenges",
+      "recommended_for": "Mid-late game drama"
+    },
+    "5": {
+      "name": "Severe",
+      "description": "Extreme impact, game-changing moments",
+      "recommended_for": "Late game climactic events"
+    }
+  },
+  "event_scheduling_recommendations": {
+    "frequency": "3-5 food tax cycles between major events",
+    "stacking": "Only one major event active at a time",
+    "progression": {
+      "early_game": "Severity 1-2 events to introduce mechanics",
+      "mid_game": "Severity 3 events for strategic decisions",
+      "late_game": "Severity 4-5 events for dramatic finishes"
+    },
+    "recovery": "Consider positive events (Automation Breakthrough) after major disasters",
+    "dangerous_combinations": [
+      "Plague + Blizzard = potential softlock (avoid)",
+      "Recession + Drought = severe resource shortage",
+      "Multiple disasters simultaneously = too punishing"
+    ]
+  },
+  "mitigation_buildings": {
+    "infrastructure": {
+      "max_count": 5,
+      "reduction_per_building": 0.2,
+      "protects_against": ["earthquake", "drought", "tornado", "economic_recession"],
+      "description": "Reduces impact of disasters affecting buildings, production, and resources"
+    },
+    "hospital": {
+      "max_count": 5,
+      "reduction_per_building": 0.2,
+      "protects_against": ["fire", "plague"],
+      "description": "Reduces impact of health-related disasters and factory fires"
+    },
+    "restaurant": {
+      "max_count": 5,
+      "provides_benefit_during": ["blizzard", "economic_recession"],
+      "description": "Generates bonus currency during food tax increases and economic downturns"
+    }
+  }
+}

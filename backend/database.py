@@ -60,7 +60,7 @@ def init_db():
         # Import all models to ensure they are registered with Base
         from models import (
             Base, User, GameSession, Player, GameConfiguration,
-            Challenge, TradeOffer, PriceHistory, OAuthToken
+            Challenge, TradeOffer, PriceHistory, OAuthToken, GameEventInstance
         )
         
         # Create all tables
