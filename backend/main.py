@@ -46,6 +46,9 @@ from food_tax_scheduler import (
     start_food_tax_scheduler, stop_food_tax_scheduler,
     on_game_started, on_game_paused, on_game_resumed, on_game_ended
 )
+from price_fluctuation_scheduler import (
+    start_price_fluctuation_scheduler, stop_price_fluctuation_scheduler
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -83,6 +86,7 @@ async def on_startup():
     """Initialize database and background tasks on startup"""
     init_db()
     start_food_tax_scheduler()
+    start_price_fluctuation_scheduler()
     
     # Start scenario event scheduler
     from scenario_event_scheduler import start_scenario_event_scheduler
@@ -93,6 +97,7 @@ async def on_startup():
 async def on_shutdown():
     """Clean up background tasks on shutdown"""
     stop_food_tax_scheduler()
+    stop_price_fluctuation_scheduler()
     
     # Stop scenario event scheduler
     from scenario_event_scheduler import stop_scenario_event_scheduler

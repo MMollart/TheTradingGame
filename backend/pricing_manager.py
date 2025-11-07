@@ -3,8 +3,11 @@ Pricing Manager - Handles dynamic bank pricing with supply/demand mechanics
 """
 
 from typing import Dict, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
+import random
+import json
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from models import GameSession, PriceHistory
 from game_constants import BANK_INITIAL_PRICES, ResourceType
 
@@ -19,6 +22,13 @@ class PricingManager:
     
     # Supply/demand adjustment factors
     TRADE_IMPACT_FACTOR = 0.05  # 5% price change per significant trade
+    
+    # Random fluctuation parameters
+    FLUCTUATION_PROBABILITY = 0.0333  # 3.33% chance per second
+    FLUCTUATION_MAGNITUDE = 0.02  # ±2% per fluctuation
+    MOMENTUM_LOOKBACK_MINUTES = 2  # Look at last 2 minutes for momentum
+    MEAN_REVERSION_TARGET_MINUTES = 15  # Target 15 minutes to return to baseline
+    MOMENTUM_WEIGHT = 0.6  # 60% weight for momentum vs 40% for mean reversion
     
     def __init__(self, db: Session):
         self.db = db
@@ -384,3 +394,267 @@ class PricingManager:
         )
         
         return updated_prices
+    
+    def apply_random_fluctuation(
+        self,
+        game_code: str,
+        current_prices: Dict[str, Dict[str, int]]
+    ) -> Tuple[Dict[str, Dict[str, int]], List[str]]:
+        """
+        Apply random price fluctuations to all resources.
+        
+        Called every second with 3.33% probability per resource.
+        Considers momentum, mean reversion, and active game events.
+        
+        Args:
+            game_code: The game code
+            current_prices: Current price structure
+        
+        Returns:
+            Tuple of (updated prices dict, list of changed resource names)
+        """
+        game = self.db.query(GameSession).filter(
+            GameSession.game_code == game_code.upper()
+        ).first()
+        
+        if not game or not current_prices:
+            return current_prices, []
+        
+        # Load event configuration
+        event_effects = self._load_event_price_effects()
+        
+        # Get active event effects for this game
+        active_event_effect = self._get_active_event_effect(game, event_effects)
+        
+        updated_prices = current_prices.copy()
+        changed_resources = []
+        
+        for resource_type in current_prices.keys():
+            # 3.33% probability check
+            if random.random() > self.FLUCTUATION_PROBABILITY:
+                continue
+            
+            price_info = current_prices[resource_type]
+            baseline = price_info['baseline']
+            current_middle = round((price_info['buy_price'] + price_info['sell_price']) / 2.0)
+            
+            # Calculate momentum bias from recent price history
+            momentum_bias = self._calculate_momentum_bias(game.id, resource_type)
+            
+            # Calculate mean reversion pressure
+            mean_reversion_pressure = self._calculate_mean_reversion_pressure(
+                current_middle, baseline
+            )
+            
+            # Get event effect for this resource
+            resource_event_effect = active_event_effect.get(resource_type, 0.0)
+            
+            # Combine factors with weights
+            # Momentum has priority, but mean reversion provides gentle pull back
+            direction_bias = (
+                self.MOMENTUM_WEIGHT * momentum_bias +
+                (1 - self.MOMENTUM_WEIGHT) * mean_reversion_pressure +
+                resource_event_effect
+            )
+            
+            # Random fluctuation with directional bias
+            # Base random change: -2% to +2%
+            random_change = random.uniform(-self.FLUCTUATION_MAGNITUDE, self.FLUCTUATION_MAGNITUDE)
+            
+            # Apply bias to make it more likely to go in the biased direction
+            # Positive bias increases probability of positive change
+            if direction_bias > 0:
+                # More likely to go up
+                biased_random = random.random()
+                if biased_random < 0.5 + abs(direction_bias) * 0.5:
+                    random_change = abs(random_change)  # Force positive
+            elif direction_bias < 0:
+                # More likely to go down
+                biased_random = random.random()
+                if biased_random < 0.5 + abs(direction_bias) * 0.5:
+                    random_change = -abs(random_change)  # Force negative
+            
+            # Apply the change
+            new_middle = int(current_middle * (1 + random_change))
+            
+            # Clamp to min/max multipliers
+            min_price = int(baseline * self.MIN_MULTIPLIER)
+            max_price = int(baseline * self.MAX_MULTIPLIER)
+            new_middle = max(min_price, min(max_price, new_middle))
+            
+            # Only update if price actually changed
+            if new_middle != current_middle:
+                # Apply spread to get buy/sell prices
+                new_buy_price = self._apply_spread(new_middle, is_buy=True)
+                new_sell_price = self._apply_spread(new_middle, is_buy=False)
+                
+                # Ensure buy > sell (should be guaranteed by spread logic, but double-check)
+                if new_buy_price <= new_sell_price:
+                    # Adjust to ensure proper spread
+                    spread = max(1, int(new_middle * self.SPREAD_PERCENTAGE))
+                    new_buy_price = new_middle + spread
+                    new_sell_price = new_middle - spread
+                
+                updated_prices[resource_type] = {
+                    'baseline': baseline,
+                    'buy_price': new_buy_price,
+                    'sell_price': new_sell_price
+                }
+                
+                # Record price change
+                self._record_price_history(
+                    game.id,
+                    resource_type,
+                    new_buy_price,
+                    new_sell_price,
+                    baseline,
+                    triggered_by_trade=False
+                )
+                
+                changed_resources.append(resource_type)
+        
+        return updated_prices, changed_resources
+    
+    def _calculate_momentum_bias(self, game_session_id: int, resource_type: str) -> float:
+        """
+        Calculate momentum bias based on recent price changes.
+        
+        Looks at price changes over the last MOMENTUM_LOOKBACK_MINUTES to determine
+        if prices have been trending up or down.
+        
+        Returns:
+            Float between -1 and 1, where positive = upward momentum, negative = downward momentum
+        """
+        lookback_time = datetime.utcnow() - timedelta(minutes=self.MOMENTUM_LOOKBACK_MINUTES)
+        
+        # Get recent price history
+        recent_prices = self.db.query(PriceHistory).filter(
+            PriceHistory.game_session_id == game_session_id,
+            PriceHistory.resource_type == resource_type,
+            PriceHistory.timestamp >= lookback_time
+        ).order_by(PriceHistory.timestamp.asc()).all()
+        
+        if len(recent_prices) < 2:
+            return 0.0  # Not enough data for momentum
+        
+        # Calculate price changes
+        price_changes = []
+        for i in range(1, len(recent_prices)):
+            prev_middle = (recent_prices[i-1].buy_price + recent_prices[i-1].sell_price) / 2.0
+            curr_middle = (recent_prices[i].buy_price + recent_prices[i].sell_price) / 2.0
+            change_pct = (curr_middle - prev_middle) / prev_middle if prev_middle > 0 else 0.0
+            price_changes.append(change_pct)
+        
+        if not price_changes:
+            return 0.0
+        
+        # Average percentage change
+        avg_change = sum(price_changes) / len(price_changes)
+        
+        # Normalize to -1 to 1 range
+        # If average change is ±5% over the period, that's strong momentum
+        momentum = avg_change / 0.05
+        momentum = max(-1.0, min(1.0, momentum))
+        
+        return momentum
+    
+    def _calculate_mean_reversion_pressure(self, current_price: int, baseline: int) -> float:
+        """
+        Calculate pressure to return to baseline price.
+        
+        The further from baseline, the stronger the pull back.
+        Designed to bring prices back over ~15 minutes.
+        
+        Returns:
+            Float between -1 and 1, where positive = pressure to increase (below baseline),
+            negative = pressure to decrease (above baseline)
+        """
+        if baseline == 0:
+            return 0.0
+        
+        # Calculate how far we are from baseline
+        deviation = (current_price - baseline) / baseline
+        
+        # Invert the deviation: if price is high (positive deviation), 
+        # we want negative pressure to bring it down
+        pressure = -deviation
+        
+        # Scale so that being at max/min gives max pressure
+        # MAX_MULTIPLIER = 2.0 means 100% above baseline
+        # MIN_MULTIPLIER = 0.5 means 50% below baseline (or -50%)
+        max_deviation = max(self.MAX_MULTIPLIER - 1.0, 1.0 - self.MIN_MULTIPLIER)
+        pressure = pressure / max_deviation
+        
+        # Clamp to -1 to 1
+        pressure = max(-1.0, min(1.0, pressure))
+        
+        return pressure
+    
+    def _get_active_event_effect(
+        self,
+        game: GameSession,
+        event_effects: Dict
+    ) -> Dict[str, float]:
+        """
+        Get the combined price effect from all active game events.
+        
+        Args:
+            game: The game session
+            event_effects: Dictionary of event configurations with price effects
+        
+        Returns:
+            Dictionary mapping resource_type to cumulative price effect modifier
+        """
+        resource_effects = {}
+        
+        if 'active_events' not in game.game_state:
+            return resource_effects
+        
+        active_events = game.game_state.get('active_events', {})
+        
+        for event_name, event_data in active_events.items():
+            if event_name not in event_effects:
+                continue
+            
+            event_config = event_effects[event_name]
+            base_effect = event_config.get('price_effect', 0.0)
+            
+            if base_effect == 0.0:
+                continue
+            
+            # Check if event specifies specific resources
+            affected_resources = event_config.get('price_effect_resources')
+            
+            if affected_resources:
+                # Apply to specific resources
+                for resource in affected_resources:
+                    if resource not in resource_effects:
+                        resource_effects[resource] = 0.0
+                    resource_effects[resource] += base_effect
+            else:
+                # Apply to all resources
+                for resource_type in BANK_INITIAL_PRICES.keys():
+                    resource_key = resource_type.value if hasattr(resource_type, 'value') else resource_type
+                    if resource_key not in resource_effects:
+                        resource_effects[resource_key] = 0.0
+                    resource_effects[resource_key] += base_effect
+        
+        return resource_effects
+    
+    def _load_event_price_effects(self) -> Dict:
+        """
+        Load event price effects from event_config.json.
+        
+        Returns:
+            Dictionary mapping event names to their configurations
+        """
+        try:
+            import os
+            config_path = os.path.join(os.path.dirname(__file__), 'event_config.json')
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+            return config.get('events', {})
+        except Exception as e:
+            # If config can't be loaded, return empty dict
+            # Logger not available here, but this is a safe fallback
+            return {}
