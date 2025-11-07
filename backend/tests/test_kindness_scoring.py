@@ -20,10 +20,10 @@ class TestTradeMarginCalculator:
             'raw_materials': {'baseline': 5, 'buy_price': 6, 'sell_price': 4}
         }
         
-        # Should use sell_price for food (9) and face value for currency
-        # 10 * 9 + 50 = 140
+        # Should use baseline for food (10) and face value for currency
+        # 10 * 10 + 50 = 150
         value = TradeMarginCalculator.calculate_resource_value(resources, bank_prices)
-        assert value == 140.0
+        assert value == 150.0
     
     def test_calculate_resource_value_multiple_resources(self):
         """Test calculating value with multiple resource types"""
@@ -38,44 +38,13 @@ class TestTradeMarginCalculator:
             'electrical_goods': {'baseline': 15, 'sell_price': 13}
         }
         
-        # 5*9 + 10*4 + 3*13 = 45 + 40 + 39 = 124
+        # 5*10 + 10*5 + 3*15 = 50 + 50 + 45 = 145
         value = TradeMarginCalculator.calculate_resource_value(resources, bank_prices)
-        assert value == 124.0
+        assert value == 145.0
     
     def test_calculate_trade_margin_fair_trade(self):
         """Test margin calculation for a fair trade (equal value)"""
-        offered = {'food': 10}  # Value: 10 * 9 = 90
-        requested = {'currency': 90}  # Value: 90
-        bank_prices = {
-            'food': {'baseline': 10, 'sell_price': 9}
-        }
-        
-        margin_data = TradeMarginCalculator.calculate_trade_margin(
-            offered, requested, bank_prices
-        )
-        
-        assert margin_data['margin'] == 0.0
-        assert margin_data['trade_value'] == 90.0
-    
-    def test_calculate_trade_margin_generous_trade(self):
-        """Test margin calculation for generous trade (trading at a loss)"""
-        offered = {'food': 10}  # Value: 10 * 9 = 90
-        requested = {'currency': 50}  # Value: 50
-        bank_prices = {
-            'food': {'baseline': 10, 'sell_price': 9}
-        }
-        
-        margin_data = TradeMarginCalculator.calculate_trade_margin(
-            offered, requested, bank_prices
-        )
-        
-        # Margin = (50 - 90) / 90 = -40/90 = -0.4444
-        assert margin_data['margin'] < 0  # Negative margin = loss
-        assert abs(margin_data['margin'] - (-0.4444)) < 0.01
-    
-    def test_calculate_trade_margin_profitable_trade(self):
-        """Test margin calculation for profitable trade"""
-        offered = {'food': 5}  # Value: 5 * 9 = 45
+        offered = {'food': 10}  # Value: 10 * 10 = 100
         requested = {'currency': 100}  # Value: 100
         bank_prices = {
             'food': {'baseline': 10, 'sell_price': 9}
@@ -85,9 +54,40 @@ class TestTradeMarginCalculator:
             offered, requested, bank_prices
         )
         
-        # Margin = (100 - 45) / 45 = 55/45 = 1.2222
+        assert margin_data['margin'] == 0.0
+        assert margin_data['trade_value'] == 100.0
+    
+    def test_calculate_trade_margin_generous_trade(self):
+        """Test margin calculation for generous trade (trading at a loss)"""
+        offered = {'food': 10}  # Value: 10 * 10 = 100
+        requested = {'currency': 50}  # Value: 50
+        bank_prices = {
+            'food': {'baseline': 10, 'sell_price': 9}
+        }
+        
+        margin_data = TradeMarginCalculator.calculate_trade_margin(
+            offered, requested, bank_prices
+        )
+        
+        # Margin = (50 - 100) / 100 = -50/100 = -0.5
+        assert margin_data['margin'] < 0  # Negative margin = loss
+        assert abs(margin_data['margin'] - (-0.5)) < 0.01
+    
+    def test_calculate_trade_margin_profitable_trade(self):
+        """Test margin calculation for profitable trade"""
+        offered = {'food': 5}  # Value: 5 * 10 = 50
+        requested = {'currency': 100}  # Value: 100
+        bank_prices = {
+            'food': {'baseline': 10, 'sell_price': 9}
+        }
+        
+        margin_data = TradeMarginCalculator.calculate_trade_margin(
+            offered, requested, bank_prices
+        )
+        
+        # Margin = (100 - 50) / 50 = 50/50 = 1.0
         assert margin_data['margin'] > 0  # Positive margin = profit
-        assert abs(margin_data['margin'] - 1.2222) < 0.01
+        assert abs(margin_data['margin'] - 1.0) < 0.01
     
     def test_calculate_trade_margin_zero_given(self):
         """Test margin calculation when giving nothing"""

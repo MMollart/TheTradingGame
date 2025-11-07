@@ -17,7 +17,7 @@ class TradeMarginCalculator:
     def calculate_resource_value(resources: Dict[str, int], bank_prices: Dict[str, Dict[str, int]]) -> float:
         """
         Calculate the fair market value of resources based on bank prices.
-        Uses the sell price (what bank would pay) as the reference price.
+        Uses the baseline price (midpoint between buy/sell) as the reference for fairness.
         
         Args:
             resources: Dictionary of resource types and quantities
@@ -32,9 +32,9 @@ class TradeMarginCalculator:
                 # Currency is worth its face value
                 total_value += quantity
             elif resource_type in bank_prices:
-                # Use sell_price as the fair market value (what bank would pay for it)
+                # Use baseline as the fair market value for trade fairness calculations
                 price_info = bank_prices[resource_type]
-                reference_price = price_info.get('sell_price', price_info.get('baseline', 0))
+                reference_price = price_info.get('baseline', price_info.get('sell_price', 0))
                 total_value += quantity * reference_price
         return total_value
     
