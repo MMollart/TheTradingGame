@@ -13,6 +13,7 @@ Complete documentation for The Trading Game - a real-time multiplayer resource t
 
 ### 🎯 Feature Documentation
 - **[HISTORICAL_SCENARIOS.md](HISTORICAL_SCENARIOS.md)** - 🎭 Historical scenarios with themed nations and rules (6 scenarios available)
+- **[EVENT_SYSTEM.md](EVENT_SYSTEM.md)** - ⚡ **Game events system** - Natural disasters, economic events, and positive events with difficulty scaling
 - **[FEATURE-GAME-DURATION.md](FEATURE-GAME-DURATION.md)** - Configurable game duration (1-4 hours in 30-min intervals)
 - **[FEATURE-LOBBY-AND-CHALLENGES.md](FEATURE-LOBBY-AND-CHALLENGES.md)** - Lobby system and challenge mechanics
 - **[FEATURE-FOOD-TAX-AUTOMATION.md](FEATURE-FOOD-TAX-AUTOMATION.md)** - Automated food tax system with banker controls
@@ -70,6 +71,7 @@ Deployment and troubleshooting:
 
 ### For Feature Deep-Dives
 Detailed feature documentation:
+- **Events**: [EVENT_SYSTEM.md](EVENT_SYSTEM.md) - ⚡ **8 event types** with difficulty scaling and mitigation
 - **Game Duration**: [FEATURE-GAME-DURATION.md](FEATURE-GAME-DURATION.md)
 - **Food Tax**: [FEATURE-FOOD-TAX-AUTOMATION.md](FEATURE-FOOD-TAX-AUTOMATION.md) + [FOOD-TAX-QUICKSTART.md](FOOD-TAX-QUICKSTART.md)
 - **Trading**: [TRADING_FEATURE_README.md](TRADING_FEATURE_README.md) + [TRADING_IMPLEMENTATION_SUMMARY.md](TRADING_IMPLEMENTATION_SUMMARY.md)
@@ -94,6 +96,7 @@ When contributing documentation:
 
 ## 🆕 Latest Documentation Updates
 
+- **⚡ Game Events System** - 8 event types (disasters, economic, positive) with difficulty scaling and mitigation
 - **Game Duration Feature** - Configurable 1-4 hour gameplay
 - **Food Tax Automation** - Banker-controlled tax system
 - **Challenge WebSocket Events** - Real-time synchronization
