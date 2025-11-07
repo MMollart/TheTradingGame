@@ -3548,7 +3548,7 @@ async function updatePriceChart() {
     }
 }
 
-function updateBankTradePreview() {
+async function updateBankTradePreview() {
     const resourceType = document.getElementById('bank-trade-resource').value;
     const quantity = parseInt(document.getElementById('bank-trade-quantity').value) || 0;
     const isBuying = document.querySelector('input[name="bank-trade-action"]:checked').value === 'buy';
@@ -3563,6 +3563,9 @@ function updateBankTradePreview() {
         document.getElementById('bank-trade-preview').style.display = 'none';
         return;
     }
+    
+    // Reload current prices from API to ensure we have the latest prices
+    await tradingManager.loadBankPrices();
     
     const cost = tradingManager.calculateTradeCost(resourceType, quantity, isBuying);
     const prices = tradingManager.currentPrices[resourceType];
