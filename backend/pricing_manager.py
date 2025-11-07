@@ -30,6 +30,9 @@ class PricingManager:
     MEAN_REVERSION_TARGET_MINUTES = 15  # Target 15 minutes to return to baseline
     MOMENTUM_WEIGHT = 0.6  # 60% weight for momentum vs 40% for mean reversion
     
+    # Cache for event configuration (loaded once)
+    _event_config_cache = None
+    
     def __init__(self, db: Session):
         self.db = db
     
@@ -436,7 +439,15 @@ class PricingManager:
             
             price_info = current_prices[resource_type]
             baseline = price_info['baseline']
-            current_middle = round((price_info['buy_price'] + price_info['sell_price']) / 2.0)
+            
+            # Validate baseline before calculations
+            if baseline <= 0:
+                continue
+            
+            # Calculate current middle price
+            buy_price = price_info.get('buy_price', baseline)
+            sell_price = price_info.get('sell_price', baseline)
+            current_middle = max(1, round((buy_price + sell_price) / 2.0))
             
             # Calculate momentum bias from recent price history
             momentum_bias = self._calculate_momentum_bias(game.id, resource_type)
@@ -488,12 +499,21 @@ class PricingManager:
                 new_buy_price = self._apply_spread(new_middle, is_buy=True)
                 new_sell_price = self._apply_spread(new_middle, is_buy=False)
                 
-                # Ensure buy > sell (should be guaranteed by spread logic, but double-check)
+                # Ensure buy > sell and re-validate bounds after spread adjustment
                 if new_buy_price <= new_sell_price:
                     # Adjust to ensure proper spread
                     spread = max(1, int(new_middle * self.SPREAD_PERCENTAGE))
                     new_buy_price = new_middle + spread
                     new_sell_price = new_middle - spread
+                
+                # Re-clamp after spread adjustment to ensure bounds are respected
+                new_buy_price = max(min_price, min(max_price, new_buy_price))
+                new_sell_price = max(min_price, min(max_price, new_sell_price))
+                
+                # Final validation that buy > sell after all adjustments
+                if new_buy_price <= new_sell_price:
+                    # If still invalid, skip this update
+                    continue
                 
                 updated_prices[resource_type] = {
                     'baseline': baseline,
@@ -644,17 +664,25 @@ class PricingManager:
     def _load_event_price_effects(self) -> Dict:
         """
         Load event price effects from event_config.json.
+        Uses class-level cache to avoid repeated file reads.
         
         Returns:
             Dictionary mapping event names to their configurations
         """
+        # Return cached config if available
+        if PricingManager._event_config_cache is not None:
+            return PricingManager._event_config_cache
+        
         try:
             import os
             config_path = os.path.join(os.path.dirname(__file__), 'event_config.json')
             with open(config_path, 'r') as f:
                 config = json.load(f)
-            return config.get('events', {})
+            
+            # Cache the loaded configuration
+            PricingManager._event_config_cache = config.get('events', {})
+            return PricingManager._event_config_cache
         except Exception as e:
             # If config can't be loaded, return empty dict
-            # Logger not available here, but this is a safe fallback
+            # Don't cache failures so we can retry later
             return {}
