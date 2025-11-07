@@ -10,7 +10,8 @@ from food_tax_manager import FoodTaxManager, TAX_INTERVALS, WARNING_BEFORE_TAX_M
 from game_logic import GameLogic
 from game_constants import (
     FOOD_TAX_DEVELOPED, FOOD_TAX_DEVELOPING, 
-    ResourceType, BuildingType, FAMINE_PENALTY_MULTIPLIER
+    ResourceType, BuildingType, FAMINE_PENALTY_MULTIPLIER,
+    BANK_INITIAL_PRICES
 )
 from models import GameSession, GameStatus
 
@@ -691,3 +692,220 @@ class TestGameStatusHandling:
         # Verify resources were not touched
         db.refresh(game)
         assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 50
+
+
+class TestForceApplyTaxAllTeams:
+    """Test manually applying food tax to all teams"""
+    
+    def test_force_apply_tax_all_teams_success(self, db):
+        """Test successfully applying tax to all teams"""
+        # Create game with multiple teams
+        game = GameSession(
+            game_code="ALLTAX1",
+            status=GameStatus.IN_PROGRESS,
+            difficulty="medium",
+            game_duration_minutes=90,
+            game_state={
+                'teams': {
+                    '1': {
+                        'is_developed': False,
+                        'resources': {
+                            ResourceType.FOOD.value: 20,
+                            ResourceType.CURRENCY.value: 100
+                        },
+                        'buildings': {}
+                    },
+                    '2': {
+                        'is_developed': True,
+                        'resources': {
+                            ResourceType.FOOD.value: 30,
+                            ResourceType.CURRENCY.value: 100
+                        },
+                        'buildings': {}
+                    },
+                    '3': {
+                        'is_developed': False,
+                        'resources': {
+                            ResourceType.FOOD.value: 10,
+                            ResourceType.CURRENCY.value: 100
+                        },
+                        'buildings': {}
+                    }
+                },
+                'food_tax': {
+                    '1': {
+                        'last_tax_time': None,
+                        'next_tax_due': (datetime.utcnow() + timedelta(minutes=15)).isoformat(),
+                        'warning_sent': False,
+                        'tax_interval_minutes': 15,
+                        'total_taxes_paid': 0,
+                        'total_famines': 0
+                    },
+                    '2': {
+                        'last_tax_time': None,
+                        'next_tax_due': (datetime.utcnow() + timedelta(minutes=15)).isoformat(),
+                        'warning_sent': False,
+                        'tax_interval_minutes': 15,
+                        'total_taxes_paid': 0,
+                        'total_famines': 0
+                    },
+                    '3': {
+                        'last_tax_time': None,
+                        'next_tax_due': (datetime.utcnow() + timedelta(minutes=15)).isoformat(),
+                        'warning_sent': False,
+                        'tax_interval_minutes': 15,
+                        'total_taxes_paid': 0,
+                        'total_famines': 0
+                    }
+                },
+                'bank_inventory': {
+                    ResourceType.FOOD.value: 0
+                }
+            }
+        )
+        db.add(game)
+        db.commit()
+        
+        manager = FoodTaxManager(db)
+        result = manager.force_apply_tax_all_teams("ALLTAX1")
+        
+        # Check result
+        assert result['success']
+        assert result['teams_processed'] == 3
+        assert len(result['events']) == 3
+        
+        # Verify each event
+        for event in result['events']:
+            assert event['type'] == 'event'
+            assert event['event_type'] in ['food_tax_applied', 'food_tax_famine']
+            assert 'team_number' in event['data']
+        
+        # Refresh game and verify resources were deducted
+        db.refresh(game)
+        
+        # Team 1: 20 - 5 (developing) = 15
+        assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 15
+        assert game.game_state['food_tax']['1']['total_taxes_paid'] == 1
+        
+        # Team 2: 30 - 15 (developed) = 15
+        assert game.game_state['teams']['2']['resources'][ResourceType.FOOD.value] == 15
+        assert game.game_state['food_tax']['2']['total_taxes_paid'] == 1
+        
+        # Team 3: 10 - 5 (developing) = 5
+        assert game.game_state['teams']['3']['resources'][ResourceType.FOOD.value] == 5
+        assert game.game_state['food_tax']['3']['total_taxes_paid'] == 1
+        
+        # Bank should have received food
+        assert game.game_state['bank_inventory'][ResourceType.FOOD.value] == 25  # 5 + 15 + 5
+    
+    def test_force_apply_tax_all_teams_with_famine(self, db):
+        """Test applying tax when one team has insufficient food (famine)"""
+        game = GameSession(
+            game_code="ALLTAX2",
+            status=GameStatus.IN_PROGRESS,
+            difficulty="medium",
+            game_duration_minutes=90,
+            game_state={
+                'teams': {
+                    '1': {
+                        'is_developed': False,
+                        'resources': {
+                            ResourceType.FOOD.value: 20,  # Sufficient
+                            ResourceType.CURRENCY.value: 100
+                        },
+                        'buildings': {}
+                    },
+                    '2': {
+                        'is_developed': True,
+                        'resources': {
+                            ResourceType.FOOD.value: 5,  # Insufficient (needs 15)
+                            ResourceType.CURRENCY.value: 100
+                        },
+                        'buildings': {}
+                    }
+                },
+                'food_tax': {
+                    '1': {
+                        'last_tax_time': None,
+                        'next_tax_due': (datetime.utcnow() + timedelta(minutes=15)).isoformat(),
+                        'warning_sent': False,
+                        'tax_interval_minutes': 15,
+                        'total_taxes_paid': 0,
+                        'total_famines': 0
+                    },
+                    '2': {
+                        'last_tax_time': None,
+                        'next_tax_due': (datetime.utcnow() + timedelta(minutes=15)).isoformat(),
+                        'warning_sent': False,
+                        'tax_interval_minutes': 15,
+                        'total_taxes_paid': 0,
+                        'total_famines': 0
+                    }
+                },
+                'bank_inventory': {
+                    ResourceType.FOOD.value: 0
+                }
+            }
+        )
+        db.add(game)
+        db.commit()
+        
+        manager = FoodTaxManager(db)
+        result = manager.force_apply_tax_all_teams("ALLTAX2")
+        
+        # Check result
+        assert result['success']
+        assert result['teams_processed'] == 2
+        
+        # Verify events - should have one normal and one famine
+        event_types = [event['event_type'] for event in result['events']]
+        assert 'food_tax_applied' in event_types
+        assert 'food_tax_famine' in event_types
+        
+        # Refresh game and verify
+        db.refresh(game)
+        
+        # Team 1: Normal payment
+        assert game.game_state['teams']['1']['resources'][ResourceType.FOOD.value] == 15
+        assert game.game_state['food_tax']['1']['total_taxes_paid'] == 1
+        assert game.game_state['food_tax']['1']['total_famines'] == 0
+        
+        # Team 2: Famine (paid with currency)
+        assert game.game_state['teams']['2']['resources'][ResourceType.FOOD.value] == 0
+        assert game.game_state['food_tax']['2']['total_taxes_paid'] == 0
+        assert game.game_state['food_tax']['2']['total_famines'] == 1
+        # Currency should be reduced by famine penalty
+        # Shortage: 10 food * BANK_INITIAL_PRICES[FOOD] * FAMINE_PENALTY_MULTIPLIER = 10 * 2 * 2 = 40
+        expected_penalty = 10 * BANK_INITIAL_PRICES[ResourceType.FOOD] * FAMINE_PENALTY_MULTIPLIER
+        assert game.game_state['teams']['2']['resources'][ResourceType.CURRENCY.value] == 100 - expected_penalty
+    
+    def test_force_apply_tax_all_teams_game_not_found(self, db):
+        """Test error when game doesn't exist"""
+        manager = FoodTaxManager(db)
+        result = manager.force_apply_tax_all_teams("NOTEXIST")
+        
+        assert not result['success']
+        assert 'error' in result
+        assert result['error'] == "Game not found"
+    
+    def test_force_apply_tax_all_teams_not_initialized(self, db):
+        """Test error when food tax tracking is not initialized"""
+        game = GameSession(
+            game_code="NOTINIT",
+            status=GameStatus.IN_PROGRESS,
+            game_state={
+                'teams': {
+                    '1': {'resources': {ResourceType.FOOD.value: 20}}
+                }
+                # Missing 'food_tax' key
+            }
+        )
+        db.add(game)
+        db.commit()
+        
+        manager = FoodTaxManager(db)
+        result = manager.force_apply_tax_all_teams("NOTINIT")
+        
+        assert not result['success']
+        assert 'error' in result
+        assert result['error'] == "Food tax not initialized"

@@ -1316,12 +1316,32 @@ async def websocket_endpoint(websocket: WebSocket, game_code: str, player_id: in
                 })
             
             elif data.get("type") == "event":
-                # Broadcast game event (disasters, taxes, etc.)
-                await manager.broadcast_to_game(game_code.upper(), {
-                    "type": "game_event",
-                    "event_type": data.get("event_type"),
-                    "data": data.get("data")
-                })
+                event_type = data.get("event_type")
+                
+                # Special handling for food_tax event - apply tax to all teams
+                if event_type == "food_tax":
+                    from food_tax_manager import FoodTaxManager
+                    tax_manager = FoodTaxManager(db)
+                    result = tax_manager.force_apply_tax_all_teams(game_code.upper())
+                    
+                    if result.get("success"):
+                        # Broadcast each tax application event
+                        for event in result.get("events", []):
+                            await manager.broadcast_to_game(game_code.upper(), event)
+                    else:
+                        # Broadcast error
+                        await manager.broadcast_to_game(game_code.upper(), {
+                            "type": "event",
+                            "event_type": "food_tax_error",
+                            "data": {"error": result.get("error", "Unknown error")}
+                        })
+                else:
+                    # Broadcast game event (disasters, etc.)
+                    await manager.broadcast_to_game(game_code.upper(), {
+                        "type": "game_event",
+                        "event_type": event_type,
+                        "data": data.get("data")
+                    })
     
     except WebSocketDisconnect:
         manager.disconnect(websocket)

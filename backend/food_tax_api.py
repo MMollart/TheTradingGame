@@ -59,6 +59,21 @@ def force_apply_tax(
     return manager.force_apply_tax(game_code, team_number)
 
 
+@router.post("/{game_code}/force-apply-all")
+async def force_apply_tax_all(
+    game_code: str,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Manually trigger food tax for ALL teams.
+    
+    This endpoint is used when the host or banker presses the 
+    "Apply Food Tax (All Nations)" button.
+    """
+    manager = FoodTaxManager(db)
+    return manager.force_apply_tax_all_teams(game_code)
+
+
 @router.post("/{game_code}/initialize")
 def initialize_food_tax(
     game_code: str,
