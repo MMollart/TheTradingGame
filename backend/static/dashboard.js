@@ -3868,6 +3868,12 @@ async function refreshPendingTrades() {
         const isReceiver = trade.to_team === currentPlayer.groupNumber;
         const hasCounterOffer = trade.counter_offered_resources !== null;
         
+        // Determine labels from viewer's perspective
+        // For initiator: offered = you give, requested = you get
+        // For receiver: offered = you get, requested = you give
+        const youGiveResources = isInitiator ? trade.offered_resources : trade.requested_resources;
+        const youGetResources = isInitiator ? trade.requested_resources : trade.offered_resources;
+        
         let html = `
             <div class="trade-offer-card" style="border: 1px solid #ccc; padding: 15px; margin-bottom: 10px; border-radius: 5px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -3880,28 +3886,36 @@ async function refreshPendingTrades() {
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
                     <div>
-                        <strong>Offered:</strong><br>
-                        ${tradingManager.formatResourcesDisplay(trade.offered_resources)}
+                        <strong>🔴 You Give:</strong><br>
+                        ${tradingManager.formatResourcesDisplay(youGiveResources)}
                     </div>
                     <div>
-                        <strong>Requested:</strong><br>
-                        ${tradingManager.formatResourcesDisplay(trade.requested_resources)}
+                        <strong>🟢 You Get:</strong><br>
+                        ${tradingManager.formatResourcesDisplay(youGetResources)}
                     </div>
                 </div>
         `;
         
         if (hasCounterOffer) {
+            // For counter-offers, the roles are reversed
+            // Counter-offer is made by the receiver of the original offer
+            // So from viewer's perspective:
+            // - If viewer is original initiator: counter_offered = you get, counter_requested = you give
+            // - If viewer is original receiver (counter-offer maker): counter_offered = you give, counter_requested = you get
+            const counterYouGiveResources = isInitiator ? trade.counter_requested_resources : trade.counter_offered_resources;
+            const counterYouGetResources = isInitiator ? trade.counter_offered_resources : trade.counter_requested_resources;
+            
             html += `
                 <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
                     <strong>Counter-Offer:</strong>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 5px;">
                         <div>
-                            <strong>Offered:</strong><br>
-                            ${tradingManager.formatResourcesDisplay(trade.counter_offered_resources)}
+                            <strong>🔴 You Give:</strong><br>
+                            ${tradingManager.formatResourcesDisplay(counterYouGiveResources)}
                         </div>
                         <div>
-                            <strong>Requested:</strong><br>
-                            ${tradingManager.formatResourcesDisplay(trade.counter_requested_resources)}
+                            <strong>🟢 You Get:</strong><br>
+                            ${tradingManager.formatResourcesDisplay(counterYouGetResources)}
                         </div>
                     </div>
                 </div>
