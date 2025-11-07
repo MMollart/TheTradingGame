@@ -2,7 +2,7 @@
 
 Complete documentation for The Trading Game - a real-time multiplayer resource trading and building simulation.
 
-## � Documentation Structure
+## 📂 Documentation Structure
 
 Documentation is organized into three main categories:
 
@@ -44,6 +44,7 @@ Implementation details for developers:
 - **[FEATURE-GAME-DURATION.md](technical/FEATURE-GAME-DURATION.md)** - Configurable game duration (1-4 hours)
 - **[FEATURE-LOBBY-AND-CHALLENGES.md](technical/FEATURE-LOBBY-AND-CHALLENGES.md)** - Lobby system and challenge mechanics
 - **[FEATURE-FOOD-TAX-AUTOMATION.md](technical/FEATURE-FOOD-TAX-AUTOMATION.md)** - Automated food tax system
+- **[FEATURE-KINDNESS-SCORING.md](FEATURE-KINDNESS-SCORING.md)** - 🤝 Kindness-based trading score rewards cooperative behavior
 - **[BUILDING-CONSTRUCTION-SYSTEM.md](technical/BUILDING-CONSTRUCTION-SYSTEM.md)** - Building mechanics and construction rules
 - **[TRADING_FEATURE_README.md](technical/TRADING_FEATURE_README.md)** - Resource trading system documentation
 
@@ -101,6 +102,7 @@ Detailed feature documentation:
 - **Game Duration**: [FEATURE-GAME-DURATION.md](technical/FEATURE-GAME-DURATION.md)
 - **Food Tax**: [FEATURE-FOOD-TAX-AUTOMATION.md](technical/FEATURE-FOOD-TAX-AUTOMATION.md) + [FOOD-TAX-QUICKSTART.md](player-guides/FOOD-TAX-QUICKSTART.md)
 - **Trading**: [TRADING_FEATURE_README.md](technical/TRADING_FEATURE_README.md) + [TRADING_IMPLEMENTATION_SUMMARY.md](technical/TRADING_IMPLEMENTATION_SUMMARY.md)
+- **Kindness Scoring**: [FEATURE-KINDNESS-SCORING.md](FEATURE-KINDNESS-SCORING.md)
 - **Building**: [BUILDING-CONSTRUCTION-SYSTEM.md](technical/BUILDING-CONSTRUCTION-SYSTEM.md)
 - **Challenges**: [CHALLENGE_SYSTEM_README.md](technical/CHALLENGE_SYSTEM_README.md)
 - **Events**: [EVENT_SYSTEM.md](game-design/EVENT_SYSTEM.md) + [EVENT_SYSTEM_IMPLEMENTATION.md](technical/EVENT_SYSTEM_IMPLEMENTATION.md) + [GAME_EVENTS.md](game-design/GAME_EVENTS.md)
@@ -123,6 +125,7 @@ When contributing documentation:
 
 ## 🆕 Latest Documentation Updates
 
+- **🤝 Kindness-Based Scoring** - Rewards generous trading with score bonuses (see [FEATURE-KINDNESS-SCORING.md](FEATURE-KINDNESS-SCORING.md))
 - **🎲 Game Events System** - NEW comprehensive guides: [EVENT_SYSTEM.md](game-design/EVENT_SYSTEM.md) and [EVENT_SYSTEM_IMPLEMENTATION.md](technical/EVENT_SYSTEM_IMPLEMENTATION.md)
   - 8 event types (natural disasters, economic events, positive events)
   - Difficulty scaling and severity levels (1-5)

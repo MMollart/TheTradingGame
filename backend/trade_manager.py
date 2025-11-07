@@ -10,6 +10,73 @@ from models import GameSession, Player, TradeOffer, TradeOfferStatus
 from game_logic import GameLogic
 
 
+class TradeMarginCalculator:
+    """Calculate trade margins for kindness scoring"""
+    
+    @staticmethod
+    def calculate_resource_value(resources: Dict[str, int], bank_prices: Dict[str, Dict[str, int]]) -> float:
+        """
+        Calculate the fair market value of resources based on bank prices.
+        Uses the sell price (what bank would pay) as the reference price.
+        
+        Args:
+            resources: Dictionary of resource types and quantities
+            bank_prices: Current bank prices with buy_price, sell_price, baseline
+            
+        Returns:
+            Total value in currency units
+        """
+        total_value = 0.0
+        for resource_type, quantity in resources.items():
+            if resource_type == 'currency':
+                # Currency is worth its face value
+                total_value += quantity
+            elif resource_type in bank_prices:
+                # Use sell_price as the fair market value (what bank would pay for it)
+                price_info = bank_prices[resource_type]
+                reference_price = price_info.get('sell_price', price_info.get('baseline', 0))
+                total_value += quantity * reference_price
+        return total_value
+    
+    @staticmethod
+    def calculate_trade_margin(
+        offered_resources: Dict[str, int],
+        requested_resources: Dict[str, int],
+        bank_prices: Dict[str, Dict[str, int]]
+    ) -> Dict[str, float]:
+        """
+        Calculate the trade margin from the perspective of the offering team.
+        
+        Margin formula: (value_received - value_given) / value_given
+        - Negative margin = trading at a loss (generous/kind)
+        - Positive margin = trading at a profit (shrewd)
+        - Zero margin = fair trade
+        
+        Args:
+            offered_resources: What the team is giving away
+            requested_resources: What the team is receiving
+            bank_prices: Current bank prices for reference
+            
+        Returns:
+            Dictionary with 'margin' (float) and 'trade_value' (float)
+        """
+        value_given = TradeMarginCalculator.calculate_resource_value(offered_resources, bank_prices)
+        value_received = TradeMarginCalculator.calculate_resource_value(requested_resources, bank_prices)
+        
+        # Avoid division by zero
+        if value_given == 0:
+            # If giving nothing, can't calculate meaningful margin
+            return {'margin': 0.0, 'trade_value': value_received}
+        
+        # Calculate margin: positive means profit, negative means loss
+        margin = (value_received - value_given) / value_given
+        
+        return {
+            'margin': round(margin, 4),  # Round to 4 decimal places
+            'trade_value': round(value_given, 2)
+        }
+
+
 class TradeManager:
     """Manages team-to-team trade negotiations"""
     
@@ -249,6 +316,21 @@ class TradeManager:
         
         to_resources = GameLogic.deduct_resources(to_resources, requested)
         to_resources = GameLogic.add_resources(to_resources, offered)
+        
+        # Calculate trade margins for kindness scoring
+        bank_prices = game.game_state.get('bank_prices', {})
+        if bank_prices:
+            # From team's perspective: they give 'offered', receive 'requested'
+            from_team_margin_data = TradeMarginCalculator.calculate_trade_margin(
+                offered, requested, bank_prices
+            )
+            # To team's perspective: they give 'requested', receive 'offered'
+            to_team_margin_data = TradeMarginCalculator.calculate_trade_margin(
+                requested, offered, bank_prices
+            )
+            
+            trade_offer.from_team_margin = from_team_margin_data
+            trade_offer.to_team_margin = to_team_margin_data
         
         # Update game state
         game.game_state['teams'][str(from_team)]['resources'] = from_resources
