@@ -5028,12 +5028,12 @@ function applySettingsRestrictions() {
         if (gameDurationInput) {
             gameDurationInput.disabled = false;
             gameDurationInput.style.opacity = '1';
-            gameDurationInput.style.cursor = 'pointer';
+            gameDurationInput.style.cursor = 'auto';
         }
         if (gameDifficultySelect) {
             gameDifficultySelect.disabled = false;
             gameDifficultySelect.style.opacity = '1';
-            gameDifficultySelect.style.cursor = 'pointer';
+            gameDifficultySelect.style.cursor = 'auto';
         }
         
         // Show regular warnings, hide locked warnings
@@ -5208,27 +5208,34 @@ async function saveAllSettings() {
         }
         
         // Save challenge defaults (can be done anytime)
-        const newDefaults = {
-            'push_ups': parseInt(document.getElementById('challenge-push_ups').value),
-            'sit_ups': parseInt(document.getElementById('challenge-sit_ups').value),
-            'burpees': parseInt(document.getElementById('challenge-burpees').value),
-            'star_jumps': parseInt(document.getElementById('challenge-star_jumps').value),
-            'squats': parseInt(document.getElementById('challenge-squats').value),
-            'lunges': parseInt(document.getElementById('challenge-lunges').value),
-            'plank': parseInt(document.getElementById('challenge-plank').value),
-            'jumping_jacks': parseInt(document.getElementById('challenge-jumping_jacks').value)
-        };
-        
-        let challengesSaved = false;
-        Object.keys(newDefaults).forEach(key => {
-            if (challengeTypes[key] && !isNaN(newDefaults[key]) && newDefaults[key] > 0) {
-                challengeTypes[key].default = newDefaults[key];
-                challengesSaved = true;
+        try {
+            if (typeof challengeTypes !== 'undefined') {
+                const newDefaults = {
+                    'push_ups': parseInt(document.getElementById('challenge-push_ups').value),
+                    'sit_ups': parseInt(document.getElementById('challenge-sit_ups').value),
+                    'burpees': parseInt(document.getElementById('challenge-burpees').value),
+                    'star_jumps': parseInt(document.getElementById('challenge-star_jumps').value),
+                    'squats': parseInt(document.getElementById('challenge-squats').value),
+                    'lunges': parseInt(document.getElementById('challenge-lunges').value),
+                    'plank': parseInt(document.getElementById('challenge-plank').value),
+                    'jumping_jacks': parseInt(document.getElementById('challenge-jumping_jacks').value)
+                };
+                
+                let challengesSaved = false;
+                Object.keys(newDefaults).forEach(key => {
+                    if (challengeTypes[key] && !isNaN(newDefaults[key]) && newDefaults[key] > 0) {
+                        challengeTypes[key].default = newDefaults[key];
+                        challengesSaved = true;
+                    }
+                });
+                
+                if (challengesSaved) {
+                    successes.push('Challenge defaults updated');
+                }
             }
-        });
-        
-        if (challengesSaved) {
-            successes.push('Challenge defaults updated');
+        } catch (error) {
+            console.error('Error saving challenge defaults:', error);
+            errors.push(`Challenge defaults: ${error.message || 'Unknown error'}`);
         }
         
         // Show results
