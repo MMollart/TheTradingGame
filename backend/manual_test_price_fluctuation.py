@@ -69,8 +69,8 @@ class MockPricingManager:
     ) -> tuple:
         """Apply one fluctuation step"""
         
-        # Probability check
-        if random.random() > self.FLUCTUATION_PROBABILITY:
+        # Probability check - with 100% probability, this never skips
+        if random.random() >= self.FLUCTUATION_PROBABILITY:
             return current_price, None
         
         # Calculate factors
@@ -130,28 +130,28 @@ def run_simulation():
             'baseline': 100,
             'starting_price': 100,
             'event_effect': 0.0,
-            'steps': 300  # ~90 seconds (300 checks at 3.33% = ~10 changes)
+            'steps': 10  # 10 checks at 100% = 10 changes (represents ~5 minutes at 30s intervals)
         },
         {
             'name': 'Economic Recession (+0.3 effect)',
             'baseline': 100,
             'starting_price': 100,
             'event_effect': 0.3,
-            'steps': 300
+            'steps': 10
         },
         {
             'name': 'Automation Breakthrough (-0.2 effect)',
             'baseline': 100,
             'starting_price': 100,
             'event_effect': -0.2,
-            'steps': 300
+            'steps': 10
         },
         {
             'name': 'Mean Reversion Test (Starting High)',
             'baseline': 100,
             'starting_price': 180,
             'event_effect': 0.0,
-            'steps': 500
+            'steps': 20  # 20 checks = ~10 minutes
         }
     ]
     
@@ -236,11 +236,12 @@ if __name__ == "__main__":
 ║                     PRICE FLUCTUATION SYSTEM TEST                          ║
 ║                                                                            ║
 ║  This demonstrates the dynamic bank price fluctuation logic including:    ║
-║  - Random variations (3.33% probability, ±2% magnitude)                   ║
+║  - Random variations (100% probability every 30 seconds, ±2% magnitude)   ║
 ║  - Momentum tracking (recent trends influence direction)                  ║
 ║  - Mean reversion (pull back to baseline over time)                       ║
 ║  - Event effects (game events bias price direction)                       ║
 ║  - Spread maintenance (buy price always > sell price)                     ║
+║  - Increased bounds (0.5x to 3.5x baseline, 20% spread)                   ║
 ╚════════════════════════════════════════════════════════════════════════════╝
     """)
     

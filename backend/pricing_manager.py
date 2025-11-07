@@ -450,8 +450,10 @@ class PricingManager:
         changed_resources = []
         
         for resource_type in current_prices.keys():
-            # 3.33% probability check
-            if random.random() > self.FLUCTUATION_PROBABILITY:
+            # Probability check: random.random() < FLUCTUATION_PROBABILITY
+            # When FLUCTUATION_PROBABILITY = 1.0 (100%), this always passes
+            # When FLUCTUATION_PROBABILITY = 0.0333 (3.33%), this passes 3.33% of the time
+            if random.random() >= self.FLUCTUATION_PROBABILITY:
                 continue
             
             price_info = current_prices[resource_type]
