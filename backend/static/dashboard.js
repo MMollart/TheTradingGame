@@ -5735,9 +5735,10 @@ async function saveAllSettings() {
                         'medium': 'Medium',
                         'hard': 'Hard'
                     };
-                successes.push(`Game difficulty: ${difficultyDescriptions[difficulty]}`);
-            } catch (error) {
-                errors.push(`Game difficulty: ${error.message || error.detail || 'Unknown error'}`);
+                    successes.push(`Game difficulty: ${difficultyDescriptions[difficulty]}`);
+                } catch (error) {
+                    errors.push(`Game difficulty: ${error.message || error.detail || 'Unknown error'}`);
+                }
             }
         }
         
