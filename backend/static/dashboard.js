@@ -2778,20 +2778,44 @@ function showFinalScores(scores) {
 
 // ==================== BANKER FUNCTIONS ====================
 
-function updatePrice(resource, source = 'banker') {
+async function updatePrice(resource, source = 'banker') {
     const prefix = source === 'host' ? 'host-' : '';
-    const value = parseInt(document.getElementById(`${prefix}price-${resource}`).value);
+    // Convert underscores to hyphens for ID (e.g., raw_materials -> raw-materials)
+    const resourceId = resource.replace(/_/g, '-');
+    const value = parseInt(document.getElementById(`${prefix}price-${resourceId}`).value);
     
-    if (!playerState.bank_prices) playerState.bank_prices = {};
-    playerState.bank_prices[resource] = value;
+    if (value < 1) {
+        alert('Price must be at least 1');
+        return;
+    }
     
-    // Update state
-    gameWS.send({
-        type: 'update_player_state',
-        player_state: playerState
-    });
-    
-    addEventLog(`Updated ${formatResourceName(resource)} price to ${value}`);
+    try {
+        // Call API to update bank price in game state
+        const response = await fetch(`/games/${currentGameCode}/update-bank-price`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                resource_type: resource,
+                baseline_price: value
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update price');
+        }
+        
+        const data = await response.json();
+        addEventLog(
+            `Updated ${formatResourceName(resource)} price to ${value} ` +
+            `(Buy: ${data.buy_price}, Sell: ${data.sell_price})`
+        );
+    } catch (error) {
+        console.error('Error updating price:', error);
+        alert(`Failed to update price: ${error.message}`);
+    }
 }
 
 function triggerFoodTax() {
@@ -6303,12 +6327,13 @@ function expireChallenge(playerId, buildingType) {
 
 // Load banker view for host
 async function loadHostBankerView() {
-    // Load bank prices
-    if (playerState.bank_prices) {
-        document.getElementById('host-price-food').value = playerState.bank_prices.food || 2;
-        document.getElementById('host-price-raw-materials').value = playerState.bank_prices.raw_materials || 3;
-        document.getElementById('host-price-electrical-goods').value = playerState.bank_prices.electrical_goods || 15;
-        document.getElementById('host-price-medical-goods').value = playerState.bank_prices.medical_goods || 20;
+    // Load bank prices from game state (not player state)
+    if (gameState.bank_prices) {
+        // bank_prices now stores baseline, buy_price, sell_price - use baseline for the input
+        document.getElementById('host-price-food').value = gameState.bank_prices.food?.baseline || 2;
+        document.getElementById('host-price-raw-materials').value = gameState.bank_prices.raw_materials?.baseline || 3;
+        document.getElementById('host-price-electrical-goods').value = gameState.bank_prices.electrical_goods?.baseline || 15;
+        document.getElementById('host-price-medical-goods').value = gameState.bank_prices.medical_goods?.baseline || 20;
     }
     
     // Load bank inventory from gameState (not playerState)
