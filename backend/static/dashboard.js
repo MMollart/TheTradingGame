@@ -4208,7 +4208,7 @@ function showCounterOfferForm(tradeId) {
 
 function addCounterOfferResource(resourceType = 'food', quantity = 1) {
     const container = document.getElementById('counter-offer-list');
-    const id = `counter-offer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `counter-offer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     
     const resourceDiv = document.createElement('div');
     resourceDiv.className = 'resource-input-group';
@@ -4229,7 +4229,7 @@ function addCounterOfferResource(resourceType = 'food', quantity = 1) {
 
 function addCounterRequestResource(resourceType = 'food', quantity = 1) {
     const container = document.getElementById('counter-request-list');
-    const id = `counter-request-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const id = `counter-request-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     
     const resourceDiv = document.createElement('div');
     resourceDiv.className = 'resource-input-group';
@@ -4255,6 +4255,22 @@ function removeCounterResource(id) {
     }
 }
 
+// Helper function to collect resources from input groups
+function collectResourcesFromInputGroups(selector) {
+    const resources = {};
+    document.querySelectorAll(selector).forEach(group => {
+        const typeSelect = group.querySelector('select');
+        const qtyInput = group.querySelector('input[type="number"]');
+        const type = typeSelect.value;
+        const qty = parseInt(qtyInput.value) || 0;
+        
+        if (qty > 0) {
+            resources[type] = (resources[type] || 0) + qty;
+        }
+    });
+    return resources;
+}
+
 async function submitCounterOffer() {
     if (!currentCounterTradeId) {
         alert('No trade selected for counter-offer');
@@ -4262,30 +4278,10 @@ async function submitCounterOffer() {
     }
     
     // Collect counter-offered resources (what you're giving)
-    const counterOfferedResources = {};
-    document.querySelectorAll('#counter-offer-list .resource-input-group').forEach(group => {
-        const typeSelect = group.querySelector('select');
-        const qtyInput = group.querySelector('input[type="number"]');
-        const type = typeSelect.value;
-        const qty = parseInt(qtyInput.value) || 0;
-        
-        if (qty > 0) {
-            counterOfferedResources[type] = (counterOfferedResources[type] || 0) + qty;
-        }
-    });
+    const counterOfferedResources = collectResourcesFromInputGroups('#counter-offer-list .resource-input-group');
     
     // Collect counter-requested resources (what you want to receive)
-    const counterRequestedResources = {};
-    document.querySelectorAll('#counter-request-list .resource-input-group').forEach(group => {
-        const typeSelect = group.querySelector('select');
-        const qtyInput = group.querySelector('input[type="number"]');
-        const type = typeSelect.value;
-        const qty = parseInt(qtyInput.value) || 0;
-        
-        if (qty > 0) {
-            counterRequestedResources[type] = (counterRequestedResources[type] || 0) + qty;
-        }
-    });
+    const counterRequestedResources = collectResourcesFromInputGroups('#counter-request-list .resource-input-group');
     
     if (Object.keys(counterOfferedResources).length === 0) {
         alert('Please add at least one resource to offer');
