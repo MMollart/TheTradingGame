@@ -873,8 +873,11 @@ class TestForceApplyTaxAllTeams:
         assert game.game_state['teams']['2']['resources'][ResourceType.FOOD.value] == 0
         assert game.game_state['food_tax']['2']['total_taxes_paid'] == 0
         assert game.game_state['food_tax']['2']['total_famines'] == 1
-        # Currency should be reduced (10 shortage * 2 base_price * 2 penalty = 40)
-        assert game.game_state['teams']['2']['resources'][ResourceType.CURRENCY.value] == 60
+        # Currency should be reduced by famine penalty
+        # Shortage: 10 food * BANK_INITIAL_PRICES[FOOD] * FAMINE_PENALTY_MULTIPLIER = 10 * 2 * 2 = 40
+        from game_constants import BANK_INITIAL_PRICES
+        expected_penalty = 10 * BANK_INITIAL_PRICES[ResourceType.FOOD] * FAMINE_PENALTY_MULTIPLIER
+        assert game.game_state['teams']['2']['resources'][ResourceType.CURRENCY.value] == 100 - expected_penalty
     
     def test_force_apply_tax_all_teams_game_not_found(self, db):
         """Test error when game doesn't exist"""

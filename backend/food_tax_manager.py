@@ -442,7 +442,11 @@ class FoodTaxManager:
             game_code: Game code
             
         Returns:
-            Result of tax application for all teams
+            Dictionary with:
+            - success (bool): Whether the operation succeeded
+            - events (List[Dict]): List of tax application events for each team
+            - teams_processed (int): Number of teams processed
+            - error (str): Error message if success is False
         """
         game = self.db.query(GameSession).filter(
             GameSession.game_code == game_code.upper()
