@@ -5826,7 +5826,7 @@ async function completeChallengeAndGrantResources(playerId, buildingType, teamNu
     // console.log('[completeChallengeAndGrantResources] playerId type:', typeof playerId);
     
     // Convert playerId to number if it's a string
-    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId) : playerId;
+    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId, 10) : playerId;
     // console.log('[completeChallengeAndGrantResources] playerIdNum:', playerIdNum);
     
     // Find challenge - check challenge manager first
@@ -5981,6 +5981,9 @@ async function cancelActiveChallenge(playerId, buildingType) {
     
     // console.log('[cancelActiveChallenge] Called for player:', playerId, 'building:', buildingType);
     
+    // Convert playerId to number if it's a string
+    const playerIdNum = typeof playerId === 'string' ? parseInt(playerId, 10) : playerId;
+    
     // Find challenge - check challenge manager first
     let challenge = null;
     let challengeDbId = null;
@@ -5988,7 +5991,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
     if (challengeManager) {
         const assignedChallenges = challengeManager.getAssignedChallenges();
         challenge = assignedChallenges.find(
-            ch => ch.player_id === playerId && ch.building_type === buildingType
+            ch => ch.player_id === playerIdNum && ch.building_type === buildingType
         );
         if (challenge) {
             challengeDbId = challenge.db_id;
@@ -5998,7 +6001,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
     
     // Fall back to legacy object
     if (!challenge) {
-        const challengeKey = `${playerId}-${buildingType}`;
+        const challengeKey = `${playerIdNum}-${buildingType}`;
         challenge = allActiveChallenges[challengeKey];
         if (challenge) {
             challengeDbId = challenge.db_id;
@@ -6022,7 +6025,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
     }
     
     // Remove from active challenges (legacy)
-    const challengeKey = `${playerId}-${buildingType}`;
+    const challengeKey = `${playerIdNum}-${buildingType}`;
     delete allActiveChallenges[challengeKey];
     
     // Notify player via WebSocket
@@ -6030,7 +6033,7 @@ async function cancelActiveChallenge(playerId, buildingType) {
         type: 'event',
         event_type: 'challenge_cancelled',
         data: {
-            player_id: playerId,
+            player_id: playerIdNum,
             building_type: buildingType,
             team_number: challenge.team_number
         }
