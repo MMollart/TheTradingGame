@@ -2334,12 +2334,9 @@ body {
     background: #5a6268;
 }
 
-/* ==================== ACTIVE CHALLENGES ==================== */
+/* ==================== ACTIVE CHALLENGES (Player View) ==================== */
 
-.active-challenges-list {
-    /* Removed max-height to allow full page length */
-    /* Grid layout is defined earlier in the file */
-}
+/* Note: .active-challenges-list grid layout is defined earlier in the file (line ~985) */
 
 .challenge-item {
     background: white;
