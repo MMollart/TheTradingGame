@@ -10,7 +10,8 @@ from food_tax_manager import FoodTaxManager, TAX_INTERVALS, WARNING_BEFORE_TAX_M
 from game_logic import GameLogic
 from game_constants import (
     FOOD_TAX_DEVELOPED, FOOD_TAX_DEVELOPING, 
-    ResourceType, BuildingType, FAMINE_PENALTY_MULTIPLIER
+    ResourceType, BuildingType, FAMINE_PENALTY_MULTIPLIER,
+    BANK_INITIAL_PRICES
 )
 from models import GameSession, GameStatus
 
@@ -875,7 +876,6 @@ class TestForceApplyTaxAllTeams:
         assert game.game_state['food_tax']['2']['total_famines'] == 1
         # Currency should be reduced by famine penalty
         # Shortage: 10 food * BANK_INITIAL_PRICES[FOOD] * FAMINE_PENALTY_MULTIPLIER = 10 * 2 * 2 = 40
-        from game_constants import BANK_INITIAL_PRICES
         expected_penalty = 10 * BANK_INITIAL_PRICES[ResourceType.FOOD] * FAMINE_PENALTY_MULTIPLIER
         assert game.game_state['teams']['2']['resources'][ResourceType.CURRENCY.value] == 100 - expected_penalty
     
