@@ -24,7 +24,7 @@ scheduler_task = None
 scheduler_running = False
 
 # Configuration
-CHECK_INTERVAL_SECONDS = 1  # Check every second for fluctuations
+CHECK_INTERVAL_SECONDS = 30  # Check every 30 seconds for fluctuations
 
 
 async def check_all_games_for_price_fluctuations():
@@ -68,6 +68,30 @@ async def check_all_games_for_price_fluctuations():
                     flag_modified(game, 'game_state')
                     db.commit()
                     
+                    # Check for significant price changes (price alerts)
+                    price_alerts = []
+                    for resource in changed_resources:
+                        old_price = current_prices[resource]
+                        new_price = updated_prices[resource]
+                        
+                        # Calculate percentage change in middle price
+                        old_middle = (old_price['buy_price'] + old_price['sell_price']) / 2.0
+                        new_middle = (new_price['buy_price'] + new_price['sell_price']) / 2.0
+                        
+                        if old_middle > 0:
+                            pct_change = abs((new_middle - old_middle) / old_middle)
+                            
+                            # Alert if change is >= 10%
+                            if pct_change >= pricing_mgr.PRICE_ALERT_THRESHOLD:
+                                direction = "increased" if new_middle > old_middle else "decreased"
+                                price_alerts.append({
+                                    'resource': resource,
+                                    'old_price': int(old_middle),
+                                    'new_price': int(new_middle),
+                                    'change_percent': round(pct_change * 100, 1),
+                                    'direction': direction
+                                })
+                    
                     # Broadcast price updates
                     await ws_manager.broadcast_to_game(
                         game.game_code.upper(),
@@ -77,10 +101,21 @@ async def check_all_games_for_price_fluctuations():
                             "data": {
                                 "prices": updated_prices,
                                 "changed_resources": changed_resources,
+                                "price_alerts": price_alerts,
                                 "timestamp": datetime.utcnow().isoformat()
                             }
                         }
                     )
+                    
+                    # Log significant price changes
+                    if price_alerts:
+                        alert_msg = ", ".join([
+                            f"{a['resource']} {a['direction']} by {a['change_percent']}%"
+                            for a in price_alerts
+                        ])
+                        logger.info(
+                            f"Price alerts in game {game.game_code}: {alert_msg}"
+                        )
                     
                     logger.debug(
                         f"Price fluctuation in game {game.game_code}: "

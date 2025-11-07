@@ -13,9 +13,9 @@ class MockPricingManager:
     """Mock version of PricingManager for testing"""
     
     MIN_MULTIPLIER = 0.5
-    MAX_MULTIPLIER = 2.0
-    SPREAD_PERCENTAGE = 0.1
-    FLUCTUATION_PROBABILITY = 0.0333
+    MAX_MULTIPLIER = 3.5  # Updated from 2.0
+    SPREAD_PERCENTAGE = 0.2  # Updated from 0.1
+    FLUCTUATION_PROBABILITY = 1.0  # Updated from 0.0333 (now 100% every 30 sec)
     FLUCTUATION_MAGNITUDE = 0.02
     MOMENTUM_WEIGHT = 0.6
     

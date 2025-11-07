@@ -17,18 +17,22 @@ class PricingManager:
     
     # Price adjustment parameters
     MIN_MULTIPLIER = 0.5  # -50% from baseline
-    MAX_MULTIPLIER = 2.0  # +100% from baseline
-    SPREAD_PERCENTAGE = 0.1  # 10% spread between buy and sell
+    MAX_MULTIPLIER = 3.5  # +250% from baseline (was 2.0)
+    SPREAD_PERCENTAGE = 0.2  # 20% spread between buy and sell (was 0.1)
     
     # Supply/demand adjustment factors
     TRADE_IMPACT_FACTOR = 0.05  # 5% price change per significant trade
+    MARKET_DEPTH_FACTOR = 0.10  # 10% additional impact per 100 units traded (market depth)
     
     # Random fluctuation parameters
-    FLUCTUATION_PROBABILITY = 0.0333  # 3.33% chance per second
+    FLUCTUATION_PROBABILITY = 1.0  # 100% chance per 30-second check (was 3.33% per second)
     FLUCTUATION_MAGNITUDE = 0.02  # ±2% per fluctuation
     MOMENTUM_LOOKBACK_MINUTES = 2  # Look at last 2 minutes for momentum
     MEAN_REVERSION_TARGET_MINUTES = 15  # Target 15 minutes to return to baseline
     MOMENTUM_WEIGHT = 0.6  # 60% weight for momentum vs 40% for mean reversion
+    
+    # Price alert parameters
+    PRICE_ALERT_THRESHOLD = 0.10  # Alert if price changes by 10% or more
     
     # Cache for event configuration (loaded once)
     _event_config_cache = None
@@ -81,9 +85,12 @@ class PricingManager:
         """
         Apply buy/sell spread to a base price.
         
+        Standard market maker: buy_price > sell_price (bank buys low, sells high)
+        
         Args:
             base_price: The base/middle price
-            is_buy: True if bank is selling (buy price), False if bank is buying (sell price)
+            is_buy: True if this is buy_price (bank selling to teams at higher price), 
+                   False if sell_price (bank buying from teams at lower price)
         
         Returns:
             Adjusted price with spread applied
@@ -92,9 +99,11 @@ class PricingManager:
         # Ensure minimum spread of 1 to create price differentiation
         spread = max(1, spread)
         if is_buy:
-            return base_price + spread  # Bank sells higher
+            # buy_price: Bank sells to teams at HIGHER price
+            return base_price + spread
         else:
-            return max(1, base_price - spread)  # Bank buys lower, minimum 1
+            # sell_price: Bank buys from teams at LOWER price
+            return max(1, base_price - spread)
     
     def adjust_price_after_trade(
         self,
@@ -134,9 +143,17 @@ class PricingManager:
         # If team is selling to bank, supply increases -> price goes down
         adjustment_direction = 1 if is_team_buying else -1
         
-        # Scale adjustment based on quantity (more significant for larger trades)
-        quantity_factor = min(quantity / 100, 1.0)  # Cap at 100 units for max effect
-        adjustment = int(baseline * self.TRADE_IMPACT_FACTOR * quantity_factor)
+        # Scale adjustment based on quantity with market depth
+        # Larger trades have exponentially greater impact (market depth effect)
+        base_quantity_factor = min(quantity / 100, 1.0)  # Base scaling
+        
+        # Market depth: Additional impact for large trades
+        # Every 100 units adds MARKET_DEPTH_FACTOR more impact
+        depth_multiplier = 1.0 + (quantity // 100) * self.MARKET_DEPTH_FACTOR
+        depth_multiplier = min(depth_multiplier, 3.0)  # Cap at 3x impact
+        
+        # Combined adjustment with market depth
+        adjustment = int(baseline * self.TRADE_IMPACT_FACTOR * base_quantity_factor * depth_multiplier)
         
         # Apply adjustment
         new_middle = current_middle + (adjustment * adjustment_direction)
