@@ -3136,11 +3136,10 @@ async function updateTeamNameSection() {
     if (!teamNameSection || !currentTeamNameSpan) return;
     
     try {
-        // Get game settings to check if team naming is allowed
+        // Team naming is always allowed - players can always choose their own team names
         const game = await gameAPI.getGame(currentGameCode);
-        const allowTeamNames = game.game_state?.allow_team_names || false;
         
-        if (!allowTeamNames || !currentPlayer.groupNumber) {
+        if (!currentPlayer.groupNumber) {
             teamNameSection.style.display = 'none';
             return;
         }
@@ -5235,8 +5234,72 @@ function openGameSettings() {
     const modal = document.getElementById('settings-modal');
     modal.classList.add('show');
     
-    // Load current game configuration
+    // Load current game configuration and apply restrictions
     loadGameSettings();
+    applySettingsRestrictions();
+}
+
+function applySettingsRestrictions() {
+    // Check if game has started (not in waiting state)
+    const gameStarted = currentGameStatus !== 'waiting';
+    
+    // Get elements
+    const numTeamsInput = document.getElementById('num-teams-modal');
+    const gameDurationInput = document.getElementById('game-duration-modal');
+    const gameDifficultySelect = document.getElementById('game-difficulty');
+    
+    const teamsWarning = document.getElementById('teams-warning');
+    const teamsLockedWarning = document.getElementById('teams-locked-warning');
+    const rulesWarning = document.getElementById('rules-warning');
+    const rulesLockedWarning = document.getElementById('rules-locked-warning');
+    
+    if (gameStarted) {
+        // Disable restricted fields
+        if (numTeamsInput) {
+            numTeamsInput.disabled = true;
+            numTeamsInput.style.opacity = '0.6';
+            numTeamsInput.style.cursor = 'not-allowed';
+        }
+        if (gameDurationInput) {
+            gameDurationInput.disabled = true;
+            gameDurationInput.style.opacity = '0.6';
+            gameDurationInput.style.cursor = 'not-allowed';
+        }
+        if (gameDifficultySelect) {
+            gameDifficultySelect.disabled = true;
+            gameDifficultySelect.style.opacity = '0.6';
+            gameDifficultySelect.style.cursor = 'not-allowed';
+        }
+        
+        // Show locked warnings, hide regular warnings
+        if (teamsWarning) teamsWarning.style.display = 'none';
+        if (teamsLockedWarning) teamsLockedWarning.style.display = 'block';
+        if (rulesWarning) rulesWarning.style.display = 'none';
+        if (rulesLockedWarning) rulesLockedWarning.style.display = 'block';
+    } else {
+        // Enable fields (game in waiting state)
+        if (numTeamsInput) {
+            numTeamsInput.disabled = false;
+            numTeamsInput.style.opacity = '1';
+            numTeamsInput.style.cursor = 'auto';
+        }
+        if (gameDurationInput) {
+            gameDurationInput.disabled = false;
+            gameDurationInput.style.opacity = '1';
+            gameDurationInput.style.cursor = 'auto';
+        }
+        if (gameDifficultySelect) {
+            gameDifficultySelect.disabled = false;
+            gameDifficultySelect.style.opacity = '1';
+            gameDifficultySelect.style.cursor = 'auto';
+        }
+        
+        // Show regular warnings, hide locked warnings
+        if (teamsWarning) teamsWarning.style.display = 'block';
+        if (teamsLockedWarning) teamsLockedWarning.style.display = 'none';
+        if (rulesWarning) rulesWarning.style.display = 'block';
+        if (rulesLockedWarning) rulesLockedWarning.style.display = 'none';
+    }
 }
 
 function closeGameSettings() {
@@ -5335,6 +5398,219 @@ async function loadGameSettings() {
         });
     } catch (error) {
         console.error('Error loading game settings:', error);
+    }
+    
+    // Load available scenarios
+    await loadScenariosForModal();
+}
+
+let availableScenarios = [];
+let selectedScenario = null;
+
+async function loadScenariosForModal() {
+    try {
+        const response = await fetch('/scenarios');
+        const data = await response.json();
+        availableScenarios = data.scenarios;
+        
+        const select = document.getElementById('scenario-select-modal');
+        if (!select) return;
+        
+        // Clear existing options except the first one
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
+        
+        // Add scenario options
+        availableScenarios.forEach(scenario => {
+            const option = document.createElement('option');
+            option.value = scenario.id;
+            option.textContent = `${scenario.name} (${scenario.period}) - ${scenario.difficulty.toUpperCase()}`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading scenarios:', error);
+    }
+}
+
+function onScenarioChangeModal() {
+    const select = document.getElementById('scenario-select-modal');
+    const scenarioId = select.value;
+    
+    const detailsDiv = document.getElementById('scenario-details-modal');
+    
+    if (!scenarioId) {
+        if (detailsDiv) detailsDiv.style.display = 'none';
+        selectedScenario = null;
+        return;
+    }
+
+    const scenario = availableScenarios.find(s => s.id === scenarioId);
+    if (scenario && detailsDiv) {
+        selectedScenario = scenario;
+        document.getElementById('scenario-name-modal').textContent = scenario.name;
+        document.getElementById('scenario-period-modal').textContent = scenario.period;
+        document.getElementById('scenario-difficulty-modal').textContent = scenario.difficulty.toUpperCase();
+        document.getElementById('scenario-duration-modal').textContent = `${scenario.recommended_duration} minutes`;
+        document.getElementById('scenario-desc-modal').textContent = scenario.description;
+        detailsDiv.style.display = 'block';
+        
+        // Auto-set duration to scenario recommendation
+        const durationSlider = document.getElementById('game-duration-modal');
+        if (durationSlider) {
+            durationSlider.value = scenario.recommended_duration;
+            updateDurationDisplayModal(scenario.recommended_duration);
+        }
+    }
+}
+
+async function saveAllSettings() {
+    // Check if game has started
+    const gameStarted = currentGameStatus !== 'waiting';
+    
+    const errors = [];
+    const successes = [];
+    
+    try {
+        // Save team configuration (only if not started)
+        if (!gameStarted) {
+            // Check if a scenario is selected
+            const scenarioSelect = document.getElementById('scenario-select-modal');
+            const scenarioId = scenarioSelect ? scenarioSelect.value : '';
+            
+            if (scenarioId) {
+                // Save scenario (this will auto-set teams, duration, and difficulty)
+                try {
+                    const response = await fetch(`/games/${currentGameCode}/set-scenario`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scenario_id: scenarioId })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to set scenario');
+                    }
+                    
+                    const data = await response.json();
+                    successes.push(`Scenario set: ${data.scenario_name}`);
+                    successes.push(`Auto-configured: ${data.num_teams} teams, ${data.game_duration_minutes} minutes, ${data.difficulty} difficulty`);
+                    
+                    // Reload team boxes
+                    await loadGameAndCreateTeamBoxes();
+                } catch (error) {
+                    errors.push(`Scenario: ${error.message || 'Unknown error'}`);
+                }
+            } else {
+                // Manual configuration without scenario
+                const numTeams = parseInt(document.getElementById('num-teams-modal').value);
+                
+                if (numTeams < 1 || numTeams > 20) {
+                    errors.push('Number of teams must be between 1 and 20');
+                } else {
+                    try {
+                        await gameAPI.setNumTeams(currentGameCode, numTeams);
+                        successes.push(`Team configuration: ${numTeams} teams`);
+                        
+                        // Update status display
+                        const statusSpan = document.getElementById('teams-status-modal');
+                        if (statusSpan) {
+                            statusSpan.textContent = `✓ Currently: ${numTeams} teams`;
+                            statusSpan.style.color = '#4caf50';
+                        }
+                        
+                        // Reload team boxes
+                        await loadGameAndCreateTeamBoxes();
+                    } catch (error) {
+                        errors.push(`Team configuration: ${error.message || error.detail || 'Unknown error'}`);
+                    }
+                }
+                
+                // Save game duration (only if not started and no scenario)
+                try {
+                    const gameDuration = parseInt(document.getElementById('game-duration-modal').value);
+                    await gameAPI.setGameDuration(currentGameCode, gameDuration);
+                    const hours = Math.floor(gameDuration / 60);
+                    const mins = gameDuration % 60;
+                    let durationStr = hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''}` : '';
+                    if (mins > 0) {
+                        if (durationStr) durationStr += ' ';
+                        durationStr += `${mins} minutes`;
+                    }
+                    successes.push(`Game duration: ${durationStr}`);
+                } catch (error) {
+                    errors.push(`Game duration: ${error.message || error.detail || 'Unknown error'}`);
+                }
+                
+                // Save game difficulty (only if not started and no scenario)
+                try {
+                    const difficulty = document.getElementById('game-difficulty').value;
+                    await gameAPI.setGameDifficulty(currentGameCode, difficulty);
+                    const difficultyDescriptions = {
+                        'easy': 'Easy',
+                        'medium': 'Medium',
+                        'hard': 'Hard'
+                    };
+                successes.push(`Game difficulty: ${difficultyDescriptions[difficulty]}`);
+            } catch (error) {
+                errors.push(`Game difficulty: ${error.message || error.detail || 'Unknown error'}`);
+            }
+        }
+        
+        // Save challenge defaults (can be done anytime)
+        try {
+            if (typeof challengeTypes !== 'undefined') {
+                const newDefaults = {
+                    'push_ups': parseInt(document.getElementById('challenge-push_ups').value),
+                    'sit_ups': parseInt(document.getElementById('challenge-sit_ups').value),
+                    'burpees': parseInt(document.getElementById('challenge-burpees').value),
+                    'star_jumps': parseInt(document.getElementById('challenge-star_jumps').value),
+                    'squats': parseInt(document.getElementById('challenge-squats').value),
+                    'lunges': parseInt(document.getElementById('challenge-lunges').value),
+                    'plank': parseInt(document.getElementById('challenge-plank').value),
+                    'jumping_jacks': parseInt(document.getElementById('challenge-jumping_jacks').value)
+                };
+                
+                let challengesSaved = false;
+                Object.keys(newDefaults).forEach(key => {
+                    if (challengeTypes[key] && !isNaN(newDefaults[key]) && newDefaults[key] > 0) {
+                        challengeTypes[key].default = newDefaults[key];
+                        challengesSaved = true;
+                    }
+                });
+                
+                if (challengesSaved) {
+                    successes.push('Challenge defaults updated');
+                }
+            }
+        } catch (error) {
+            console.error('Error saving challenge defaults:', error);
+            errors.push(`Challenge defaults: ${error.message || 'Unknown error'}`);
+        }
+        
+        // Show results
+        let message = '';
+        if (successes.length > 0) {
+            message += '✅ Settings saved:\n' + successes.map(s => '  • ' + s).join('\n');
+            addEventLog('Settings saved successfully', 'success');
+        }
+        if (errors.length > 0) {
+            if (message) message += '\n\n';
+            message += '❌ Errors:\n' + errors.map(e => '  • ' + e).join('\n');
+        }
+        
+        if (message) {
+            alert(message);
+        }
+        
+        // Close modal if all succeeded
+        if (errors.length === 0) {
+            closeGameSettings();
+        }
+        
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        alert('Failed to save settings: ' + (error.message || error.detail || 'Unknown error'));
     }
 }
 
