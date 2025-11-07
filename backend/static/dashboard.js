@@ -4566,7 +4566,9 @@ function handleGameEvent(data) {
                 addEventLog(`Team ${teamNum}: ${message}`, 'warning');
                 
                 // Refresh game state to show updated resources
-                refreshGameState();
+                loadGameData().then(() => {
+                    updateDashboard();
+                });
             }
             break;
         case 'food_tax_famine':
@@ -4578,7 +4580,9 @@ function handleGameEvent(data) {
                 addEventLog(`Team ${teamNum}: ${message}`, 'error');
                 
                 // Refresh game state to show updated resources
-                refreshGameState();
+                loadGameData().then(() => {
+                    updateDashboard();
+                });
             }
             break;
         case 'food_tax_failed':
