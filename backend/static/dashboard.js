@@ -6087,7 +6087,7 @@ async function loadHostBankerView() {
         Object.entries(gameState.bank_inventory).forEach(([resource, amount]) => {
             const item = document.createElement('div');
             item.className = 'resource-item';
-            item.innerHTML = `<strong>${resource}:</strong> ${amount}`;
+            item.innerHTML = `<strong>${formatResourceName(resource)}:</strong> ${amount}`;
             inventoryDiv.appendChild(item);
         });
     } else {
