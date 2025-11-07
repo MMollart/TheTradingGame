@@ -1796,15 +1796,16 @@ async def update_bank_price(
     if baseline_price < 1:
         raise HTTPException(status_code=400, detail="Price must be at least 1")
     
+    # Initialize pricing manager
+    pricing_mgr = PricingManager(db)
+    
     # Get current bank prices
     current_prices = game.game_state.get('bank_prices', {})
     if not current_prices:
         # Initialize if not present
-        pricing_mgr = PricingManager(db)
         current_prices = pricing_mgr.initialize_bank_prices(game_code)
     
     # Update the price
-    pricing_mgr = PricingManager(db)
     updated_prices = pricing_mgr.update_resource_baseline(
         game_code,
         resource_type,
