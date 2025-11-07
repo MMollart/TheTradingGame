@@ -18,6 +18,7 @@ Complete documentation for The Trading Game - a real-time multiplayer resource t
 - **[FEATURE-FOOD-TAX-AUTOMATION.md](FEATURE-FOOD-TAX-AUTOMATION.md)** - Automated food tax system with banker controls
 - **[FOOD-TAX-QUICKSTART.md](FOOD-TAX-QUICKSTART.md)** - Quick guide to food tax feature usage
 - **[TRADING_FEATURE_README.md](TRADING_FEATURE_README.md)** - Resource trading system documentation
+- **[FEATURE-KINDNESS-SCORING.md](FEATURE-KINDNESS-SCORING.md)** - 🤝 Kindness-based trading score rewards cooperative behavior
 - **[BUILDING-CONSTRUCTION-SYSTEM.md](BUILDING-CONSTRUCTION-SYSTEM.md)** - Building mechanics and construction rules
 
 ### 🏗️ System Architecture
@@ -73,6 +74,7 @@ Detailed feature documentation:
 - **Game Duration**: [FEATURE-GAME-DURATION.md](FEATURE-GAME-DURATION.md)
 - **Food Tax**: [FEATURE-FOOD-TAX-AUTOMATION.md](FEATURE-FOOD-TAX-AUTOMATION.md) + [FOOD-TAX-QUICKSTART.md](FOOD-TAX-QUICKSTART.md)
 - **Trading**: [TRADING_FEATURE_README.md](TRADING_FEATURE_README.md) + [TRADING_IMPLEMENTATION_SUMMARY.md](TRADING_IMPLEMENTATION_SUMMARY.md)
+- **Kindness Scoring**: [FEATURE-KINDNESS-SCORING.md](FEATURE-KINDNESS-SCORING.md)
 - **Building**: [BUILDING-CONSTRUCTION-SYSTEM.md](BUILDING-CONSTRUCTION-SYSTEM.md)
 - **Challenges**: [CHALLENGE_SYSTEM_README.md](CHALLENGE_SYSTEM_README.md)
 
@@ -94,6 +96,7 @@ When contributing documentation:
 
 ## 🆕 Latest Documentation Updates
 
+- **Kindness-Based Scoring** - Rewards generous trading with score bonuses
 - **Game Duration Feature** - Configurable 1-4 hour gameplay
 - **Food Tax Automation** - Banker-controlled tax system
 - **Challenge WebSocket Events** - Real-time synchronization
