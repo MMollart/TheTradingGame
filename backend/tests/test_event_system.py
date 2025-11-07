@@ -4,7 +4,7 @@ Tests for the game event system (natural disasters, economic events, etc.)
 
 import pytest
 from datetime import datetime
-from models import GameSession, GameStatus, EventType, EventCategory, EventStatus
+from models import GameSession, GameStatus, EventType, EventCategory, EventStatus, Player
 from event_manager import EventManager
 
 
@@ -14,7 +14,6 @@ def started_game(client, sample_game, db):
     game_code = sample_game["game_code"]
     
     # Add players to teams before starting
-    from models import GameSession, Player
     game = db.query(GameSession).filter(
         GameSession.game_code == game_code
     ).first()

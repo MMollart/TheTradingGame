@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import GameSession, GameEventInstance, EventType, EventCategory, EventStatus
-from game_constants import GameDifficulty, DIFFICULTY_MODIFIERS
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +28,22 @@ class EventManager:
         self.db = db
     
     def get_difficulty_modifier(self, game: GameSession) -> float:
-        """Get difficulty modifier for a game"""
+        """
+        Get difficulty modifier for event scaling.
+        
+        Note: These values differ from DIFFICULTY_MODIFIERS in game_constants.py.
+        - game_constants.py modifiers apply to starting resources (easy=1.25, hard=0.75)
+        - Event modifiers apply to event impact (easy=0.75, hard=1.5)
+        
+        This makes easy mode easier (fewer resources lost, more starting resources)
+        and hard mode harder (more resources lost, fewer starting resources).
+        """
         difficulty = game.difficulty or "medium"
         if difficulty == "easy":
-            return 0.75
+            return 0.75  # Events have 25% less impact
         elif difficulty == "hard":
-            return 1.5
-        return 1.0
+            return 1.5   # Events have 50% more impact
+        return 1.0       # Standard impact
     
     def get_mitigation_multiplier(self, team: Dict, building_type: str) -> float:
         """
@@ -535,6 +543,11 @@ class EventManager:
         
         # Select target team if not specified
         if not target_team and 'teams' in game.game_state:
+            team_keys = list(game.game_state['teams'].keys())
+            if not team_keys:
+                logger.warning("No teams available for automation breakthrough")
+                return None
+            
             # Option: Team with most factories
             max_factories = 0
             selected_team = None
@@ -546,7 +559,7 @@ class EventManager:
                     max_factories = factory_count
                     selected_team = team_key
             
-            target_team = selected_team or random.choice(list(game.game_state['teams'].keys()))
+            target_team = selected_team or random.choice(team_keys)
         
         # Store automation breakthrough state (pending payment)
         if 'active_events' not in game.game_state:

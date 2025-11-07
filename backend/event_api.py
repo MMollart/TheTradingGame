@@ -119,7 +119,7 @@ async def trigger_event(
         elif event_type == "plague":
             event = event_mgr.trigger_plague(game, request.severity)
             if event:
-                infected_teams = event.event_data.get('infected_teams', [])
+                infected_teams = event.event_data.get('infected_teams') or []
                 event_message = f"🦠 Plague! {len(infected_teams)} nations infected. Contagious and reduces production. Severity: {request.severity}"
             else:
                 raise HTTPException(
