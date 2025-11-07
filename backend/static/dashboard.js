@@ -4553,15 +4553,64 @@ function handleGameEvent(data) {
     }
     
     switch (event_type) {
+        case 'food_tax_warning':
+            // Food tax warning - show notification to affected team
+            if (eventData.team_number == currentPlayer.groupNumber) {
+                const minutesRemaining = eventData.minutes_remaining || 3;
+                const warningMsg = `⚠️ Food tax due in ${minutesRemaining.toFixed(1)} minutes!`;
+                showTradeNotification(warningMsg, 'warning');
+                addEventLog(warningMsg, 'warning');
+            }
+            break;
+        
+        case 'food_tax_applied':
+            // Food tax successfully applied - show notification with amount
+            if (eventData.team_number == currentPlayer.groupNumber) {
+                const taxAmount = eventData.tax_amount || 0;
+                const taxMsg = `🍖 Food tax applied: ${taxAmount} food deducted`;
+                showTradeNotification(taxMsg, 'warning');
+                addEventLog(taxMsg, 'warning');
+                
+                // Update team resources if provided
+                if (eventData.new_resources) {
+                    teamState.resources = eventData.new_resources;
+                    refreshTeamResources();
+                }
+            }
+            break;
+        
+        case 'food_tax_famine':
+            // Food tax caused famine - show critical notification
+            if (eventData.team_number == currentPlayer.groupNumber) {
+                const famineMsg = `💀 FAMINE! Insufficient food for tax - penalties applied`;
+                showTradeNotification(famineMsg, 'error');
+                addEventLog(famineMsg, 'error');
+                
+                // Update team resources if provided
+                if (eventData.new_resources) {
+                    teamState.resources = eventData.new_resources;
+                    refreshTeamResources();
+                }
+            }
+            break;
+        
         case 'food_tax':
+            // Legacy food_tax event (keep for backwards compatibility)
             addEventLog('Food tax has been applied!', 'warning');
             break;
+        
         case 'natural_disaster':
         case 'drought':
         case 'disease':
         case 'famine':
-            addEventLog(`${event_type} event triggered! Severity: ${eventData.severity}`, 'error');
+            // Natural disaster events - show notification to all players
+            const disasterType = event_type.toUpperCase().replace('_', ' ');
+            const severity = eventData.severity || 'unknown';
+            const disasterMsg = `🌪️ ${disasterType} event! Severity: ${severity}`;
+            showTradeNotification(disasterMsg, 'error');
+            addEventLog(disasterMsg, 'error');
             break;
+        
         case 'production_complete':
             if (eventData.player_id === currentPlayer.id) {
                 addEventLog('Production completed successfully!', 'success');
