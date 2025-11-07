@@ -2644,7 +2644,9 @@ function showFinalScores(scores) {
 
 async function updatePrice(resource, source = 'banker') {
     const prefix = source === 'host' ? 'host-' : '';
-    const value = parseInt(document.getElementById(`${prefix}price-${resource}`).value);
+    // Convert underscores to hyphens for ID (e.g., raw_materials -> raw-materials)
+    const resourceId = resource.replace(/_/g, '-');
+    const value = parseInt(document.getElementById(`${prefix}price-${resourceId}`).value);
     
     if (value < 1) {
         alert('Price must be at least 1');
@@ -6088,12 +6090,13 @@ function expireChallenge(playerId, buildingType) {
 
 // Load banker view for host
 async function loadHostBankerView() {
-    // Load bank prices
-    if (playerState.bank_prices) {
-        document.getElementById('host-price-food').value = playerState.bank_prices.food || 2;
-        document.getElementById('host-price-raw-materials').value = playerState.bank_prices.raw_materials || 3;
-        document.getElementById('host-price-electrical-goods').value = playerState.bank_prices.electrical_goods || 15;
-        document.getElementById('host-price-medical-goods').value = playerState.bank_prices.medical_goods || 20;
+    // Load bank prices from game state (not player state)
+    if (gameState.bank_prices) {
+        // bank_prices now stores baseline, buy_price, sell_price - use baseline for the input
+        document.getElementById('host-price-food').value = gameState.bank_prices.food?.baseline || 2;
+        document.getElementById('host-price-raw-materials').value = gameState.bank_prices.raw_materials?.baseline || 3;
+        document.getElementById('host-price-electrical-goods').value = gameState.bank_prices.electrical_goods?.baseline || 15;
+        document.getElementById('host-price-medical-goods').value = gameState.bank_prices.medical_goods?.baseline || 20;
     }
     
     // Load bank inventory from gameState (not playerState)
