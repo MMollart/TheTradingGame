@@ -2976,11 +2976,10 @@ async function updateTeamNameSection() {
     if (!teamNameSection || !currentTeamNameSpan) return;
     
     try {
-        // Get game settings to check if team naming is allowed
+        // Team naming is always allowed - players can always choose their own team names
         const game = await gameAPI.getGame(currentGameCode);
-        const allowTeamNames = game.game_state?.allow_team_names || false;
         
-        if (!allowTeamNames || !currentPlayer.groupNumber) {
+        if (!currentPlayer.groupNumber) {
             teamNameSection.style.display = 'none';
             return;
         }
