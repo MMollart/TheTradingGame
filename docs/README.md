@@ -18,7 +18,8 @@ Documentation is organized into three main categories:
 Understand the game mechanics and create new content:
 
 - **[CHATGPT_GAME_PROMPT.md](game-design/CHATGPT_GAME_PROMPT.md)** - 🤖 Complete game description for AI assistance
-- **[GAME_EVENTS.md](game-design/GAME_EVENTS.md)** - 🌪️ Natural disasters, economic events, and mitigation strategies
+- **[EVENT_SYSTEM.md](game-design/EVENT_SYSTEM.md)** - 🎲 **Game Events System** - Complete guide to 8 event types with difficulty scaling and API usage
+- **[GAME_EVENTS.md](game-design/GAME_EVENTS.md)** - 🌪️ Detailed event documentation with formulas and implementation notes
 - **[HISTORICAL_SCENARIOS.md](game-design/HISTORICAL_SCENARIOS.md)** - 🎭 6 historical scenarios with themed nations and rules
 - **[FLOW_DIAGRAM.md](game-design/FLOW_DIAGRAM.md)** - 📊 Game flow diagrams and state transitions
 - **[SCOUT_COLORS.md](game-design/SCOUT_COLORS.md)** - 🎨 Scout-themed color palette and design system
@@ -39,6 +40,7 @@ Implementation details for developers:
 - **[CHALLENGE_SYSTEM_README.md](technical/CHALLENGE_SYSTEM_README.md)** - Challenge system architecture and design
 - **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](technical/CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)** - WebSocket event handling
 - **[CHALLENGE-WEBSOCKET-TESTING.md](technical/CHALLENGE-WEBSOCKET-TESTING.md)** - Testing guide for WebSocket events
+- **[EVENT_SYSTEM_IMPLEMENTATION.md](technical/EVENT_SYSTEM_IMPLEMENTATION.md)** - **Event system backend** - Architecture, API endpoints, and integration
 - **[FEATURE-GAME-DURATION.md](technical/FEATURE-GAME-DURATION.md)** - Configurable game duration (1-4 hours)
 - **[FEATURE-LOBBY-AND-CHALLENGES.md](technical/FEATURE-LOBBY-AND-CHALLENGES.md)** - Lobby system and challenge mechanics
 - **[FEATURE-FOOD-TAX-AUTOMATION.md](technical/FEATURE-FOOD-TAX-AUTOMATION.md)** - Automated food tax system
@@ -72,7 +74,7 @@ Start here to run games:
 1. [QUICKSTART.md](player-guides/QUICKSTART.md) - Start servers and basic commands
 2. [FEATURE-GAME-DURATION.md](technical/FEATURE-GAME-DURATION.md) - Setting game duration
 3. [FOOD-TAX-QUICKSTART.md](player-guides/FOOD-TAX-QUICKSTART.md) - Managing food tax
-4. [GAME_EVENTS.md](game-design/GAME_EVENTS.md) - Triggering events and disasters
+4. [EVENT_SYSTEM.md](game-design/EVENT_SYSTEM.md) - **Triggering game events** - Complete guide to 8 event types with API examples
 
 ### For Developers
 Technical references for contributors:
@@ -90,8 +92,9 @@ Deployment and troubleshooting:
 ### For Game Designers
 Creating new content:
 1. [CHATGPT_GAME_PROMPT.md](game-design/CHATGPT_GAME_PROMPT.md) - Use ChatGPT for game design help
-2. [GAME_EVENTS.md](game-design/GAME_EVENTS.md) - Event system and balancing
-3. [HISTORICAL_SCENARIOS.md](game-design/HISTORICAL_SCENARIOS.md) - Scenario design patterns
+2. [EVENT_SYSTEM.md](game-design/EVENT_SYSTEM.md) - **Event system** - Designing and balancing game events
+3. [GAME_EVENTS.md](game-design/GAME_EVENTS.md) - Detailed event formulas and implementation notes
+4. [HISTORICAL_SCENARIOS.md](game-design/HISTORICAL_SCENARIOS.md) - Scenario design patterns
 
 ### Feature Deep-Dives
 Detailed feature documentation:
@@ -100,7 +103,7 @@ Detailed feature documentation:
 - **Trading**: [TRADING_FEATURE_README.md](technical/TRADING_FEATURE_README.md) + [TRADING_IMPLEMENTATION_SUMMARY.md](technical/TRADING_IMPLEMENTATION_SUMMARY.md)
 - **Building**: [BUILDING-CONSTRUCTION-SYSTEM.md](technical/BUILDING-CONSTRUCTION-SYSTEM.md)
 - **Challenges**: [CHALLENGE_SYSTEM_README.md](technical/CHALLENGE_SYSTEM_README.md)
-- **Events**: [GAME_EVENTS.md](game-design/GAME_EVENTS.md)
+- **Events**: [EVENT_SYSTEM.md](game-design/EVENT_SYSTEM.md) + [EVENT_SYSTEM_IMPLEMENTATION.md](technical/EVENT_SYSTEM_IMPLEMENTATION.md) + [GAME_EVENTS.md](game-design/GAME_EVENTS.md)
 
 ## 🔍 Quick Links
 
@@ -120,7 +123,12 @@ When contributing documentation:
 
 ## 🆕 Latest Documentation Updates
 
-- **⚡ Game Events System** - 8 event types (disasters, economic, positive) with difficulty scaling and mitigation
+- **🎲 Game Events System** - NEW comprehensive guides: [EVENT_SYSTEM.md](game-design/EVENT_SYSTEM.md) and [EVENT_SYSTEM_IMPLEMENTATION.md](technical/EVENT_SYSTEM_IMPLEMENTATION.md)
+  - 8 event types (natural disasters, economic events, positive events)
+  - Difficulty scaling and severity levels (1-5)
+  - Mitigation mechanics with optional buildings
+  - Integration with food tax cycles
+  - Full API reference and WebSocket events
 - **Game Duration Feature** - Configurable 1-4 hour gameplay
 - **Food Tax Automation** - Banker-controlled tax system
 - **Challenge WebSocket Events** - Real-time synchronization
