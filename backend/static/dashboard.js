@@ -4164,9 +4164,156 @@ async function cancelTradeOffer(tradeId) {
     }
 }
 
+// Global variable to track current trade being countered
+let currentCounterTradeId = null;
+
 function showCounterOfferForm(tradeId) {
-    alert('Counter-offer UI not yet implemented. This will allow you to propose different terms.');
-    // TODO: Implement counter-offer modal
+    // Find the trade offer in the current list
+    const trade = tradingManager.teamTradeOffers.find(t => t.id === tradeId);
+    if (!trade) {
+        alert('Trade offer not found');
+        return;
+    }
+    
+    currentCounterTradeId = tradeId;
+    
+    // Determine what the current player receives and gives in the original offer
+    const isInitiator = trade.from_team === currentPlayer.groupNumber;
+    const youGetResources = isInitiator ? trade.requested_resources : trade.offered_resources;
+    const youGiveResources = isInitiator ? trade.offered_resources : trade.requested_resources;
+    
+    // Display original offer details
+    document.getElementById('counter-original-you-get').textContent = 
+        tradingManager.formatResourcesDisplay(youGetResources);
+    document.getElementById('counter-original-you-give').textContent = 
+        tradingManager.formatResourcesDisplay(youGiveResources);
+    
+    // Clear previous counter-offer inputs
+    document.getElementById('counter-offer-list').innerHTML = '';
+    document.getElementById('counter-request-list').innerHTML = '';
+    
+    // Pre-populate with the original offer (as a starting point for modification)
+    // Note: Counter-offer perspective - "You offer" means what you're giving
+    Object.entries(youGiveResources).forEach(([resource, quantity]) => {
+        addCounterOfferResource(resource, quantity);
+    });
+    
+    Object.entries(youGetResources).forEach(([resource, quantity]) => {
+        addCounterRequestResource(resource, quantity);
+    });
+    
+    // Show the modal
+    document.getElementById('counter-offer-modal').classList.remove('hidden');
+}
+
+function addCounterOfferResource(resourceType = 'food', quantity = 1) {
+    const container = document.getElementById('counter-offer-list');
+    const id = `counter-offer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const resourceDiv = document.createElement('div');
+    resourceDiv.className = 'resource-input-group';
+    resourceDiv.innerHTML = `
+        <select id="${id}-type">
+            <option value="food" ${resourceType === 'food' ? 'selected' : ''}>🌾 Food</option>
+            <option value="raw_materials" ${resourceType === 'raw_materials' ? 'selected' : ''}>⚙️ Raw Materials</option>
+            <option value="electrical_goods" ${resourceType === 'electrical_goods' ? 'selected' : ''}>⚡ Electrical Goods</option>
+            <option value="medical_goods" ${resourceType === 'medical_goods' ? 'selected' : ''}>🏥 Medical Goods</option>
+            <option value="currency" ${resourceType === 'currency' ? 'selected' : ''}>💰 Currency</option>
+        </select>
+        <input type="number" id="${id}-qty" min="1" value="${quantity}" placeholder="Qty">
+        <button class="btn btn-sm btn-danger" onclick="removeCounterResource('${id}')">×</button>
+    `;
+    
+    container.appendChild(resourceDiv);
+}
+
+function addCounterRequestResource(resourceType = 'food', quantity = 1) {
+    const container = document.getElementById('counter-request-list');
+    const id = `counter-request-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const resourceDiv = document.createElement('div');
+    resourceDiv.className = 'resource-input-group';
+    resourceDiv.innerHTML = `
+        <select id="${id}-type">
+            <option value="food" ${resourceType === 'food' ? 'selected' : ''}>🌾 Food</option>
+            <option value="raw_materials" ${resourceType === 'raw_materials' ? 'selected' : ''}>⚙️ Raw Materials</option>
+            <option value="electrical_goods" ${resourceType === 'electrical_goods' ? 'selected' : ''}>⚡ Electrical Goods</option>
+            <option value="medical_goods" ${resourceType === 'medical_goods' ? 'selected' : ''}>🏥 Medical Goods</option>
+            <option value="currency" ${resourceType === 'currency' ? 'selected' : ''}>💰 Currency</option>
+        </select>
+        <input type="number" id="${id}-qty" min="1" value="${quantity}" placeholder="Qty">
+        <button class="btn btn-sm btn-danger" onclick="removeCounterResource('${id}')">×</button>
+    `;
+    
+    container.appendChild(resourceDiv);
+}
+
+function removeCounterResource(id) {
+    const element = document.getElementById(`${id}-type`);
+    if (element) {
+        element.parentElement.remove();
+    }
+}
+
+async function submitCounterOffer() {
+    if (!currentCounterTradeId) {
+        alert('No trade selected for counter-offer');
+        return;
+    }
+    
+    // Collect counter-offered resources (what you're giving)
+    const counterOfferedResources = {};
+    document.querySelectorAll('#counter-offer-list .resource-input-group').forEach(group => {
+        const typeSelect = group.querySelector('select');
+        const qtyInput = group.querySelector('input[type="number"]');
+        const type = typeSelect.value;
+        const qty = parseInt(qtyInput.value) || 0;
+        
+        if (qty > 0) {
+            counterOfferedResources[type] = (counterOfferedResources[type] || 0) + qty;
+        }
+    });
+    
+    // Collect counter-requested resources (what you want to receive)
+    const counterRequestedResources = {};
+    document.querySelectorAll('#counter-request-list .resource-input-group').forEach(group => {
+        const typeSelect = group.querySelector('select');
+        const qtyInput = group.querySelector('input[type="number"]');
+        const type = typeSelect.value;
+        const qty = parseInt(qtyInput.value) || 0;
+        
+        if (qty > 0) {
+            counterRequestedResources[type] = (counterRequestedResources[type] || 0) + qty;
+        }
+    });
+    
+    if (Object.keys(counterOfferedResources).length === 0) {
+        alert('Please add at least one resource to offer');
+        return;
+    }
+    
+    if (Object.keys(counterRequestedResources).length === 0) {
+        alert('Please add at least one resource to request');
+        return;
+    }
+    
+    try {
+        await tradingManager.createCounterOffer(
+            currentCounterTradeId,
+            counterOfferedResources,
+            counterRequestedResources
+        );
+        alert('Counter-offer sent successfully!');
+        closeCounterOfferModal();
+        await refreshPendingTrades();
+    } catch (error) {
+        alert(`Failed to send counter-offer: ${error.message}`);
+    }
+}
+
+function closeCounterOfferModal() {
+    document.getElementById('counter-offer-modal').classList.add('hidden');
+    currentCounterTradeId = null;
 }
 
 function closeTradeModal() {
