@@ -96,12 +96,13 @@ window.addEventListener('unhandledrejection', function(event) {
 /**
  * Defensive DOM helper - safely gets element by ID with null check
  * @param {string} id - Element ID
+ * @param {boolean} silent - If true, don't log warning for missing element (default: false)
  * @returns {HTMLElement|null} - Element or null if not found
  */
-function safeGetElementById(id) {
+function safeGetElementById(id, silent = false) {
     try {
         const element = document.getElementById(id);
-        if (!element) {
+        if (!element && !silent) {
             console.warn(`[DOM WARNING] Element not found: #${id}`);
         }
         return element;
@@ -115,9 +116,10 @@ function safeGetElementById(id) {
  * Safely updates element text content with null check
  * @param {string} id - Element ID
  * @param {string} text - Text to set
+ * @param {boolean} silent - If true, don't log warning for missing element
  */
-function safeSetText(id, text) {
-    const element = safeGetElementById(id);
+function safeSetText(id, text, silent = false) {
+    const element = safeGetElementById(id, silent);
     if (element) {
         element.textContent = text;
     }
@@ -128,9 +130,10 @@ function safeSetText(id, text) {
  * @param {string} id - Element ID
  * @param {string} className - Class name
  * @param {boolean} add - True to add, false to remove
+ * @param {boolean} silent - If true, don't log warning for missing element
  */
-function safeToggleClass(id, className, add) {
-    const element = safeGetElementById(id);
+function safeToggleClass(id, className, add, silent = false) {
+    const element = safeGetElementById(id, silent);
     if (element) {
         if (add) {
             element.classList.add(className);
@@ -214,9 +217,9 @@ async function initDashboard() {
 
 function showDashboard(role) {
     try {
-        // Hide all dashboards with null checks
-        const hostDashboard = safeGetElementById('host-dashboard');
-        const nationDashboard = safeGetElementById('nation-dashboard');
+        // Hide all dashboards with null checks (silent for optional elements)
+        const hostDashboard = safeGetElementById('host-dashboard', false);
+        const nationDashboard = safeGetElementById('nation-dashboard', false);
         
         if (hostDashboard) hostDashboard.classList.add('hidden');
         if (nationDashboard) nationDashboard.classList.add('hidden');
@@ -229,7 +232,8 @@ function showDashboard(role) {
             }
             
             // Check if welcome banner should be shown (first time only, host-only)
-            const welcomeBanner = safeGetElementById('welcome-banner');
+            // Silent=true since welcome banner is optional
+            const welcomeBanner = safeGetElementById('welcome-banner', true);
             const welcomeDismissed = sessionStorage.getItem('welcomeDismissed');
             if (welcomeBanner && role === 'host' && !welcomeDismissed) {
                 welcomeBanner.classList.remove('hidden');
@@ -248,8 +252,17 @@ function showDashboard(role) {
         console.error('[showDashboard] Error showing dashboard:', error);
         // Try to recover by ensuring at least one dashboard is visible
         const hostDashboard = document.getElementById('host-dashboard');
-        if (hostDashboard && (role === 'host' || role === 'banker')) {
-            hostDashboard.classList.remove('hidden');
+        const nationDashboard = document.getElementById('nation-dashboard');
+        
+        if (role === 'host' || role === 'banker') {
+            if (hostDashboard) {
+                hostDashboard.classList.remove('hidden');
+            }
+        } else {
+            // For player role
+            if (nationDashboard) {
+                nationDashboard.classList.remove('hidden');
+            }
         }
     }
 }
