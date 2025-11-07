@@ -627,7 +627,11 @@ class TestTradingAPI:
         # Margins should be opposite (one team's gain is another's loss)
         from_margin = accepted_offer.from_team_margin['margin']
         to_margin = accepted_offer.to_team_margin['margin']
+        from_trade_value = accepted_offer.from_team_margin['trade_value']
+        to_trade_value = accepted_offer.to_team_margin['trade_value']
         
-        # The sum of margins should be close to zero (accounting for rounding)
-        # Not exactly zero due to different trade_value denominators
-        assert abs(from_margin + to_margin) < 0.5  # Allow for calculation differences
+        # The absolute gains/losses should sum to zero (one team's gain = other's loss)
+        # Multiply margin percentages by their respective trade values to get absolute gains
+        from_absolute_gain = from_margin * from_trade_value
+        to_absolute_gain = to_margin * to_trade_value
+        assert abs(from_absolute_gain + to_absolute_gain) < 0.5  # Allow for rounding

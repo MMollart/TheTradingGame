@@ -431,7 +431,14 @@ def calculate_final_score(nation_state: Dict) -> Dict:
     bank_prices = nation_state.get("bank_prices", BANK_INITIAL_PRICES)
     for resource, amount in nation_state.get("resources", {}).items():
         if resource in bank_prices:
-            score["resource_value"] += amount * bank_prices[resource]
+            # Handle both old format (int) and new format (dict with baseline/buy_price/sell_price)
+            price = bank_prices[resource]
+            if isinstance(price, dict):
+                # Use sell_price (what bank would pay) as reference for scoring
+                price_value = price.get('sell_price', price.get('baseline', 0))
+            else:
+                price_value = price
+            score["resource_value"] += amount * price_value
     
     # Calculate building values (double currency cost)
     for building, count in nation_state.get("buildings", {}).items():
