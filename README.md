@@ -553,22 +553,31 @@ CMD ["python", "backend/main.py"]
 ## 📝 Documentation
 
 - **[README.md](README.md)**: This file - complete project overview
-- **[Documentation Index](docs/README.md)**: Complete documentation catalog with 20+ technical documents
-- **[PLAYER_INSTRUCTIONS_QUICK.md](docs/PLAYER_INSTRUCTIONS_QUICK.md)**: 📄 **2-page quick player guide - print this for your game sessions!**
-- **[PLAYER_INSTRUCTIONS.md](docs/PLAYER_INSTRUCTIONS.md)**: 📋 Complete player guide (detailed, 15-20 pages)
+- **[Documentation Index](docs/README.md)**: Complete documentation catalog with organized folders
+- **[PLAYER_INSTRUCTIONS_QUICK.md](docs/player-guides/PLAYER_INSTRUCTIONS_QUICK.md)**: 📄 **2-page quick player guide - print this for your game sessions!**
+- **[PLAYER_INSTRUCTIONS.md](docs/player-guides/PLAYER_INSTRUCTIONS.md)**: 📋 Complete player guide (detailed, 15-20 pages)
 
 ### Quick Access to Key Documentation:
-- **[PLAYER_INSTRUCTIONS_QUICK.md](docs/PLAYER_INSTRUCTIONS_QUICK.md)**: 2-page quick reference for players (BEST for printing!)
-- **[PLAYER_INSTRUCTIONS.md](docs/PLAYER_INSTRUCTIONS.md)**: Comprehensive gameplay guide for players (detailed reference)
-- **[QUICKSTART.md](docs/QUICKSTART.md)**: Server management and development workflow
-- **[CHALLENGE_SYSTEM_README.md](docs/CHALLENGE_SYSTEM_README.md)**: Challenge architecture and API reference
-- **[FEATURE-GAME-DURATION.md](docs/FEATURE-GAME-DURATION.md)**: Configurable game duration feature
-- **[FEATURE-FOOD-TAX-AUTOMATION.md](docs/FEATURE-FOOD-TAX-AUTOMATION.md)**: Automated food tax system
-- **[FOOD-TAX-QUICKSTART.md](docs/FOOD-TAX-QUICKSTART.md)**: Quick guide to food tax feature
-- **[TRADING_FEATURE_README.md](docs/TRADING_FEATURE_README.md)**: Resource trading system
-- **[BUILDING-CONSTRUCTION-SYSTEM.md](docs/BUILDING-CONSTRUCTION-SYSTEM.md)**: Building mechanics
-- **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](docs/CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)**: WebSocket events
-- **[OSM_OAUTH_SETUP.md](docs/OSM_OAUTH_SETUP.md)**: OAuth2 integration guide
+
+**Player Guides:**
+- **[PLAYER_INSTRUCTIONS_QUICK.md](docs/player-guides/PLAYER_INSTRUCTIONS_QUICK.md)**: 2-page quick reference for players (BEST for printing!)
+- **[PLAYER_INSTRUCTIONS.md](docs/player-guides/PLAYER_INSTRUCTIONS.md)**: Comprehensive gameplay guide for players (detailed reference)
+- **[QUICKSTART.md](docs/player-guides/QUICKSTART.md)**: Server management and development workflow
+- **[FOOD-TAX-QUICKSTART.md](docs/player-guides/FOOD-TAX-QUICKSTART.md)**: Quick guide to food tax feature
+
+**Game Design:**
+- **[CHATGPT_GAME_PROMPT.md](docs/game-design/CHATGPT_GAME_PROMPT.md)**: Complete game description for AI assistance
+- **[GAME_EVENTS.md](docs/game-design/GAME_EVENTS.md)**: Natural disasters and economic events
+- **[HISTORICAL_SCENARIOS.md](docs/game-design/HISTORICAL_SCENARIOS.md)**: 6 historical scenarios
+
+**Technical Documentation:**
+- **[CHALLENGE_SYSTEM_README.md](docs/technical/CHALLENGE_SYSTEM_README.md)**: Challenge architecture and API reference
+- **[FEATURE-GAME-DURATION.md](docs/technical/FEATURE-GAME-DURATION.md)**: Configurable game duration feature
+- **[FEATURE-FOOD-TAX-AUTOMATION.md](docs/technical/FEATURE-FOOD-TAX-AUTOMATION.md)**: Automated food tax system
+- **[TRADING_FEATURE_README.md](docs/technical/TRADING_FEATURE_README.md)**: Resource trading system
+- **[BUILDING-CONSTRUCTION-SYSTEM.md](docs/technical/BUILDING-CONSTRUCTION-SYSTEM.md)**: Building mechanics
+- **[CHALLENGE-WEBSOCKET-IMPLEMENTATION.md](docs/technical/CHALLENGE-WEBSOCKET-IMPLEMENTATION.md)**: WebSocket events
+- **[OSM_OAUTH_SETUP.md](docs/technical/OSM_OAUTH_SETUP.md)**: OAuth2 integration guide
 - **API Docs**: http://localhost:8000/docs (interactive Swagger UI)
 
 ## 🐛 Troubleshooting
