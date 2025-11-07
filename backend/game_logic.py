@@ -69,10 +69,10 @@ class GameLogic:
         Args:
             num_teams: Number of teams in the game (defaults to 1 for backward compatibility)
         
-        Bank inventory is allocated as 150 resources per team.
+        Bank inventory is allocated as BANK_RESOURCES_PER_TEAM resources per team.
         """
-        resources_per_team = 150
-        bank_inventory_amount = resources_per_team * num_teams
+        from game_constants import BANK_RESOURCES_PER_TEAM
+        bank_inventory_amount = BANK_RESOURCES_PER_TEAM * num_teams
         
         return {
             "role": "banker",

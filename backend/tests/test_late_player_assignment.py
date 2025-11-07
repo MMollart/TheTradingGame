@@ -2,7 +2,8 @@
 Tests for assigning players to teams after game has started
 """
 import pytest
-from models import GameStatus
+from models import GameStatus, GameSession
+from sqlalchemy.orm.attributes import flag_modified
 
 
 class TestLatePlayerAssignment:
@@ -105,8 +106,14 @@ class TestLatePlayerAssignment:
         
         assert new_team_resources == initial_team_resources
     
-    def test_assign_to_new_team_after_game_start_fails(self, client, sample_game, sample_players):
-        """Test that assigning to a non-existent team after game start fails"""
+    def test_assign_to_new_team_after_game_start_no_bank_increase(self, client, sample_game, sample_players):
+        """
+        Test that assigning to a non-existent team after game start 
+        doesn't increase bank inventory (team doesn't exist).
+        
+        The assignment will succeed, but bank inventory only increases 
+        for teams that were initialized before game start.
+        """
         game_code = sample_game["game_code"]
         
         # Assign player 1 to team 1
@@ -126,15 +133,14 @@ class TestLatePlayerAssignment:
             params={"group_number": 2}
         )
         
-        # Should succeed but bank inventory should NOT increase (team doesn't exist yet)
-        # This is actually allowed but bank inventory only increases for existing teams
+        # Assignment should succeed
         assert response.status_code == 200
         
         # Verify bank inventory did NOT increase
+        # Bank inventory should remain at 150 (initialized for 1 team only)
+        # not increase to 300, since team 2 didn't exist before game start
         game_response = client.get(f"/games/{game_code}")
         state = game_response.json()["game_state"]
-        # Bank inventory should be 150 (1 team) not 300 (2 teams)
-        # Since team 2 didn't exist before game start
         assert state["bank_inventory"]["food"] == 150
     
     def test_assign_during_paused_game(self, client, sample_game, sample_players):
@@ -254,7 +260,6 @@ class TestBankInventoryEdgeCases:
     
     def test_bank_inventory_initialized_if_missing(self, client, sample_game, sample_players, db):
         """Test that bank inventory is initialized if somehow missing"""
-        from models import GameSession
         game_code = sample_game["game_code"]
         
         # Assign and start game
@@ -271,7 +276,6 @@ class TestBankInventoryEdgeCases:
         ).first()
         if game.game_state and 'bank_inventory' in game.game_state:
             del game.game_state['bank_inventory']
-            from sqlalchemy.orm.attributes import flag_modified
             flag_modified(game, 'game_state')
             db.commit()
         

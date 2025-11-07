@@ -966,6 +966,8 @@ async def assign_player_group(
     
     # If game has started and team exists, increase bank inventory
     if game_started and team_already_exists:
+        from game_constants import BANK_RESOURCES_PER_TEAM
+        
         logger.info(
             f"Adding player {player.player_name} to existing team {group_number} "
             f"after game start. Increasing bank inventory."
@@ -976,20 +978,20 @@ async def assign_player_group(
             game.game_state = {}
         
         if 'bank_inventory' not in game.game_state:
-            # Initialize if somehow missing
-            banker_state = GameLogic.initialize_banker(num_teams=1)
+            # Initialize if somehow missing - use actual num_teams for consistency
+            num_teams_for_init = game.num_teams if game.num_teams else 1
+            banker_state = GameLogic.initialize_banker(num_teams=num_teams_for_init)
             game.game_state['bank_inventory'] = banker_state['bank_inventory']
         
-        # Increase bank inventory by 150 resources (default per team allocation)
-        resources_per_team = 150
+        # Increase bank inventory by BANK_RESOURCES_PER_TEAM (standard per team allocation)
         for resource in ['food', 'raw_materials', 'electrical_goods', 'medical_goods']:
             current = game.game_state['bank_inventory'].get(resource, 0)
-            game.game_state['bank_inventory'][resource] = current + resources_per_team
+            game.game_state['bank_inventory'][resource] = current + BANK_RESOURCES_PER_TEAM
         
         flag_modified(game, 'game_state')
         
         logger.info(
-            f"Bank inventory increased by {resources_per_team} for each resource type. "
+            f"Bank inventory increased by {BANK_RESOURCES_PER_TEAM} for each resource type. "
             f"New inventory: {game.game_state['bank_inventory']}"
         )
     
