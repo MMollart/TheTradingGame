@@ -1640,6 +1640,10 @@ class BuildBuildingRequest(BaseModel):
     team_number: int
     building_type: str
 
+class UpdateBankPriceRequest(BaseModel):
+    resource_type: str
+    baseline_price: int
+
 @app.post("/games/{game_code}/manual-resources")
 async def give_manual_resources(
     game_code: str,
@@ -1761,6 +1765,82 @@ async def give_manual_buildings(
         "team_number": team_number,
         "building_type": building_type,
         "new_count": team_state['buildings'][building_type]
+    }
+
+
+@app.post("/games/{game_code}/update-bank-price")
+async def update_bank_price(
+    game_code: str,
+    request: UpdateBankPriceRequest,
+    db: Session = Depends(get_db)
+):
+    """Manually update a bank resource price (host/banker only)"""
+    resource_type = request.resource_type
+    baseline_price = request.baseline_price
+    
+    game = db.query(GameSession).filter(
+        GameSession.game_code == game_code.upper()
+    ).first()
+    
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Validate inputs
+    valid_resources = ['food', 'raw_materials', 'electrical_goods', 'medical_goods']
+    if resource_type not in valid_resources:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid resource type. Must be one of: {valid_resources}"
+        )
+    
+    if baseline_price < 1:
+        raise HTTPException(status_code=400, detail="Price must be at least 1")
+    
+    # Get current bank prices
+    current_prices = game.game_state.get('bank_prices', {})
+    if not current_prices:
+        # Initialize if not present
+        pricing_mgr = PricingManager(db)
+        current_prices = pricing_mgr.initialize_bank_prices(game_code)
+    
+    # Update the price
+    pricing_mgr = PricingManager(db)
+    updated_prices = pricing_mgr.update_resource_baseline(
+        game_code,
+        resource_type,
+        baseline_price,
+        current_prices
+    )
+    
+    # Save updated prices to game state
+    game.game_state['bank_prices'] = updated_prices
+    flag_modified(game, 'game_state')
+    db.commit()
+    
+    # Broadcast state update to all players
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "state_updated",
+        "state": game.game_state
+    })
+    
+    # Also broadcast a specific price update event
+    await manager.broadcast_to_game(game_code.upper(), {
+        "type": "event",
+        "event_type": "bank_price_updated",
+        "data": {
+            "resource_type": resource_type,
+            "baseline": baseline_price,
+            "buy_price": updated_prices[resource_type]['buy_price'],
+            "sell_price": updated_prices[resource_type]['sell_price']
+        }
+    })
+    
+    return {
+        "message": f"Successfully updated {resource_type} price to {baseline_price}",
+        "resource_type": resource_type,
+        "baseline": baseline_price,
+        "buy_price": updated_prices[resource_type]['buy_price'],
+        "sell_price": updated_prices[resource_type]['sell_price']
     }
 
 

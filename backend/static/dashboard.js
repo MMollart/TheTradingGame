@@ -2642,20 +2642,42 @@ function showFinalScores(scores) {
 
 // ==================== BANKER FUNCTIONS ====================
 
-function updatePrice(resource, source = 'banker') {
+async function updatePrice(resource, source = 'banker') {
     const prefix = source === 'host' ? 'host-' : '';
     const value = parseInt(document.getElementById(`${prefix}price-${resource}`).value);
     
-    if (!playerState.bank_prices) playerState.bank_prices = {};
-    playerState.bank_prices[resource] = value;
+    if (value < 1) {
+        alert('Price must be at least 1');
+        return;
+    }
     
-    // Update state
-    gameWS.send({
-        type: 'update_player_state',
-        player_state: playerState
-    });
-    
-    addEventLog(`Updated ${formatResourceName(resource)} price to ${value}`);
+    try {
+        // Call API to update bank price in game state
+        const response = await fetch(`/games/${currentGameCode}/update-bank-price`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                resource_type: resource,
+                baseline_price: value
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update price');
+        }
+        
+        const data = await response.json();
+        addEventLog(
+            `Updated ${formatResourceName(resource)} price to ${value} ` +
+            `(Buy: ${data.buy_price}, Sell: ${data.sell_price})`
+        );
+    } catch (error) {
+        console.error('Error updating price:', error);
+        alert(`Failed to update price: ${error.message}`);
+    }
 }
 
 function triggerFoodTax() {
