@@ -4724,7 +4724,7 @@ function handleGameEvent(data) {
             // Update team resources after bank trade
             if (eventData.team_number === currentPlayer.groupNumber) {
                 teamState.resources = eventData.team_resources;
-                refreshTeamResources();
+                updatePlayerDashboard();
                 
                 const action = eventData.is_buying ? 'bought' : 'sold';
                 addEventLog(`${action.charAt(0).toUpperCase() + action.slice(1)} ${eventData.quantity} ${formatResourceName(eventData.resource_type)}`, 'success');
@@ -4789,7 +4789,7 @@ function handleGameEvent(data) {
                 const myTeamNum = String(currentPlayer.groupNumber);
                 if (eventData.team_states[myTeamNum]) {
                     teamState = eventData.team_states[myTeamNum];
-                    refreshTeamResources();
+                    updatePlayerDashboard();
                 }
             }
             
