@@ -674,6 +674,26 @@
                 </div>
 
                 <div class="setting-section">
+                    <h3>🎭 Historical Scenario (Optional)</h3>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                        Select a historical scenario to apply themed rules, nations, and victory conditions. This will auto-configure teams, duration, and difficulty.
+                    </p>
+                    <div class="setting-control">
+                        <label for="scenario-select-modal">Choose a Scenario:</label>
+                        <select id="scenario-select-modal" style="padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px; width: 100%;" onchange="onScenarioChangeModal()">
+                            <option value="">None - Classic Trading Game</option>
+                        </select>
+                    </div>
+                    <div id="scenario-details-modal" style="display: none; margin-top: 15px; padding: 15px; background: #f0f7ff; border-left: 4px solid #667eea; border-radius: 6px;">
+                        <h4 style="margin: 0 0 10px 0; color: #667eea;" id="scenario-name-modal"></h4>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Period:</strong> <span id="scenario-period-modal"></span></p>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Difficulty:</strong> <span id="scenario-difficulty-modal"></span></p>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Duration:</strong> <span id="scenario-duration-modal"></span></p>
+                        <p style="margin: 5px 0 0 0; font-size: 14px;" id="scenario-desc-modal"></p>
+                    </div>
+                </div>
+
+                <div class="setting-section">
                     <h3>Game Rules</h3>
                     <p class="setting-warning" id="rules-warning">
                         <strong>⚠️ Important:</strong> Duration and difficulty should be set BEFORE the game starts!

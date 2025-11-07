@@ -561,8 +561,8 @@
                 // Join as host
                 const player = await api.joinGame(gameCode, hostName, 'host', null);
                 
-                // Redirect to settings page first
-                window.location.href = `game-settings.html?gameCode=${gameCode}&playerId=${player.id}&playerName=${encodeURIComponent(hostName)}&role=host`;
+                // Redirect directly to dashboard
+                window.location.href = `dashboard.html?gameCode=${gameCode}&playerId=${player.id}&playerName=${encodeURIComponent(hostName)}&role=host`;
             } catch (error) {
                 alert('Error creating game: ' + error.message);
             }

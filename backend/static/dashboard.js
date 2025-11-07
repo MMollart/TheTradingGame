@@ -5140,6 +5140,69 @@ async function loadGameSettings() {
     } catch (error) {
         console.error('Error loading game settings:', error);
     }
+    
+    // Load available scenarios
+    await loadScenariosForModal();
+}
+
+let availableScenarios = [];
+let selectedScenario = null;
+
+async function loadScenariosForModal() {
+    try {
+        const response = await fetch('/scenarios');
+        const data = await response.json();
+        availableScenarios = data.scenarios;
+        
+        const select = document.getElementById('scenario-select-modal');
+        if (!select) return;
+        
+        // Clear existing options except the first one
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
+        
+        // Add scenario options
+        availableScenarios.forEach(scenario => {
+            const option = document.createElement('option');
+            option.value = scenario.id;
+            option.textContent = `${scenario.name} (${scenario.period}) - ${scenario.difficulty.toUpperCase()}`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading scenarios:', error);
+    }
+}
+
+function onScenarioChangeModal() {
+    const select = document.getElementById('scenario-select-modal');
+    const scenarioId = select.value;
+    
+    const detailsDiv = document.getElementById('scenario-details-modal');
+    
+    if (!scenarioId) {
+        if (detailsDiv) detailsDiv.style.display = 'none';
+        selectedScenario = null;
+        return;
+    }
+
+    const scenario = availableScenarios.find(s => s.id === scenarioId);
+    if (scenario && detailsDiv) {
+        selectedScenario = scenario;
+        document.getElementById('scenario-name-modal').textContent = scenario.name;
+        document.getElementById('scenario-period-modal').textContent = scenario.period;
+        document.getElementById('scenario-difficulty-modal').textContent = scenario.difficulty.toUpperCase();
+        document.getElementById('scenario-duration-modal').textContent = `${scenario.recommended_duration} minutes`;
+        document.getElementById('scenario-desc-modal').textContent = scenario.description;
+        detailsDiv.style.display = 'block';
+        
+        // Auto-set duration to scenario recommendation
+        const durationSlider = document.getElementById('game-duration-modal');
+        if (durationSlider) {
+            durationSlider.value = scenario.recommended_duration;
+            updateDurationDisplayModal(scenario.recommended_duration);
+        }
+    }
 }
 
 async function saveAllSettings() {
@@ -5152,54 +5215,83 @@ async function saveAllSettings() {
     try {
         // Save team configuration (only if not started)
         if (!gameStarted) {
-            const numTeams = parseInt(document.getElementById('num-teams-modal').value);
+            // Check if a scenario is selected
+            const scenarioSelect = document.getElementById('scenario-select-modal');
+            const scenarioId = scenarioSelect ? scenarioSelect.value : '';
             
-            if (numTeams < 1 || numTeams > 20) {
-                errors.push('Number of teams must be between 1 and 20');
-            } else {
+            if (scenarioId) {
+                // Save scenario (this will auto-set teams, duration, and difficulty)
                 try {
-                    await gameAPI.setNumTeams(currentGameCode, numTeams);
-                    successes.push(`Team configuration: ${numTeams} teams`);
+                    const response = await fetch(`/games/${currentGameCode}/set-scenario`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scenario_id: scenarioId })
+                    });
                     
-                    // Update status display
-                    const statusSpan = document.getElementById('teams-status-modal');
-                    if (statusSpan) {
-                        statusSpan.textContent = `✓ Currently: ${numTeams} teams`;
-                        statusSpan.style.color = '#4caf50';
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to set scenario');
                     }
+                    
+                    const data = await response.json();
+                    successes.push(`Scenario set: ${data.scenario_name}`);
+                    successes.push(`Auto-configured: ${data.num_teams} teams, ${data.game_duration_minutes} minutes, ${data.difficulty} difficulty`);
                     
                     // Reload team boxes
                     await loadGameAndCreateTeamBoxes();
                 } catch (error) {
-                    errors.push(`Team configuration: ${error.message || error.detail || 'Unknown error'}`);
+                    errors.push(`Scenario: ${error.message || 'Unknown error'}`);
                 }
-            }
-            
-            // Save game duration (only if not started)
-            try {
-                const gameDuration = parseInt(document.getElementById('game-duration-modal').value);
-                await gameAPI.setGameDuration(currentGameCode, gameDuration);
-                const hours = Math.floor(gameDuration / 60);
-                const mins = gameDuration % 60;
-                let durationStr = hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''}` : '';
-                if (mins > 0) {
-                    if (durationStr) durationStr += ' ';
-                    durationStr += `${mins} minutes`;
+            } else {
+                // Manual configuration without scenario
+                const numTeams = parseInt(document.getElementById('num-teams-modal').value);
+                
+                if (numTeams < 1 || numTeams > 20) {
+                    errors.push('Number of teams must be between 1 and 20');
+                } else {
+                    try {
+                        await gameAPI.setNumTeams(currentGameCode, numTeams);
+                        successes.push(`Team configuration: ${numTeams} teams`);
+                        
+                        // Update status display
+                        const statusSpan = document.getElementById('teams-status-modal');
+                        if (statusSpan) {
+                            statusSpan.textContent = `✓ Currently: ${numTeams} teams`;
+                            statusSpan.style.color = '#4caf50';
+                        }
+                        
+                        // Reload team boxes
+                        await loadGameAndCreateTeamBoxes();
+                    } catch (error) {
+                        errors.push(`Team configuration: ${error.message || error.detail || 'Unknown error'}`);
+                    }
                 }
-                successes.push(`Game duration: ${durationStr}`);
-            } catch (error) {
-                errors.push(`Game duration: ${error.message || error.detail || 'Unknown error'}`);
-            }
-            
-            // Save game difficulty (only if not started)
-            try {
-                const difficulty = document.getElementById('game-difficulty').value;
-                await gameAPI.setGameDifficulty(currentGameCode, difficulty);
-                const difficultyDescriptions = {
-                    'easy': 'Easy',
-                    'medium': 'Medium',
-                    'hard': 'Hard'
-                };
+                
+                // Save game duration (only if not started and no scenario)
+                try {
+                    const gameDuration = parseInt(document.getElementById('game-duration-modal').value);
+                    await gameAPI.setGameDuration(currentGameCode, gameDuration);
+                    const hours = Math.floor(gameDuration / 60);
+                    const mins = gameDuration % 60;
+                    let durationStr = hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''}` : '';
+                    if (mins > 0) {
+                        if (durationStr) durationStr += ' ';
+                        durationStr += `${mins} minutes`;
+                    }
+                    successes.push(`Game duration: ${durationStr}`);
+                } catch (error) {
+                    errors.push(`Game duration: ${error.message || error.detail || 'Unknown error'}`);
+                }
+                
+                // Save game difficulty (only if not started and no scenario)
+                try {
+                    const difficulty = document.getElementById('game-difficulty').value;
+                    await gameAPI.setGameDifficulty(currentGameCode, difficulty);
+                    const difficultyDescriptions = {
+                        'easy': 'Easy',
+                        'medium': 'Medium',
+                        'hard': 'Hard'
+                    };
                 successes.push(`Game difficulty: ${difficultyDescriptions[difficulty]}`);
             } catch (error) {
                 errors.push(`Game difficulty: ${error.message || error.detail || 'Unknown error'}`);
