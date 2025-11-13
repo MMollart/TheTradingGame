@@ -16,7 +16,8 @@
         }
       },
       "difficulty_scaling": true,
-      "formula": "Buildings Destroyed = Severity × Difficulty Modifier × (1 - Infrastructure × 0.2)"
+      "formula": "Buildings Destroyed = Severity × Difficulty Modifier × (1 - Infrastructure × 0.2)",
+      "price_effect": 0.1
     },
     "fire": {
       "name": "Fire",
@@ -33,7 +34,9 @@
         }
       },
       "difficulty_scaling": true,
-      "formula": "Destruction Rate = 20% × Severity × Difficulty Modifier × (1 - Hospitals × 0.2)"
+      "formula": "Destruction Rate = 20% × Severity × Difficulty Modifier × (1 - Hospitals × 0.2)",
+      "price_effect": 0.15,
+      "price_effect_resources": ["electrical_goods"]
     },
     "drought": {
       "name": "Drought",
@@ -51,7 +54,9 @@
       },
       "difficulty_scaling": true,
       "formula": "Production Modifier = 0.5 + (3 - Severity) × 0.1",
-      "affected_buildings": ["farm", "mine"]
+      "affected_buildings": ["farm", "mine"],
+      "price_effect": 0.2,
+      "price_effect_resources": ["food", "raw_materials"]
     },
     "plague": {
       "name": "Plague",
@@ -80,7 +85,9 @@
         "Spreads during any resource trade between infected and non-infected teams",
         "Infected teams cannot initiate trades with non-infected teams",
         "Banker can trade with infected teams (bank is immune)"
-      ]
+      ],
+      "price_effect": 0.25,
+      "price_effect_resources": ["medical_goods"]
     },
     "blizzard": {
       "name": "Blizzard",
@@ -106,7 +113,9 @@
         "easy": 0.1,
         "medium": 0.2,
         "hard": 0.3
-      }
+      },
+      "price_effect": 0.15,
+      "price_effect_resources": ["food"]
     },
     "tornado": {
       "name": "Tornado",
@@ -124,7 +133,8 @@
       },
       "difficulty_scaling": true,
       "formula": "Resource Loss = 15% × Severity × Difficulty Modifier × (1 - Infrastructure × 0.2)",
-      "affected_resources": ["food", "currency", "raw_materials", "electrical_goods", "medical_goods"]
+      "affected_resources": ["food", "currency", "raw_materials", "electrical_goods", "medical_goods"],
+      "price_effect": 0.1
     },
     "economic_recession": {
       "name": "Economic Recession",
@@ -150,7 +160,8 @@
       },
       "difficulty_scaling": true,
       "bank_price_formula": "Bank Prices × (1 + 50% × Severity × Difficulty)",
-      "building_cost_formula": "Building Costs × (1 + 25% × Severity × Difficulty)"
+      "building_cost_formula": "Building Costs × (1 + 25% × Severity × Difficulty)",
+      "price_effect": 0.3
     },
     "automation_breakthrough": {
       "name": "Automation Breakthrough",
@@ -168,7 +179,8 @@
       "production_bonus_formula": "50% × Severity × Difficulty Modifier",
       "affected_buildings": ["electrical_factory", "medical_factory"],
       "selection_strategy": "team_with_most_factories",
-      "payment_deadline": "1 food tax cycle"
+      "payment_deadline": "1 food tax cycle",
+      "price_effect": -0.2
     }
   },
   "difficulty_modifiers": {

@@ -47,6 +47,7 @@ Implementation details for developers:
 - **[FEATURE-KINDNESS-SCORING.md](FEATURE-KINDNESS-SCORING.md)** - 🤝 Kindness-based trading score rewards cooperative behavior
 - **[BUILDING-CONSTRUCTION-SYSTEM.md](technical/BUILDING-CONSTRUCTION-SYSTEM.md)** - Building mechanics and construction rules
 - **[TRADING_FEATURE_README.md](technical/TRADING_FEATURE_README.md)** - Resource trading system documentation
+- **[PRICE_FLUCTUATION_SYSTEM.md](technical/PRICE_FLUCTUATION_SYSTEM.md)** - 💹 Dynamic bank price variations with momentum and events
 
 **Implementation Summaries:**
 - **[IMPLEMENTATION_SUMMARY.md](technical/IMPLEMENTATION_SUMMARY.md)** - General implementation overview
@@ -102,6 +103,7 @@ Detailed feature documentation:
 - **Game Duration**: [FEATURE-GAME-DURATION.md](technical/FEATURE-GAME-DURATION.md)
 - **Food Tax**: [FEATURE-FOOD-TAX-AUTOMATION.md](technical/FEATURE-FOOD-TAX-AUTOMATION.md) + [FOOD-TAX-QUICKSTART.md](player-guides/FOOD-TAX-QUICKSTART.md)
 - **Trading**: [TRADING_FEATURE_README.md](technical/TRADING_FEATURE_README.md) + [TRADING_IMPLEMENTATION_SUMMARY.md](technical/TRADING_IMPLEMENTATION_SUMMARY.md)
+- **Price Fluctuations**: [PRICE_FLUCTUATION_SYSTEM.md](technical/PRICE_FLUCTUATION_SYSTEM.md)
 - **Kindness Scoring**: [FEATURE-KINDNESS-SCORING.md](FEATURE-KINDNESS-SCORING.md)
 - **Building**: [BUILDING-CONSTRUCTION-SYSTEM.md](technical/BUILDING-CONSTRUCTION-SYSTEM.md)
 - **Challenges**: [CHALLENGE_SYSTEM_README.md](technical/CHALLENGE_SYSTEM_README.md)
@@ -125,8 +127,13 @@ When contributing documentation:
 
 ## 🆕 Latest Documentation Updates
 
+- **💹 Dynamic Price Fluctuations** - NEW! Bank prices now vary randomly with momentum and event effects (see [PRICE_FLUCTUATION_SYSTEM.md](technical/PRICE_FLUCTUATION_SYSTEM.md))
+  - 3.33% chance per second per resource
+  - ±2% variation with momentum and mean reversion
+  - Event effects modify price trends
+  - Automatic WebSocket updates
 - **🤝 Kindness-Based Scoring** - Rewards generous trading with score bonuses (see [FEATURE-KINDNESS-SCORING.md](FEATURE-KINDNESS-SCORING.md))
-- **🎲 Game Events System** - NEW comprehensive guides: [EVENT_SYSTEM.md](game-design/EVENT_SYSTEM.md) and [EVENT_SYSTEM_IMPLEMENTATION.md](technical/EVENT_SYSTEM_IMPLEMENTATION.md)
+- **🎲 Game Events System** - Comprehensive guides: [EVENT_SYSTEM.md](game-design/EVENT_SYSTEM.md) and [EVENT_SYSTEM_IMPLEMENTATION.md](technical/EVENT_SYSTEM_IMPLEMENTATION.md)
   - 8 event types (natural disasters, economic events, positive events)
   - Difficulty scaling and severity levels (1-5)
   - Mitigation mechanics with optional buildings
