@@ -5035,6 +5035,13 @@ function handleGameEvent(data) {
                 challengeManager.handleChallengeCompleted(eventData);
             }
             
+            // Clear challenge from allActiveChallenges (all possible key formats)
+            delete allActiveChallenges[eventData.building_type];
+            delete allActiveChallenges[`${eventData.player_id}-${eventData.building_type}`];
+            if (eventData.team_number) {
+                delete allActiveChallenges[`team${eventData.team_number}-${eventData.building_type}`];
+            }
+            
             // Refresh banker view if this is the banker/host
             if (currentPlayer.role === 'banker' || currentPlayer.role === 'host') {
                 (async () => {
@@ -5096,12 +5103,22 @@ function handleGameEvent(data) {
                 challengeManager.handleChallengeCancelled(eventData);
             }
             
+            // Clear challenge from allActiveChallenges (all possible key formats)
+            delete allActiveChallenges[eventData.building_type];
+            delete allActiveChallenges[`${eventData.player_id}-${eventData.building_type}`];
+            if (eventData.team_number) {
+                delete allActiveChallenges[`team${eventData.team_number}-${eventData.building_type}`];
+            }
+            
             // Challenge was cancelled by host/banker
             if (eventData.player_id === currentPlayer.id) {
                 updateAllBuildingButtons();
                 alert('Your challenge was cancelled by the host/banker');
                 addEventLog('Challenge cancelled by host/banker', 'error');
             }
+            
+            // Update building buttons for all players (lock is cleared for entire team)
+            updateAllBuildingButtons();
             
             // Update active challenges list
             updateActiveChallengesList();
@@ -5112,12 +5129,22 @@ function handleGameEvent(data) {
                 challengeManager.handleChallengeCancelled(eventData);  // Expired uses same logic as cancelled
             }
             
+            // Clear challenge from allActiveChallenges (all possible key formats)
+            delete allActiveChallenges[eventData.building_type];
+            delete allActiveChallenges[`${eventData.player_id}-${eventData.building_type}`];
+            if (eventData.team_number) {
+                delete allActiveChallenges[`team${eventData.team_number}-${eventData.building_type}`];
+            }
+            
             // Challenge expired (10 minutes elapsed)
             if (eventData.player_id === currentPlayer.id) {
                 updateAllBuildingButtons();
                 alert('Your challenge has expired! Please request a new challenge.');
                 addEventLog('Challenge expired - time ran out', 'error');
             }
+            
+            // Update building buttons for all players (lock is cleared for entire team)
+            updateAllBuildingButtons();
             
             // Update active challenges list
             updateActiveChallengesList();
